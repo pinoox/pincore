@@ -46,6 +46,11 @@
             "pinoox\\": "/"
         }
     },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "9.x-dev"
+        }
+    },
     "require-dev": {
         "nunomaduro/collision": "^5"
     },
