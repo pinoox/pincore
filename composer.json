@@ -5,7 +5,7 @@
         "PHP",
         "PHP Framework"
     ],
-    "type": "library",
+    "type": "pinoox-core",
     "homepage": "http://www.pinoox.com/",
     "license": "MIT",
     "support": {
