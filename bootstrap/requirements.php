@@ -17,11 +17,23 @@
 
 function pinoox_base_path(): string
 {
+    if (defined('PINOOX_PROJECT_PATH')) {
+        $project = rtrim((string) PINOOX_PROJECT_PATH, '/\\');
+        if (is_file($project . '/bootstrap.php')) {
+            return $project;
+        }
+    }
+
     $dir = __DIR__;
 
-    for ($i = 0; $i < 8; $i++) {
-        if (is_file($dir . '/bootstrap.php') && is_file($dir . '/vendor/autoload.php')) {
-            return $dir;
+    for ($i = 0; $i < 10; $i++) {
+        if (is_file($dir . '/bootstrap.php')) {
+            if (is_file($dir . '/vendor/autoload.php')) {
+                return $dir;
+            }
+            if (is_file($dir . '/vendor/pinoox/pincore/bootstrap/requirements.php')) {
+                return $dir;
+            }
         }
 
         $parent = dirname($dir);
