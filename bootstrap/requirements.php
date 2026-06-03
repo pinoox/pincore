@@ -34,6 +34,10 @@ function pinoox_base_path(): string
             if (is_file($dir . '/vendor/pinoox/pincore/bootstrap/requirements.php')) {
                 return $dir;
             }
+            $sibling = realpath($dir . '/../pincore');
+            if ($sibling !== false && is_file($sibling . '/bootstrap/requirements.php')) {
+                return $dir;
+            }
         }
 
         $parent = dirname($dir);

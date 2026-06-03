@@ -88,9 +88,14 @@ function pinoox_requirement_logo_url(): string
 
     $core = trim(str_replace('\\', '/', pinoox_base_path()), '/');
     $framework = trim(str_replace('\\', '/', pinoox_core_path()), '/');
-    $relative = ltrim(str_replace($core, '', $framework), '/');
 
-    return $base . '/' . $relative . '/resource/images/logo.png';
+    if ($framework === $core || str_starts_with($framework, $core . '/')) {
+        $relative = ltrim(str_replace($core, '', $framework), '/');
+
+        return $base . '/' . $relative . '/resource/images/logo.png';
+    }
+
+    return $base . '/bootstrap/pincore-asset.php?file=resource/images/logo.png';
 }
 
 function pinoox_render_requirement_page(array $copy, array $facts, array $hints, int $status = 503): void

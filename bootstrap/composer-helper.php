@@ -33,9 +33,14 @@ function pinoox_composer_action_url(): string
 
     $core = trim(str_replace('\\', '/', pinoox_base_path()), '/');
     $framework = trim(str_replace('\\', '/', pinoox_core_path()), '/');
-    $relative = ltrim(str_replace($core, '', $framework), '/');
 
-    return $base . '/' . $relative . '/bootstrap/composer-action.php';
+    if ($framework === $core || str_starts_with($framework, $core . '/')) {
+        $relative = ltrim(str_replace($core, '', $framework), '/');
+
+        return $base . '/' . $relative . '/bootstrap/composer-action.php';
+    }
+
+    return $base . '/bootstrap/pincore-asset.php?action=composer';
 }
 
 function pinoox_shell_functions_available(): bool

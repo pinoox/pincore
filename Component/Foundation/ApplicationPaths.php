@@ -139,8 +139,13 @@ final class ApplicationPaths
             return $vendor;
         }
 
+        $sibling = realpath($root . '/../pincore');
+        if ($sibling !== false && is_file($sibling . '/bootstrap/requirements.php')) {
+            return $sibling;
+        }
+
         throw new RuntimeException(
-            'Pinoox pincore not found. Run: composer install'
+            'Pinoox pincore not found. Run: composer install (or clone pincore as ../pincore)'
         );
     }
 
