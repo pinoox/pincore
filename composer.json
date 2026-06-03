@@ -1,17 +1,15 @@
 {
     "name": "pinoox/pincore",
-    "description": "pinoox is a simple environment for web management and development. You can do whatever you want on the web and add your desire features to your website in a simple way",
+    "description": "Pinoox pincore \u2014 HMVC PHP framework core",
+    "type": "library",
     "keywords": [
         "PHP",
-        "PHP Framework"
+        "pincore",
+        "pinoox",
+        "HMVC"
     ],
-    "type": "pinoox-core",
-    "homepage": "http://www.pinoox.com/",
+    "homepage": "https://www.pinoox.com/",
     "license": "MIT",
-    "support": {
-        "issues": "https://github.com/pinoox/pincore/issues",
-        "source": "https://github.com/pinoox/pincore"
-    },
     "authors": [
         {
             "name": "Pinoox",
@@ -19,47 +17,52 @@
         }
     ],
     "require": {
-        "php": "^8.0.2",
+        "php": "^8.1",
+        "ext-mysqli": "*",
+        "ext-zip": "*",
         "doctrine/dbal": "^3.5",
-        "illuminate/database": "^8.0",
-        "illuminate/events": "^8.0",
-        "nette/php-generator": "^4.0",
-        "symfony/dependency-injection": "^6.0",
-        "symfony/error-handler": "^6.0",
-        "symfony/finder": "^6.0",
-        "symfony/http-client": "^6.0",
-        "symfony/http-foundation": "^6.0",
-        "symfony/http-kernel": "^6.0",
-        "symfony/property-access": "^6.0",
-        "symfony/routing": "6.0",
-        "symfony/serializer": "^6.0",
-        "symfony/templating": "^6.0",
-        "symfony/var-dumper": "^6.0",
-        "twig/twig": "^3"
+        "firebase/php-jwt": "^v6.10",
+        "illuminate/database": "^10.40",
+        "illuminate/events": "^10.42",
+        "illuminate/hashing": "^10.42",
+        "illuminate/pagination": "^10.48",
+        "illuminate/support": "^10.48",
+        "illuminate/validation": "^10.40",
+        "intervention/image": "^3.11.1",
+        "monolog/monolog": "^3.9",
+        "nelexa/zip": "^4.0.2",
+        "nette/php-generator": "^v4.1.7",
+        "phpoption/phpoption": "^1.9",
+        "symfony/asset": "^v6.4.0",
+        "symfony/cache": "^7.2",
+        "symfony/console": "^v6.4.0",
+        "symfony/dependency-injection": "^v6.4.0",
+        "symfony/dotenv": "^v6.4.0",
+        "symfony/error-handler": "^v6.4.0",
+        "symfony/filesystem": "^v6.4.0",
+        "symfony/finder": "^v6.4.0",
+        "symfony/http-client": "^v6.4.0",
+        "symfony/http-foundation": "^v6.4.0",
+        "symfony/http-kernel": "^v6.4.0",
+        "symfony/process": "^v6.4.0",
+        "symfony/property-access": "^v6.4.0",
+        "symfony/routing": "^v6.4.0",
+        "symfony/serializer": "^v6.4.0",
+        "symfony/templating": "^v6.4.0",
+        "symfony/var-dumper": "^v6.4.0",
+        "twig/twig": "^3",
+        "vlucas/phpdotenv": "^5.6"
     },
     "autoload": {
-        "files": [
-            "functions/base.php",
-            "functions/router.php"
-        ],
         "psr-4": {
-            "pinoox\\": "/"
-        }
+            "Pinoox\\": ""
+        },
+        "files": [
+            "functions/base.php"
+        ]
     },
-    "extra": {
-        "branch-alias": {
-            "dev-master": "2.x-dev"
-        }
-    },
-    "require-dev": {
-        "nunomaduro/collision": "^5"
-    },
-    "config": {
-        "sort-packages": true,
-        "allow-plugins": {
-            "composer/package-versions-deprecated": true
-        }
-    },
-    "minimum-stability": "dev",
+    "bin": [
+        "bin/pinoox"
+    ],
     "prefer-stable": true
 }
