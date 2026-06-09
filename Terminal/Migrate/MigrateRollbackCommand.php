@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -24,22 +25,28 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'migrate:rollback',
-    description: 'Rollback the database migrations.',
+    description: 'Rollback the last batch of migrations',
+    aliases: ['mg:rollback', 'mg:back'],
 )]
+
 class MigrateRollbackCommand extends Terminal
 {
-    private string $package;
+    use SelectsMigrationPackage;
 
+    private string $package;
 
     private $mig = null;
 
     protected function configure(): void
     {
-        $this->addArgument('package', InputArgument::OPTIONAL, 'Enter the package name of app you want to migrate schemas', $this->getDefaultPackage());
-        $this->addOption('ignore-fk', 'f', InputOption::VALUE_NONE, 'Disable foreign key constraints');
+        $this
+            ->setHelp('Example: php pinoox migrate:rollback com_my_shop')
+            ->addArgument('package', InputArgument::OPTIONAL, 'App package or platform. Leave empty to pick from the list.')
+            ->addOption('ignore-fk', 'f', InputOption::VALUE_NONE, 'Disable foreign key checks during rollback');
 
     }
 
@@ -48,7 +55,7 @@ class MigrateRollbackCommand extends Terminal
         parent::execute($input, $output);
         $ignoreFk = $input->getOption('ignore-fk');
 
-        $this->package = $input->getArgument('package');
+        $this->package = $this->resolvePackage($input, $output, new SymfonyStyle($input, $output));
 
         $this->init();
 
@@ -69,7 +76,6 @@ class MigrateRollbackCommand extends Terminal
         $this->mig->package($this->package)
             ->action('rollback')
             ->load();
-
 
         if (!$this->mig->isSuccess()) {
             $this->error($this->mig->getErrors());
@@ -110,3 +116,4 @@ class MigrateRollbackCommand extends Terminal
     }
 
 }
+

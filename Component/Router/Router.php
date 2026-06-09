@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -10,7 +11,6 @@
  * @license  https://opensource.org/licenses/MIT MIT License
  */
 
-
 namespace Pinoox\Component\Router;
 
 use Closure;
@@ -18,6 +18,18 @@ use Pinoox\Component\Http\Request;
 use Pinoox\Component\Kernel\Url\UrlGenerator;
 use Pinoox\Component\Package\App;
 use Pinoox\Component\Path\Manager\PathManager;
+use Pinoox\Component\Router\Action\ActionBuilder;
+use Pinoox\Component\Router\Action\ActionCache;
+use Pinoox\Component\Router\Action\ActionDefinition;
+use Pinoox\Component\Router\Action\ActionReference;
+use Pinoox\Component\Router\Action\ActionHandlerRef;
+use Pinoox\Component\Router\Action\ActionRegistry;
+use Pinoox\Component\Router\Action\ActionValidator;
+use Pinoox\Component\Router\RouteSourceRegistry;
+use Pinoox\Component\Runtime\RuntimeMode;
+use Pinoox\Component\Server\WebServerFix;
+use Pinoox\Component\Server\WebServerFixRegistry;
+use Pinoox\Portal\Mode;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\Matcher\RequestMatcherInterface;
 use Pinoox\Component\Router\UrlMatcher;
@@ -42,12 +54,33 @@ class Router
      */
     public array $actions = [];
 
+    /**
+     * @var array<string, array{description?: string, flows?: list<string>, tags?: list<string>, group?: string|null}>
+     */
+    public array $actionMeta = [];
+
+    /**
+     * Reset router state when the portal container is rebuilt (tests / app switch).
+     */
+    public function __portalRebuild(): void
+    {
+        $this->actions = [];
+        $this->actionMeta = [];
+        $this->collections = [];
+        $this->current = -1;
+        $this->appMountPath = '/';
+    }
+
     private App $app;
     private UrlGeneratorInterface $urlGenerator;
 
     private UrlMatcherInterface $urlMatcher;
 
     private RouteName $routeName;
+
+    private array $routeFileStack = [];
+
+    public string $appMountPath = '/';
 
     public function __construct(RouteName $routeName, App $app, ?Collection $collection = null, bool $isDefault = true)
     {
@@ -115,6 +148,7 @@ class Router
         /**
          * @var RouteCapsule $route
          */
+
         foreach ($routes as $name => $route) {
             $paths[$name] = $route->getPath();
         }
@@ -169,7 +203,93 @@ class Router
             );
 
             $this->currentCollection()->add($route);
+            RouteSourceRegistry::rememberRoute(
+                $route->getName(),
+                $action,
+                debug_backtrace(\DEBUG_BACKTRACE_IGNORE_ARGS, 10),
+                end($this->routeFileStack) ?: null,
+            );
+            $this->trackActionRoute($route, $name, $action);
+            $this->trackWebServerFixRoute($route, $name);
         }
+    }
+
+    private function trackWebServerFixRoute(Route $route, string $routeName): void
+    {
+        $package = (string) ($this->app->package() ?? '');
+
+        if ($package === '') {
+            return;
+        }
+
+        $routePath = $route->getPath();
+        $data = $route->getData();
+        $shouldFix = array_key_exists('fix_web_server', $data)
+            ? (bool) $data['fix_web_server']
+            : WebServerFix::pathHasStaticExtension($routePath);
+
+        if (!$shouldFix) {
+            return;
+        }
+
+        WebServerFixRegistry::register(
+            $package,
+            WebServerFix::relativeToMount($this->appMountPath, $routePath),
+            $routeName,
+            $routePath,
+        );
+    }
+
+    private function trackActionRoute(Route $route, string $routeName, mixed $declaredAction): void
+    {
+        if (!is_string($declaredAction) || !ActionReference::isReference($declaredAction)) {
+            return;
+        }
+
+        $package = (string) ($this->app->package() ?? '');
+        if ($package === '') {
+            return;
+        }
+
+        $collectionPrefix = $route->getCollection()->name;
+        $resolved = ActionReference::resolveKey($declaredAction, $collectionPrefix, array_keys($this->actions));
+        if ($resolved !== null) {
+            ActionRegistry::linkRoute($package, $routeName, $resolved, $route->getPath(), $declaredAction);
+        }
+    }
+
+    public function builder(): RouteBuilder
+    {
+        return new RouteBuilder($this);
+    }
+
+    public function route(string $path, array|string|Closure $action = '', string|array $methods = [], string $name = ''): RouteBuilder
+    {
+        return $this->builder()
+            ->path($path)
+            ->action($action)
+            ->methods($methods)
+            ->name($name);
+    }
+
+    /**
+     * Define routes from a config manifest or builder callback.
+     *
+     * @param array<string, mixed>|callable(RouteRegister): void $definition
+     * @return array<string, mixed>|null
+     */
+    public function routes(array|callable $definition): ?array
+    {
+        if (is_array($definition)) {
+            $manifest = RouteManifest::normalizeManifest($definition);
+            RouteManifest::apply($this, $manifest);
+
+            return $manifest;
+        }
+
+        $definition(new RouteRegister($this));
+
+        return null;
     }
 
     /**
@@ -181,7 +301,7 @@ class Router
      */
     public function buildAction(mixed $action, ?int $indexCollection = null): mixed
     {
-        $collection = isset($this->$collections[$indexCollection]) ? $this->collections[$indexCollection] : $this->currentCollection();
+        $collection = isset($this->collections[$indexCollection]) ? $this->collections[$indexCollection] : $this->currentCollection();
         return $collection->buildAction($action);
     }
 
@@ -193,11 +313,144 @@ class Router
      */
     public function getAction(string $name): mixed
     {
-        $name = $this->buildNameAction($name, false);
-        if (isset($this->actions[$name]))
-            return $this->actions[$name];
+        return $this->resolveAction($name);
+    }
+
+    public function resolveAction(string $name, ?string $collectionPrefix = null): mixed
+    {
+        $collectionPrefix ??= $this->currentCollection()->name;
+        $resolvedKey = ActionReference::resolveKey(
+            str_starts_with($name, '@') || str_starts_with($name, '&') ? $name : '@' . $name,
+            $collectionPrefix,
+            array_keys($this->actions),
+        );
+
+        if ($resolvedKey === null) {
+            $resolvedKey = ActionReference::resolveKey('@' . ltrim($name, '@&'), $collectionPrefix, array_keys($this->actions));
+        }
+
+        if ($resolvedKey !== null && isset($this->actions[$resolvedKey])) {
+            return $this->actions[$resolvedKey];
+        }
+
+        $direct = $this->buildNameAction($name, false);
+        if (isset($this->actions[$direct])) {
+            return $this->actions[$direct];
+        }
 
         return false;
+    }
+
+    /** @return list<string> */
+
+    public function actionFlows(string $actionKey): array
+    {
+        return $this->actionMeta[$actionKey]['flows'] ?? [];
+    }
+
+    /**
+     * Register a named action or start a fluent definition.
+     *
+     * action('home', fn () => ...);           // register immediately
+     * action('home')->handle(...)->register(); // fluent with metadata
+     */
+    public function action(string $name, array|string|Closure|null $handler = null): ?ActionBuilder
+    {
+        if ($handler !== null) {
+            $this->registerNamedAction($name, $handler);
+
+            return null;
+        }
+
+        return new ActionBuilder($this, $name);
+    }
+
+    /**
+     * @param list<string> $flows
+     * @param list<string> $tags
+     */
+    public function registerNamedAction(
+        string $name,
+        array|string|Closure $handler,
+        string $description = '',
+        array $flows = [],
+        array $tags = [],
+    ): string {
+        $fullName = $this->buildNameAction($name);
+        if (isset($this->actions[$fullName])) {
+            throw new \InvalidArgumentException(sprintf('Action "%s" is already registered.', $fullName));
+        }
+
+        $group = str_contains($fullName, '.') ? strstr($fullName, '.', true) : null;
+
+        $this->actions[$fullName] = $this->currentCollection()->buildAction($handler);
+        $this->actionMeta[$fullName] = [
+            'description' => $description,
+            'flows' => array_values(array_unique($flows)),
+            'tags' => array_values(array_unique($tags)),
+            'group' => $group ?: null,
+        ];
+
+        RouteSourceRegistry::rememberAction(
+            $fullName,
+            $handler,
+            debug_backtrace(\DEBUG_BACKTRACE_IGNORE_ARGS, 12),
+            $this->currentRouteFile(),
+        );
+
+        $source = RouteSourceRegistry::action($fullName) ?? [];
+        $package = (string) ($this->app->package() ?? '');
+
+        if ($package !== '') {
+            ActionRegistry::register($package, new ActionDefinition(
+                name: $fullName,
+                handler: $this->actions[$fullName],
+                declared: RouteSourceRegistry::describeAction($handler),
+                description: $description,
+                flows: $flows,
+                tags: $tags,
+                file: isset($source['file']) ? (string) $source['file'] : $this->currentRouteFile(),
+                line: isset($source['line']) ? (int) $source['line'] : null,
+                relativeFile: isset($source['relative_file']) ? (string) $source['relative_file'] : null,
+                group: $group ?: null,
+                handlerRef: ActionHandlerRef::encode($handler),
+            ));
+        }
+
+        return $fullName;
+    }
+
+    public function currentRouteFile(): ?string
+    {
+        $file = end($this->routeFileStack);
+
+        return is_string($file) ? $file : null;
+    }
+
+    public function findRouteByActionReference(string $reference, ?string $collectionPrefix = null): ?string
+    {
+        $collectionPrefix ??= $this->currentCollection()->name;
+        $normalized = str_starts_with($reference, '@') || str_starts_with($reference, '&')
+            ? $reference
+            : '@' . $reference;
+        $targetKey = ActionReference::resolveKey($normalized, $collectionPrefix, array_keys($this->actions));
+
+        foreach ($this->all() as $routeName => $routeCapsule) {
+            $controller = $routeCapsule->getDefault('_controller');
+            if (!is_string($controller) || !ActionReference::isReference($controller)) {
+                continue;
+            }
+
+            $pinooxRoute = $routeCapsule->getDefault('_router');
+            $prefix = $pinooxRoute instanceof Route ? $pinooxRoute->getCollection()->name : $collectionPrefix;
+            $resolved = ActionReference::resolveKey($controller, $prefix, array_keys($this->actions));
+
+            if ($resolved !== null && $resolved === $targetKey) {
+                return (string) $routeName;
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -283,16 +536,81 @@ class Router
 
     public function build($path, $routes): Router
     {
-
         $collection = $this->collection(
             path: $path,
-            routes: $routes
+            routes: $routes,
+            prefixName: RouteNaming::collectionPrefix($this->app),
         );
 
         $collection->cast = -1;
         $router = new Router($this->routeName, $this->app, $collection);
+        $router->appMountPath = $this->canonicalizePath($path);
         $router->actions = $this->actions;
+        $router->actionMeta = $this->actionMeta;
+        $router->finalizeAfterBuild($routes);
+
         return $router;
+    }
+
+    public function syncActionRegistry(): void
+    {
+        $package = (string) ($this->app->package() ?? '');
+        if ($package === '') {
+            return;
+        }
+
+        ActionRegistry::syncFromRouter($package, $this);
+
+        foreach ($this->all() as $routeName => $routeCapsule) {
+            $pinooxRoute = $routeCapsule->getDefault('_router');
+            if ($pinooxRoute instanceof Route) {
+                $this->trackActionRoute($pinooxRoute, (string) $routeName, $routeCapsule->getDefault('_controller'));
+            }
+        }
+    }
+
+    /**
+     * @param string|array|null $routes
+     */
+    private function finalizeAfterBuild(string|array|null $routes): void
+    {
+        $this->syncActionRegistry();
+
+        $package = (string) ($this->app->package() ?? '');
+
+        if ($package !== '') {
+            WebServerFixRegistry::flush($package);
+        }
+
+        if ($package === '') {
+            return;
+        }
+
+        if ($this->shouldValidateActions()) {
+            (new ActionValidator())->assertValid($this, $package, false);
+        }
+
+        $routeFiles = ActionCache::resolveRouteFiles(
+            $package,
+            $this->app->path(),
+            is_array($routes) ? $routes : (is_string($routes) ? [$routes] : []),
+        );
+        if (!ActionCache::isStale($package, $routeFiles)) {
+            return;
+        }
+
+        ActionCache::save($package, ActionRegistry::exportManifest($package));
+    }
+
+    private function shouldValidateActions(): bool
+    {
+        $package = (string) ($this->app->package() ?? '');
+
+        try {
+            return Mode::shouldValidateActions($package !== '' ? $package : null);
+        } catch (\Throwable) {
+            return (bool) RuntimeMode::readGlobal()['debug'];
+        }
     }
 
     /**
@@ -304,9 +622,26 @@ class Router
     private function loadFiles(string|array $routes): void
     {
         if (is_string($routes)) {
-            $routes = !is_file($routes) ? $this->app->path($routes) : $routes;
-            if (is_file($routes))
-                include $routes;
+            $routes = $this->resolveRouteFile($routes);
+            if (is_file($routes)) {
+                RouteSourceRegistry::pushLoadingFile($routes);
+                $this->routeFileStack[] = $routes;
+                try {
+                    $returned = include $routes;
+                    if (is_array($returned)) {
+                        $manifest = RouteManifest::isManifest($returned)
+                            ? $returned
+                            : (RouteManifest::isRouteList($returned) ? ['routes' => $returned] : null);
+
+                        if ($manifest !== null) {
+                            RouteManifest::apply($this, RouteManifest::normalizeManifest($manifest));
+                        }
+                    }
+                } finally {
+                    array_pop($this->routeFileStack);
+                    RouteSourceRegistry::popLoadingFile();
+                }
+            }
         } else if (is_array($routes)) {
             foreach ($routes as $route) {
                 $this->callRoutes($route);
@@ -314,16 +649,21 @@ class Router
         }
     }
 
-    /**
-     * add action
-     *
-     * @param string $name
-     * @param array|string|Closure $action
-     */
-    public function action(string $name, array|string|Closure $action): void
+    private function resolveRouteFile(string $route): string
     {
-        $name = $this->buildNameAction($name);
-        $this->actions[$name] = $this->currentCollection()->buildAction($action);
+        if (is_file($route)) {
+            return $route;
+        }
+
+        $currentFile = end($this->routeFileStack);
+        if (is_string($currentFile)) {
+            $currentPath = dirname($currentFile) . DIRECTORY_SEPARATOR . $route;
+            if (is_file($currentPath)) {
+                return $currentPath;
+            }
+        }
+
+        return $this->app->path($route);
     }
 
     /**
@@ -475,6 +815,8 @@ class Router
     private function buildName(string $name = ''): string
     {
         $prefix = $this->currentCollection()->name;
+        $name = RouteNaming::localName($name, $prefix);
+
         return $this->routeName->generate($prefix, $name);
     }
 
@@ -498,3 +840,4 @@ class Router
         return $this->getCollection()->routes->count();
     }
 }
+

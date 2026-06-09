@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -15,7 +16,9 @@ namespace Pinoox\Component\Migration;
 use Exception;
 use Illuminate\Database\QueryException;
 use Pinoox\Portal\Database\DB;
-use Pinoox\Model\MigrationModel;
+use Pinoox\Portal\Logger;
+use Pinoox\Model\HistoryModel;
+use Pinoox\Model\Table;
 
 /**
  * Enhanced Migrator class with comprehensive migration management
@@ -23,18 +26,29 @@ use Pinoox\Model\MigrationModel;
 class Migrator
 {
     // Migration actions
+
     private const ACTION_RUN = 'run';
+
     private const ACTION_ROLLBACK = 'rollback';
+
     private const ACTION_INIT = 'init';
+
     private const ACTION_STATUS = 'status';
+
     private const ACTION_RESET = 'reset';
+
     private const ACTION_REFRESH = 'refresh';
 
     // Migration statuses
+
     private const STATUS_PENDING = 'pending';
+
     private const STATUS_RUNNING = 'running';
+
     private const STATUS_COMPLETED = 'completed';
+
     private const STATUS_FAILED = 'failed';
+
     private const STATUS_ROLLED_BACK = 'rolled_back';
 
     private string $package;
@@ -113,41 +127,35 @@ class Migrator
     public function init(): array
     {
         try {
-            // For pincore package, we don't need locking
-            if ($this->package === 'pincore') {
-                $this->log('Initializing migration system...');
-                $this->toolkit->package('pincore')->action('init')->load();
-                if (!$this->toolkit->isSuccess()) {
-                    throw new Exception($this->toolkit->getErrors());
-                }
-                return $this->executeMigrations();
+            if ($this->package !== 'platform') {
+                return (new self('platform', self::ACTION_INIT, $this->options))->init();
             }
 
-            $this->acquireLock();
             $this->log('Initializing migration system...');
 
             if ($this->toolkit->isExistsMigrationTable()) {
-                $this->synchronizeMigrationRecords();
                 return ['Migration system already initialized.'];
             }
 
-            $this->toolkit->package('pincore')->action('init')->load();
+            $this->toolkit->package('platform')->action('init')->load();
 
             if (!$this->toolkit->isSuccess()) {
                 throw new Exception($this->toolkit->getErrors());
             }
 
             $result = $this->executeMigrations();
+            MigrationQuery::importLegacyMigrationRecords();
+
+            if (!$this->toolkit->isExistsMigrationTable()) {
+                throw new Exception('Migration history table was not created during initialization.');
+            }
+
             $this->log('Migration system initialized successfully.');
 
             return $result;
         } catch (Exception $e) {
             $this->log('Initialization failed: ' . $e->getMessage(), 'error');
             throw $e;
-        } finally {
-            if ($this->package !== 'pincore') {
-                $this->releaseLock();
-            }
         }
     }
 
@@ -157,21 +165,29 @@ class Migrator
     public function run(): array
     {
         try {
-            // Check if migration table exists for all packages, initialize if needed
-            if (!$this->toolkit->isExistsMigrationTable()) {
-                $this->log("Migration table doesn't exist, initializing...");
-                $this->init();
-            }
+            if ($this->package === 'platform') {
+                if (!$this->toolkit->isExistsMigrationTable()) {
+                    $this->log("Migration table doesn't exist, initializing...");
+                    $this->init();
 
-            // For pincore package, we don't need locking or foreign key checks
-            if ($this->package === 'pincore') {
+                    if (!$this->toolkit->isExistsMigrationTable()) {
+                        throw new Exception('Migration history table is missing after initialization.');
+                    }
+
+                    $this->toolkit = new MigrationToolkit();
+                }
+
                 $this->toolkit->package($this->package)->action($this->action)->load();
                 if (!$this->toolkit->isSuccess()) {
                     throw new Exception($this->toolkit->getErrors());
                 }
+
+                MigrationQuery::importLegacyMigrationRecords();
+
                 return $this->executeMigrations();
             }
 
+            $this->ensureCoreMigrations();
             $this->acquireLock();
             $this->log("Starting migration run for package: {$this->package}");
 
@@ -197,11 +213,16 @@ class Migrator
             }
             throw $e;
         } finally {
-            if ($this->package !== 'pincore') {
+            if ($this->package !== 'platform') {
                 $this->releaseLock();
             }
             $this->finalizeStatistics();
         }
+    }
+
+    private function ensureCoreMigrations(): void
+    {
+        (new self('platform', self::ACTION_RUN, $this->options))->run();
     }
 
     /**
@@ -274,10 +295,30 @@ class Migrator
                 'table' => $migration['tableName'],
                 'status' => $record ? 'migrated' : 'pending',
                 'batch' => $record['batch'] ?? null,
+                'created_at' => $this->migrationCreatedAt($migration),
             ];
         }
 
         return $status;
+    }
+
+    private function migrationCreatedAt(array $migration): ?string
+    {
+        if (preg_match('/^(\d{4})_(\d{2})_(\d{2})_(\d{2})(\d{2})(\d{2})_/', $migration['fileName'], $matches)) {
+            return sprintf(
+                '%s-%s-%s %s:%s:%s',
+                $matches[1],
+                $matches[2],
+                $matches[3],
+                $matches[4],
+                $matches[5],
+                $matches[6]
+            );
+        }
+
+        $file = $migration['migrationFile'] ?? null;
+
+        return is_string($file) && is_file($file) ? date('Y-m-d H:i:s', filemtime($file)) : null;
     }
 
     /**
@@ -307,7 +348,9 @@ class Migrator
                 }
 
                 // Delete all migration records for this package
-                MigrationModel::where('app', $this->package)->delete();
+                HistoryModel::where('type', MigrationQuery::TYPE_MIGRATION)
+                    ->where('app', $this->package)
+                    ->delete();
 
                 return ['Successfully reset all migrations for package: ' . $this->package];
             } finally {
@@ -373,26 +416,20 @@ class Migrator
             
             foreach ($migrations as $migration) {
                 $migrationName = $migration['fileName'];
-                
-                // Check if this migration has already been run
-                if ($this->hasBeenRun($migrationName)) {
+
+                if ($this->shouldSkipMigrationExecution($migration)) {
                     $skipped[] = $migrationName;
                     $this->log("Skipping already executed migration: {$migrationName}");
                     continue;
                 }
-                
-                // Skip if migration is marked as sync (already run)
-                if (!empty($migration['sync'])) {
-                    $skipped[] = $migrationName;
-                    $this->log("Skipping synchronized migration: {$migrationName}");
-                    continue;
-                }
-                
+
                 try {
                     $this->log("Executing migration: {$migrationName}");
                     
                     // Execute the migration
+                    MigrationBase::usePackage($this->package);
                     $migrationInstance = require $migration['migrationFile'];
+                    MigrationBase::usePackage(null);
                     $migrationInstance->up();
                     
                     // Record that this migration has been run
@@ -402,6 +439,16 @@ class Migrator
                     $this->log("Successfully executed migration: {$migrationName}");
                     
                 } catch (Exception $e) {
+                    MigrationBase::usePackage(null);
+
+                    if ($e instanceof QueryException && $this->isTableAlreadyExistsError($e)) {
+                        $this->log("Table already exists, adopting migration: {$migrationName}", 'warning');
+                        $this->adoptExistingMigration($migrationName);
+                        $skipped[] = $migrationName;
+
+                        continue;
+                    }
+
                     $this->log("Failed to execute migration {$migrationName}: " . $e->getMessage(), 'error');
                     throw new Exception("Migration {$migrationName} failed: " . $e->getMessage());
                 }
@@ -419,10 +466,55 @@ class Migrator
         ];
     }
     
+    /**
+     * @param array<string, mixed> $migration
+     */
+    private function shouldSkipMigrationExecution(array $migration): bool
+    {
+        $migrationName = (string) ($migration['fileName'] ?? '');
+
+        if ($migrationName === '') {
+            return false;
+        }
+
+        $recorded = $this->hasBeenRun($migrationName) || !empty($migration['sync']);
+        $tableExists = $this->targetTableExists($migration);
+
+        if ($recorded && $tableExists) {
+            return true;
+        }
+
+        if (!$recorded && $tableExists) {
+            return $this->adoptExistingMigration($migrationName);
+        }
+
+        return false;
+    }
+
+    private function adoptExistingMigration(string $migrationName): bool
+    {
+        if (!$this->toolkit->isExistsMigrationTable()) {
+            return false;
+        }
+
+        try {
+            $this->recordMigration($migrationName);
+            $this->log("Adopted existing schema for migration: {$migrationName}");
+            $this->statistics['skipped_migrations']++;
+
+            return true;
+        } catch (Exception $e) {
+            $this->log("Cannot adopt migration {$migrationName}: " . $e->getMessage(), 'warning');
+
+            return false;
+        }
+    }
+
     private function hasBeenRun(string $migrationName): bool
     {
         try {
-            return DB::table('pincore_migration')
+            return DB::table(DB::tableName(Table::HISTORY, 'platform'), null, 'platform')
+                ->where('type', MigrationQuery::TYPE_MIGRATION)
                 ->where('migration', $migrationName)
                 ->where('app', $this->package)
                 ->exists();
@@ -432,11 +524,71 @@ class Migrator
             return false;
         }
     }
+
+    /**
+     * @param array<string, mixed> $migration
+     */
+    private function targetTableExists(array $migration): bool
+    {
+        $fileName = (string) ($migration['fileName'] ?? '');
+
+        if (str_contains($fileName, 'create_access_tables')) {
+            return $this->schemaHasTable(Table::ROLE, $this->package);
+        }
+
+        $table = $migration['tableName'] ?? null;
+
+        if (!is_string($table) || $table === '') {
+            return true;
+        }
+
+        return $this->schemaHasTable($table, $this->package);
+    }
+
+    private function schemaHasTable(string $table, ?string $package = null): bool
+    {
+        try {
+            $package ??= $this->package;
+            $connection = $package === 'platform'
+                ? 'platform'
+                : DB::connectionNameForPackage($package);
+            $conn = DB::connection($connection);
+            $physical = DB::physicalTableName($table, $package);
+            $prefix = (string) $conn->getTablePrefix();
+            $logical = $physical;
+
+            if ($prefix !== '' && str_starts_with($physical, $prefix)) {
+                $logical = substr($physical, strlen($prefix));
+            }
+
+            if (DB::schema($connection)->hasTable($logical)) {
+                return true;
+            }
+
+            $database = (string) $conn->getDatabaseName();
+
+            if ($database === '' || $physical === '') {
+                return false;
+            }
+
+            $row = $conn->selectOne(
+                'SELECT 1 AS found FROM information_schema.tables WHERE table_schema = ? AND table_name = ? LIMIT 1',
+                [$database, $physical],
+            );
+
+            return $row !== null;
+        } catch (Exception $e) {
+            $this->log('Error checking table ' . $table . ': ' . $e->getMessage(), 'warning');
+
+            return false;
+        }
+    }
     
     private function recordMigration(string $migrationName): void
     {
         try {
-            DB::table('pincore_migration')->insert([
+            DB::table(DB::tableName(Table::HISTORY, 'platform'), null, 'platform')->insert([
+                'type' => MigrationQuery::TYPE_MIGRATION,
                 'migration' => $migrationName,
                 'app' => $this->package,
                 'batch' => $this->getBatchNumber(),
@@ -452,7 +604,8 @@ class Migrator
     private function getBatchNumber(): int
     {
         try {
-            $lastBatch = DB::table('pincore_migration')
+            $lastBatch = DB::table(DB::tableName(Table::HISTORY, 'platform'), null, 'platform')
+                ->where('type', MigrationQuery::TYPE_MIGRATION)
                 ->where('app', $this->package)
                 ->max('batch');
             return ($lastBatch ?? 0) + 1;
@@ -480,7 +633,9 @@ class Migrator
             set_time_limit($this->timeout);
 
             // Include the migration file and get the class instance
+            MigrationBase::usePackage($this->package);
             $migrationClass = require_once $migration['migrationFile'];
+            MigrationBase::usePackage(null);
 
             if (!is_object($migrationClass) || !method_exists($migrationClass, 'up')) {
                 throw new Exception("Migration {$migration['fileName']} does not have a valid 'up' method");
@@ -496,6 +651,7 @@ class Migrator
             $this->log("Executed {$migration['fileName']} in " . round($executionTime, 2) . "s");
 
         } catch (Exception $e) {
+            MigrationBase::usePackage(null);
             throw $e;
         }
     }
@@ -517,7 +673,9 @@ class Migrator
             }
 
             // Include the migration file and get the class instance
+            MigrationBase::usePackage($this->package);
             $migrationClass = require_once $migrationFile;
+            MigrationBase::usePackage(null);
 
             if (!is_object($migrationClass)) {
                 throw new Exception("Migration {$migration['migration']} does not return a valid class instance");
@@ -536,6 +694,7 @@ class Migrator
             }
 
         } catch (Exception $e) {
+            MigrationBase::usePackage(null);
             if ($this->useTransactions) {
                 DB::rollback();
             }
@@ -721,6 +880,11 @@ class Migrator
         if ($this->options['verbose']) {
             echo "[{$timestamp}] [{$level}] {$message}\n";
         }
+
+        try {
+            Logger::channel('migration')->log($level, $message);
+        } catch (\Throwable) {
+        }
     }
 
     /**
@@ -738,6 +902,8 @@ class Migrator
      */
     private function isMigrationTableCreation(array $migration): bool
     {
-        return strpos($migration['fileName'], 'create_migration_table') !== false;
+        return strpos($migration['fileName'], 'create_history_table') !== false
+            || strpos($migration['fileName'], 'create_migration_table') !== false;
     }
 }
+

@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -22,6 +23,7 @@ use Pinoox\Component\Router\Router;
 use Pinoox\Component\Store\Config\ConfigInterface;
 use Pinoox\Component\Package\Engine\AppEngine;
 use Pinoox\Component\Store\Config\Data\DataManager;
+use Pinoox\Component\Transport\TransportContext;
 use Pinoox\Component\Translator\Translator;
 use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
@@ -33,6 +35,7 @@ use Symfony\Component\HttpFoundation\Request as RequestSymfony;
 class App implements UrlMatcherInterface, RequestMatcherInterface
 {
     private AppLayer $appLayer;
+    private array $autoloadedPackages = [];
 
     public function __construct(
         private readonly AppRouter  $appRouter,
@@ -43,6 +46,7 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
     )
     {
         $this->appLayer = $this->appRouter->find();
+        $this->registerConfiguredPackageAutoloaders();
     }
 
     /**
@@ -100,13 +104,20 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
 
         $mainLayer = new AppLayer($this->appLayer->getPath(), $this->appLayer->getPackageName());
 
+        $hostPackage = $this->appLayer->getPackageName();
+
         $this->setLayer(new AppLayer($path, $packageName));
         if (!is_callable($closure))
             throw new Exception('the value must be of function type');
 
-        $result = $closure();
+        TransportContext::enter($hostPackage);
 
-        $this->setLayer($mainLayer);
+        try {
+            $result = $closure();
+        } finally {
+            $this->setLayer($mainLayer);
+            TransportContext::leave();
+        }
 
         return $result;
     }
@@ -129,16 +140,7 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
      */
     public function stable(string $packageName): bool
     {
-        $enable = false;
-
-        if ($this->exists($packageName)) {
-            try {
-                $enable = (bool)$this->get('enable');
-            } catch (Exception $e) {
-            }
-        }
-
-        return $enable === true;
+        return $this->appEngine->stable($packageName);
     }
 
     /**
@@ -319,20 +321,24 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
         $this->appEngine->add($packageName, $dir);
     }
 
+    private function registerConfiguredPackageAutoloaders(): void
+    {
+        foreach ($this->appEngine->registeredPackages() as $packageName => $dir) {
+            $this->autoloader($packageName, $dir);
+        }
+    }
+
     private function autoloader($packageName, $dir): void
     {
+        $dir = rtrim(str_replace('\\', '/', $dir), '/');
+
+        if (isset($this->autoloadedPackages[$packageName])) {
+            return;
+        }
+
         $namespace = 'App\\' . $packageName . '\\';
         $this->classLoader->addPsr4($namespace, $dir);
-        spl_autoload_register(function ($class) use ($namespace, $dir) {
-            if (str_starts_with($class, $namespace)) {
-                $class = str_replace($namespace, '', $class);
-                $filename = str_replace('\\', '/', $class) . '.php';
-                $filePath = $dir . '/' . $filename;
-                if (file_exists($filePath)) {
-                    require $filePath;
-                }
-            }
-        });
+        $this->autoloadedPackages[$packageName] = $dir;
     }
 
     public function dataAlias(): DataManager

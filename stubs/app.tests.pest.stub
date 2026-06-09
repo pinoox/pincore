@@ -1,0 +1,3 @@
+<?php
+
+uses(Tests\AppTestCase::class)->in('Feature', 'Unit');

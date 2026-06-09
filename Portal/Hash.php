@@ -22,6 +22,8 @@ use Illuminate\Hashing\HashManager;
 use Illuminate\Support\Manager as ObjectPortal4;
 use Pinoox\Component\Kernel\Container;
 use Pinoox\Component\Source\Portal;
+use Pinoox\Support\IlluminateConfigRepository;
+use Pinoox\Support\SystemConfig;
 
 /**
  * @method static ObjectPortal1 createBcryptDriver()
@@ -47,11 +49,15 @@ class Hash extends Portal
 {
     public static function __register(): void
     {
+        $container = Container::Illuminate();
+        $container->instance('config', new IlluminateConfigRepository([
+            'hashing' => SystemConfig::get('security', 'hashing', []),
+        ]));
+
         self::__bind(HashManager::class)->setArguments([
-            Container::Illuminate()
+            $container
         ]);
     }
-
 
     /**
      * Get the registered name of the component.
@@ -62,7 +68,6 @@ class Hash extends Portal
         return 'hash';
     }
 
-
     /**
      * Get exclude method names .
      * @return string[]
@@ -71,7 +76,6 @@ class Hash extends Portal
     {
         return [];
     }
-
 
     /**
      * Get method names for callback object.
@@ -82,3 +86,4 @@ class Hash extends Portal
         return [];
     }
 }
+

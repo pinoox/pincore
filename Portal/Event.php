@@ -39,6 +39,7 @@ class Event extends Portal
     {
         self::__bind(EventDispatcher::class)
             ->addMethodCall('addSubscriber', [Listener::__ref('request')])
+            ->addMethodCall('addSubscriber', [Listener::__ref('queryRouteCanonical')])
             ->addMethodCall('addSubscriber', [Listener::__ref('queryRoute')])
             ->addMethodCall('addSubscriber', [Listener::__ref('router')])
             ->addMethodCall('addSubscriber', [Listener::__ref('routeEmpty')])
@@ -47,10 +48,9 @@ class Event extends Portal
             ->addMethodCall('addSubscriber', [Listener::__ref('transactional')])
             ->addMethodCall('addSubscriber', [Listener::__ref('sessionRelease')])
             ->addMethodCall('addSubscriber', [Listener::__ref('exception')])
+            ->addMethodCall('addSubscriber', [Listener::__ref('pinooxExceptionRender')])
             ->addMethodCall('addSubscriber', [Listener::__ref('view')]);
-          //->addMethodCall('addSubscriber', [Listener::__ref('core_exception')]);
     }
-
 
     /**
      * Get the registered name of the component.
@@ -61,7 +61,6 @@ class Event extends Portal
         return 'event';
     }
 
-
     /**
      * Get exclude method names .
      * @return string[]
@@ -70,7 +69,6 @@ class Event extends Portal
     {
         return [];
     }
-
 
     /**
      * Get method names for callback object.
@@ -83,3 +81,4 @@ class Event extends Portal
         ];
     }
 }
+

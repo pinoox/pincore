@@ -1,30 +1,16 @@
 <?php
-/**
- *      ****  *  *     *  ****  ****  *    *
- *      *  *  *  * *   *  *  *  *  *   *  *
- *      ****  *  *  *  *  *  *  *  *    *
- *      *     *  *   * *  *  *  *  *   *  *
- *      *     *  *    **  ****  ****  *    *
- * @author   Pinoox
- * @link https://www.pinoox.com/
- * @license  https://opensource.org/licenses/MIT MIT License
- */
-
 
 namespace Pinoox\Component\Package;
-
 
 use Composer\Autoload\ClassLoader;
 use Exception;
 use Pinoox\Component\Event\EventDispatcher;
-use Pinoox\Component\Helpers\Str;
 use Pinoox\Component\Http\Request;
 use Pinoox\Component\Http\Response;
+use Pinoox\Component\Kernel\Boot\BootContext;
+use Pinoox\Component\Kernel\Boot\BootPipeline;
 use Pinoox\Component\Kernel\Kernel;
-use Pinoox\Component\Kernel\SessionStarter;
 use Pinoox\Component\Kernel\Terminal;
-use Pinoox\Portal\Event;
-use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -32,6 +18,8 @@ use Symfony\Component\HttpKernel\HttpKernelInterface;
 class AppProvider
 {
     private array $lock = [];
+    /** @var array<string, BootPipeline> */
+    private array $pipelines = [];
 
     public function __construct(
         private readonly App    $app,
@@ -41,62 +29,6 @@ class AppProvider
         public EventDispatcher  $eventDispatcher,
     )
     {
-    }
-
-    private function loader(): void
-    {
-        $appLoaders = $this->app->get('loader');
-        if (empty($appLoaders))
-            return;
-        $classMap = [];
-        foreach ($appLoaders as $classname => $path) {
-            if (Str::firstHas($classname, '@')) {
-                require_once $this->app->path($path);
-            } else {
-                $classMap[$classname] = $path;
-            }
-        }
-
-        $this->getClassLoader()->addClassMap($classMap);
-    }
-
-    private function events(): void
-    {
-        $events = $this->app->get('event');
-        if (empty($events))
-            return;
-
-        foreach ($events as $event => $listener) {
-            if (is_string($listener))
-                $listener = $this->app->alias($listener, $listener);
-
-            if (is_subclass_of ($listener,EventSubscriberInterface::class)) {
-                $this->eventDispatcher->addSubscriber(new $listener());
-            } else if(is_string($event)) {
-                $this->eventDispatcher->addListener($event, $listener);
-            }
-        }
-    }
-
-    private function resolveSession()
-    {
-        $sessionConf = $this->app->get('session');
-        $startSession = $sessionConf === true || $sessionConf === 'start';
-
-        if (is_array($sessionConf)) {
-            $session = class_exists($sessionConf[0]) ? new $sessionConf[0]() : $sessionConf;
-            $startSession = isset($sessionConf[1]) && $sessionConf[1] === 'start';
-        } elseif (is_string($sessionConf)) {
-            $session = class_exists($sessionConf) ? new $sessionConf() : $sessionConf;
-        } else {
-            $session = $sessionConf;
-        }
-
-        $this->getRequest()->setSession($session instanceof SessionInterface ? $session : $this->session);
-
-        if ($startSession && $this->getRequest()->hasSession()) {
-            SessionStarter::start($this->getRequest());
-        }
     }
 
     private function getClassLoader(): ClassLoader
@@ -114,6 +46,26 @@ class AppProvider
         $this->lock[$this->app->package()] = true;
     }
 
+    private function bootContext(): BootContext
+    {
+        return new BootContext($this->app, $this->getClassLoader());
+    }
+
+    public function pipeline(): BootPipeline
+    {
+        $package = $this->app->package();
+        if (!isset($this->pipelines[$package])) {
+            $this->pipelines[$package] = BootPipeline::for($this, $this->bootContext());
+        }
+        return $this->pipelines[$package];
+    }
+    /**
+     * @return list<string>
+     */
+    public function bootStages(): array
+    {
+        return $this->pipeline()->stageNames();
+    }
     /**
      * @throws Exception
      */
@@ -121,20 +73,8 @@ class AppProvider
     {
         if (!$this->isLock()) {
             $this->lock();
-            $this->loadComposer($this->app->path());
-            $this->loader();
-            $this->events();
-            $this->resolveSession();
+            $this->pipeline()->run();
         }
-    }
-
-    private function loadComposer($dir): ?ClassLoader
-    {
-        $composer = null;
-        if (is_file($file = $dir . '/vendor/autoload.php'))
-            $composer = require $file;
-
-        return $composer;
     }
 
     public function getRequest(): Request
@@ -146,7 +86,6 @@ class AppProvider
     {
         return $this->app;
     }
-
     /**
      * @throws Exception
      */
@@ -163,22 +102,26 @@ class AppProvider
             $this->terminate($this->getRequest(), $response);
         }
     }
-
     /**
      * @throws Exception
      */
     public function meetingHandle(string $package, string $path, ?Request $request = null, array $attributes = [])
     {
-        return $this->app->meeting($package, function () use ($request) {
+        return $this->app->meeting($package, function () use ($request, $attributes) {
             $request = !empty($request) ? $request : $this->getRequest();
             $subRequest = $request->duplicate();
-            if (empty($attributes))
-                $attributes = $this->app->router()->matchRequest($request);
+            $subRequest->session = null;
+            $subRequest->attributes = new ParameterBag();
+
+            if ($attributes === []) {
+                $attributes = $this->app->router()->matchRequest($subRequest);
+            }
+
             $subRequest->attributes->add($attributes);
-            return $this->handle($subRequest, 3);
+
+            return $this->handle($subRequest, HttpKernelInterface::SUB_REQUEST);
         }, $path);
     }
-
     /**
      * @throws Exception
      */
@@ -189,7 +132,6 @@ class AppProvider
         $response = $this->getKernel()->handle($request, $type);
         return new Response($response->getContent(), $response->getStatusCode(), $response->headers->all());
     }
-
     /**
      * @throws Exception
      */
@@ -213,7 +155,6 @@ class AppProvider
     {
         $this->getKernel()->terminate($request, $response);
     }
-
     /**
      * @throws Exception
      */
@@ -224,7 +165,6 @@ class AppProvider
             $this->app->addPackage($package, $dir);
             $this->app->setLayer(new AppLayer('/', $package));
         }
-
         if (empty($this->getRequest()->getHost())) {
             $this->terminal->run();
         } else {
@@ -232,3 +172,4 @@ class AppProvider
         }
     }
 }
+

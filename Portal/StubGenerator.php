@@ -15,6 +15,7 @@
 namespace Pinoox\Portal;
 
 use Pinoox\Component\Source\Portal;
+use Pinoox\Support\SystemConfig;
 
 /**
  * @method static StubGenerator generate(string $stubFileName, string $outputPath, array $data = [])
@@ -30,12 +31,10 @@ class StubGenerator extends Portal
 		self::__bind(\Pinoox\Component\StubGenerator::class)->setArguments([self::getStubsPath()]);
 	}
 
-
 	private static function getStubsPath(): string
 	{
-		return \Pinoox\Component\Foundation\ApplicationPaths::pincorePath() . 'stubs/';
+		return rtrim(SystemConfig::path('stubs'), '/') . '/';
 	}
-
 
 	/**
 	 * Get the registered name of the component.
@@ -45,7 +44,6 @@ class StubGenerator extends Portal
 	{
 		return 'stub.generator';
 	}
-
 
 	/**
 	 * Get method names for callback object.
@@ -58,3 +56,4 @@ class StubGenerator extends Portal
 		];
 	}
 }
+

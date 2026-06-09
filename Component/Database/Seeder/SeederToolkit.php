@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -13,13 +14,14 @@
 namespace Pinoox\Component\Database\Seeder;
 
 use Pinoox\Portal\App\AppEngine;
+use Pinoox\Support\SystemConfig;
 use Symfony\Component\Finder\Finder;
 
 class SeederToolkit
 {
     private string $package = '';
     private string $seederPath = '';
-    private string $seederFolder = 'Database/Seeders';
+    private string $seederFolder = 'database/seed';
     private array $errors = [];
     private array $seeders = [];
 
@@ -61,9 +63,10 @@ class SeederToolkit
 
     private function initializeSeederPath(): void
     {
-        if ($this->package === 'pincore') {
-            $this->seederPath = path('~pincore') . '/' . $this->seederFolder;
+        if ($this->package === 'platform') {
+            $this->seederPath = SystemConfig::platformPath('seed');
         } else {
+            $this->seederFolder = trim(SystemConfig::rawPath('app_seed', 'database/seed'), '/\\');
             $this->seederPath = AppEngine::path($this->package) . '/' . $this->seederFolder;
         }
     }
@@ -78,7 +81,7 @@ class SeederToolkit
             return;
         }
 
-        $finder->in($this->seederPath)->files()->name('*.php');
+        $finder->in($this->seederSearchPaths())->files()->name('*.php');
 
         foreach ($finder as $file) {
             $seederClass = require $file->getRealPath();
@@ -99,6 +102,11 @@ class SeederToolkit
         }
     }
 
+    private function seederSearchPaths(): array
+    {
+        return is_dir($this->seederPath) ? [$this->seederPath] : [];
+    }
+
     private function addError(\Exception|\Throwable|string $error): void
     {
         if (is_string($error)) {
@@ -108,3 +116,4 @@ class SeederToolkit
         }
     }
 } 
+

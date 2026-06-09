@@ -16,10 +16,12 @@ namespace Pinoox\Model;
 
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Pinoox\Component\Database\Model;
-use Pinoox\Component\User;
+use Pinoox\Component\Transport\TransportConfig;
+use Pinoox\Component\Transport\TransportScenario;
+use Pinoox\Portal\Auth;
 use Pinoox\Model\Scope\AppScope;
 use Pinoox\Portal\App\App;
-use Pinoox\Portal\Url;
+use Pinoox\Component\File\FileStorage;
 
 
 /**
@@ -67,54 +69,44 @@ class FileModel extends Model
 
     public function getFileLinkAttribute()
     {
-        return Url::path($this->file_path . '/' . $this->file_name);
+        return FileStorage::url($this);
     }
 
 
     public function getThumbLinkAttribute()
     {
-        if ($this->file_ext === 'svg') {
-            return Url::path($this->file_path . '/' . $this->file_name);
-        } else if (in_array($this->file_ext, ['jpg', 'jpeg', 'png', 'gif', 'webp'])) {
-            return Url::path($this->file_path . '/thumbs/thumb_' . $this->file_name);
-        }
-
-        return null;
+        return FileStorage::thumbUrl($this);
     }
 
     public static function setPackage(string $package): void
     {
-        App::set('transport.file', $package)->save();
+        App::set('transport.' . TransportScenario::FILE_STORAGE, $package)->save();
         self::addAppGlobalScope();
     }
 
     public static function getPackage(): string
     {
-        $package = App::get('transport.file');
-        return $package ?? App::package();
+        return TransportConfig::package(TransportScenario::FILE_STORAGE);
     }
 
     protected static function booted(): void
     {
-        static::addGlobalScope('app', new AppScope(static::getPackage()));
+        self::addAppGlobalScope();
 
         static::creating(function ($file) {
             $file->app = $file->app ?? self::getPackage();
-            $file->user_id = $file->user_id ?? User::get('user_id');
+            $file->user_id = $file->user_id ?? Auth::id();
         });
 
         static::deleted(function ($file) {
-            $path = path($file->file_path, $file->app);
-            $originalFile = $path . '/' . $file->file_name;
-            $thumbnailFile = $path . '/thumbs/thumb_' . $file->file_name;
-
-            if (file_exists($originalFile)) unlink($originalFile);
-            if (file_exists($thumbnailFile)) unlink($thumbnailFile);
+            FileStorage::delete($file);
         });
     }
 
     private static function addAppGlobalScope(): void
     {
-        static::addGlobalScope('app', new AppScope(static::getPackage()));
+        static::addGlobalScope('app', AppScope::for(
+            fn (): array => TransportConfig::scopeValues(TransportScenario::FILE_STORAGE),
+        ));
     }
 }

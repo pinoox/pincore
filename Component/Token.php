@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -18,18 +19,22 @@ use Pinoox\Model\TokenModel;
 
 class Token implements BootInterface
 {
-
     public static $lifeTime = 86400 * 30;// Default 1 day in seconds
+
     private static $token_key = null;
 
     public static function __register()
+    {
+    }
+
+    public static function __boot()
     {
         self::deleteAllExpired();
     }
 
     public static function deleteAllExpired()
     {
-        $now = Date::g('Y-m-d H:i:s');
+        $now = now()->format('Y-m-d H:i:s');
         return TokenModel::withoutGlobalScopes(['app'])->where('expiration_date', '<', $now)->delete();
     }
 
@@ -98,12 +103,17 @@ class Token implements BootInterface
 
     public static function delete($token_key)
     {
-        return TokenModel::where('token_key', $token_key)->delete();
+        return TokenModel::withoutGlobalScope('app')
+            ->where('token_key', $token_key)
+            ->delete();
     }
 
     public static function get($token_key)
     {
-        $token = TokenModel::where('token_key', $token_key)->first();
+        $token = TokenModel::withoutGlobalScope('app')
+            ->where('token_key', $token_key)
+            ->first();
+
         return !empty($token) ? $token->toArray() : null;
     }
 
@@ -114,16 +124,19 @@ class Token implements BootInterface
             $values['expiration_date'] = self::calculateExpirationDate();
         }
 
-        return TokenModel::where('token_key', $token_key)->update($values);
+        return TokenModel::withoutGlobalScope('app')
+            ->where('token_key', $token_key)
+            ->update($values);
     }
 
     public static function updateLifetime($token_key)
     {
-        return TokenModel::where('token_key', $token_key)->update([
-            'expiration_date' => self::calculateExpirationDate(),
-        ]);
+        return TokenModel::withoutGlobalScope('app')
+            ->where('token_key', $token_key)
+            ->update([
+                'expiration_date' => self::calculateExpirationDate(),
+            ]);
     }
-
 
     public static function changeKey($old_token_key, $UpdateLifetime = false, $app = true)
     {
@@ -144,3 +157,4 @@ class Token implements BootInterface
         return self::$token_key;
     }
 }
+

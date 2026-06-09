@@ -1,6 +1,5 @@
 <?php
 
-
 namespace Pinoox\Component\Kernel\Controller;
 
 use Illuminate\Validation\Validator;
@@ -8,6 +7,7 @@ use Pinoox\Component\Helpers\Str;
 use Pinoox\Component\Http\Request;
 use Pinoox\Portal\App\App;
 use Pinoox\Component\Router\Collection;
+use Pinoox\Component\Router\Action\ActionReference;
 use Pinoox\Portal\Router;
 use Psr\Container\ContainerInterface;
 use Pinoox\Component\Http\RedirectResponse;
@@ -32,7 +32,10 @@ abstract class Controller
      */
     public function setContainer(ContainerInterface $container): ?ContainerInterface
     {
-        return $this->container = $container;
+        $previous = $this->container;
+        $this->container = $container;
+
+        return $previous;
     }
 
     protected function validation(array $rules, array $messages = [], array $attributes = []): Validator
@@ -47,7 +50,7 @@ abstract class Controller
 
     protected function getRequest(): Request
     {
-        return app()->getRequest();
+        return runtime()->getRequest();
     }
 
     protected function redirect(string $url, int $status = 302): RedirectResponse
@@ -139,12 +142,13 @@ abstract class Controller
     private function buildValueAction(Request $request, $controller)
     {
         $action = $controller;
-        if (is_string($controller) && Str::firstHas($controller, '@')) {
-            $controller = Str::firstDelete($controller, '@');
-            if ($controller = Router::getAction($controller)) {
-                $action = $controller;
+        if (is_string($controller) && ActionReference::isReference($controller)) {
+            $collectionPrefix = $request->attributes->get('_router')?->getCollection()->name ?? '';
+            $resolved = Router::resolveAction($controller, $collectionPrefix);
+            if ($resolved !== false) {
+                $action = $resolved;
             } else {
-                throw new BadMethodCallException('"' . $action . '" action method is not found in ' . App::package() . ' app');
+                throw new BadMethodCallException('"' . $controller . '" action method is not found in ' . App::package() . ' app');
             }
         }
 
@@ -164,3 +168,4 @@ abstract class Controller
         return new Response($content, $status, $headers);
     }
 }
+

@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -14,6 +15,7 @@
 namespace Pinoox\Component\Store\Config;
 
 use Pinoox\Component\Store\Config\Strategy\ConfigStrategyInterface;
+use Pinoox\Component\Store\Config\Strategy\FileConfigStrategy;
 
 class Config implements ConfigInterface
 {
@@ -31,9 +33,33 @@ class Config implements ConfigInterface
 
     public static function create(ConfigStrategyInterface $strategy): static
     {
-        if (empty(self::$configs[$strategy->name()]))
+        if (empty(self::$configs[$strategy->name()])) {
             self::$configs[$strategy->name()] = new static($strategy);
+        }
+
         return self::$configs[$strategy->name()];
+    }
+
+    /**
+     * Re-read env-sensitive config files after .env is loaded.
+     *
+     * Portal __register hooks may cache config before EnvBootstrap runs.
+     */
+    public static function reloadEnvSensitive(): void
+    {
+        foreach (self::$configs as $config) {
+            $strategy = $config->getStrategy();
+
+            if (!$strategy instanceof FileConfigStrategy) {
+                continue;
+            }
+
+            if (!$strategy->getPinker()->isEnvSensitive()) {
+                continue;
+            }
+
+            $config->restore();
+        }
     }
 
     public function save(): static
@@ -94,7 +120,6 @@ class Config implements ConfigInterface
         $this->strategy->setData($data);
         return $this;
     }
-
 
     public function remove(string $key): static
     {
@@ -187,3 +212,4 @@ class Config implements ConfigInterface
         return $this->all();
     }
 }
+

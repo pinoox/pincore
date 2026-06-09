@@ -1,246 +1,116 @@
 <?php
 
-
 namespace Pinoox\Router;
 
 use Closure;
+use Pinoox\Component\Router\RouteBuilder;
+use Pinoox\Component\Router\RouteEntryBuilder;
+use Pinoox\Portal\Route as RouteFacade;
 use Pinoox\Portal\Router;
 
 /**
- * add route
+ * Register a named action.
  *
- * @param array|string $path
- * @param array|string|Closure $action
- * @param string $name
- * @param string|array $methods
- * @param array $defaults
- * @param array $filters
- * @param int|null $property
- * @param array $data
- * @param array $flows
- * @param array $tags
+ * action('home', fn () => ...);            // immediate
+ * action('home')->handle(...)->register(); // with metadata
  */
-function route(array|string $path, array|string|Closure $action = '', string $name = '', string|array $methods = [], array $defaults = [], array $filters = [], ?int $property = null, array $data = [], array $flows = [], array $tags = []): void
+function action(string $name, array|string|Closure|null $handler = null): ?\Pinoox\Component\Router\Action\ActionBuilder
 {
-    Router::add($path, $action, $name, $methods, $defaults, $filters, $property, $data, $flows,$tags);
+    return Router::action($name, $handler);
 }
 
-
-/**
- * add collection
- * @param string $path
- * @param string|array|callable|Router|null $routes
- * @param mixed|null $controller
- * @param array|string $methods
- * @param array|string|Closure $action
- * @param array $filters
- * @param array $defaults
- * @param string $prefixName
- * @param array $data
- * @param array $flows
- * @param array $tags
- */
-function collection(string $path = '', string|array|callable|Router|null $routes = null, mixed $controller = null, array|string $methods = [], array|string|Closure $action = '', array $filters = [], array $defaults = [], string $prefixName = '', array $data = [], array $flows = [], array $tags = []): void
+function get(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
 {
-    Router::collection($path, $routes, $controller, $methods, $action, $defaults, $filters, $prefixName, $data, $flows,$tags);
+    return RouteFacade::get($path, $action);
 }
 
-
-/**
- * generate action
- *
- * @param string $name
- * @param array|string|Closure $action
- */
-function action(string $name, array|string|Closure $action): void
+function post(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
 {
-    Router::action($name, $action);
+    return RouteFacade::post($path, $action);
 }
 
-
-/**
- * add get method route
- *
- * @param array|string $path
- * @param mixed|null $action
- * @param string $name
- * @param array $defaults
- * @param array $filters
- * @param int|null $property
- * @param array $data
- * @param array $flows
- * @param array $tags
- */
-function get(array|string $path, array|string|Closure $action = '', string $name = '', array $defaults = [], array $filters = [], ?int $property = null, array $data = [], array $flows = [], array $tags = []): void
+function put(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
 {
-    Router::get($path, $action, $name, $defaults, $filters, $property, $data, $flows,$tags);
+    return RouteFacade::put($path, $action);
 }
 
-
-/**
- * add post method route
- *
- * @param array|string $path
- * @param mixed|null $action
- * @param string $name
- * @param array $defaults
- * @param array $filters
- * @param int|null $property
- * @param array $data
- * @param array $flows
- * @param array $tags
- */
-function post(array|string $path, array|string|Closure $action = '', string $name = '', array $defaults = [], array $filters = [], ?int $property = null, array $data = [], array $flows = [], array $tags = []): void
+function patch(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
 {
-    Router::post($path, $action, $name, $defaults, $filters, $property, $data, $flows,$tags);
+    return RouteFacade::patch($path, $action);
 }
 
-
-/**
- * add put method route
- *
- * @param array|string $path
- * @param mixed|null $action
- * @param string $name
- * @param array $defaults
- * @param array $filters
- * @param int|null $property
- * @param array $data
- * @param array $flows
- * @param array $tags
- */
-function put(array|string $path, array|string|Closure $action = '', string $name = '', array $defaults = [], array $filters = [], ?int $property = null, array $data = [], array $flows = [], array $tags = []): void
+function delete(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
 {
-    Router::put($path, $action, $name, $defaults, $filters, $property, $data, $flows,$tags);
+    return RouteFacade::delete($path, $action);
 }
 
-
-/**
- * add patch method route
- *
- * @param array|string $path
- * @param mixed|null $action
- * @param string $name
- * @param array $defaults
- * @param array $filters
- * @param int|null $property
- * @param array $data
- * @param array $flows
- * @param array $tags
- */
-function patch(array|string $path, array|string|Closure $action = '', string $name = '', array $defaults = [], array $filters = [], ?int $property = null, array $data = [], array $flows = [], array $tags = []): void
+function route_match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
 {
-    Router::patch($path, $action, $name, $defaults, $filters, $property, $data, $flows,$tags);
+    return RouteFacade::match($methods, $path, $action);
 }
 
-
-/**
- * add delete method route
- *
- * @param array|string $path
- * @param mixed|null $action
- * @param string $name
- * @param array $defaults
- * @param array $filters
- * @param int|null $property
- * @param array $data
- * @param array $flows
- * @param array $tags
- */
-function delete(array|string $path, array|string|Closure $action = '', string $name = '', array $defaults = [], array $filters = [], ?int $property = null, array $data = [], array $flows = [], array $tags = []): void
+function group(array $attributes, callable $callback): void
 {
-    Router::delete($path, $action, $name, $defaults, $filters, $property, $data, $flows,$tags);
-}
-
-
-/**
- * add options method route
- *
- * @param array|string $path
- * @param mixed|null $action
- * @param string $name
- * @param array $defaults
- * @param array $filters
- * @param int|null $property
- * @param array $data
- * @param array $flows
- * @param array $tags
- */
-function options(array|string $path, array|string|Closure $action = '', string $name = '', array $defaults = [], array $filters = [], ?int $property = null, array $data = [], array $flows = [], array $tags = []): void
-{
-    Router::options($path, $action, $name, $defaults, $filters, $property, $data, $flows,$tags);
-}
-
-
-/**
- * add options method route
- *
- * @param array|string $path
- * @param mixed|null $action
- * @param string $name
- * @param array $defaults
- * @param array $filters
- * @param int|null $property
- * @param array $data
- * @param array $flows
- * @param array $tags
- */
-function head(array|string $path, array|string|Closure $action = '', string $name = '', array $defaults = [], array $filters = [], ?int $property = null, array $data = [], array $flows = [], array $tags = []): void
-{
-    Router::head($path, $action, $name, $defaults, $filters, $property, $data, $flows,$tags);
-}
-
-
-/**
- * add purge method route
- *
- * @param array|string $path
- * @param mixed|null $action
- * @param string $name
- * @param array $defaults
- * @param array $filters
- * @param int|null $property
- * @param array $data
- * @param array $flows
- * @param array $tags
- */
-function purge(array|string $path, array|string|Closure $action = '', string $name = '', array $defaults = [], array $filters = [], ?int $property = null, array $data = [], array $flows = [], array $tags = []): void
-{
-    Router::purge($path, $action, $name, $defaults, $filters, $property, $data, $flows,$tags);
+    RouteFacade::group($attributes, $callback);
 }
 
 /**
- * add trace method route
- *
- * @param array|string $path
- * @param mixed|null $action
- * @param string $name
- * @param array $defaults
- * @param array $filters
- * @param int|null $property
- * @param array $data
- * @param array $flows
- * @param array $tags
+ * @return list<array<string, mixed>>
  */
-function trace(array|string $path, array|string|Closure $action = '', string $name = '', array $defaults = [], array $filters = [], ?int $property = null, array $data = [], array $flows = [], array $tags = []): void
+function collect(callable $callback): array
 {
-    Router::trace($path, $action, $name, $defaults, $filters, $property, $data, $flows,$tags);
+    return RouteFacade::collect($callback);
 }
 
 /**
- * add connect method route
+ * Resolve the fully-qualified route name for the active app or a package.
  *
- * @param array|string $path
- * @param mixed|null $action
- * @param string $name
- * @param array $defaults
- * @param array $filters
- * @param int|null $property
- * @param array $data
- * @param array $flows
- * @param array $tags
+ * route_name('home') => installer.home
+ * route_name('home', 'com_pinoox_manager') => manager.home
  */
-function connect(array|string $path, array|string|Closure $action = '', string $name = '', array $defaults = [], array $filters = [], ?int $property = null, array $data = [], array $flows = [], array $tags = []): void
+function route_name(string $name, ?string $package = null): string
 {
-    Router::connect($path, $action, $name, $defaults, $filters, $property, $data, $flows,$tags);
+    return \Pinoox\Component\Router\RouteNaming::full($name, $package);
 }
+
+/**
+ * Generate a URL for a route name (short or fully-qualified).
+ */
+function route(string $name, array $parameters = [], bool $absolute = true): string
+{
+    return \Pinoox\Portal\Url::route(route_name($name, null), $parameters, $absolute);
+}
+
+/**
+ * Route file helper — config manifest entry point.
+ *
+ * get('/', '@home')->name('home');
+ * return routes([..., 'routes' => collect(fn () => ...)]);
+ */
+function routes(array|callable|null $definition = null): array|\Pinoox\Component\Router\RouteFile|null
+{
+    if (is_array($definition)) {
+        return \Pinoox\Component\Router\RouteManifest::normalizeManifest($definition);
+    }
+
+    $router = null;
+
+    try {
+        $router = Router::___();
+    } catch (\Throwable) {
+        $router = null;
+    }
+
+    if ($definition === null) {
+        return new \Pinoox\Component\Router\RouteFile($router);
+    }
+
+    if ($router === null) {
+        throw new \RuntimeException('Route callback requires an active router context.');
+    }
+
+    (new \Pinoox\Component\Router\RouteFile($router))->register($definition);
+
+    return null;
+}
+

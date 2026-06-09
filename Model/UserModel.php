@@ -17,11 +17,12 @@ namespace Pinoox\Model;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Rule;
 use Pinoox\Component\Database\Model;
-use Pinoox\Model\Scope\AppScope;
+use Pinoox\Component\Transport\TransportConfig;
+use Pinoox\Component\Transport\TransportScenario;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\Database\DB;
 use Pinoox\Portal\Hash;
-use Pinoox\Portal\Url;
+use Pinoox\Model\Scope\AppScope;
 
 
 /**
@@ -119,7 +120,7 @@ class UserModel extends Model
 
     public function getAvatarAttribute()
     {
-        $defaultImagePath = $this->defaultAvatarLink ?? furl('resources/avatar.png');
+        $defaultImagePath = $this->defaultAvatarLink ?? asset('resources/avatar.png');
 
         $file = FileModel::where('file_id', $this->avatar_id)->first();
 
@@ -150,6 +151,16 @@ class UserModel extends Model
         return $this->belongsTo(FileModel::class, 'avatar_id', 'file_id');
     }
 
+    public function roles(): \Illuminate\Database\Eloquent\Relations\BelongsToMany
+    {
+        return $this->belongsToMany(
+            RoleModel::class,
+            Table::USER_ROLE,
+            'user_id',
+            'role_id',
+        );
+    }
+
     public function getFullNameAttribute()
     {
         return $this->fname . ' ' . $this->lname;
@@ -157,14 +168,13 @@ class UserModel extends Model
 
     public static function setPackage(string $package): void
     {
-        App::set('transport.user', $package)->save();
+        App::set('transport.' . TransportScenario::USER_TABLE, $package)->save();
         self::addAppGlobalScope();
     }
 
     public static function getPackage(): string
     {
-        $package = App::get('transport.user');
-        return $package ?? App::package();
+        return TransportConfig::package(TransportScenario::USER_TABLE);
     }
 
     protected static function booted(): void
@@ -174,12 +184,14 @@ class UserModel extends Model
 
     private static function addAppGlobalScope(): void
     {
-        static::addGlobalScope('app', new AppScope(static::getPackage()));
+        static::addGlobalScope('app', AppScope::for(
+            fn (): array => TransportConfig::scopeValues(TransportScenario::USER_TABLE),
+        ));
     }
 
     public static function ruleUnique($column = null, $ignoreUserId = null)
     {
-        $rule = Rule::unique(Table::USER, $column)->where('app', static::getPackage());
+        $rule = Rule::unique(DB::tableName(Table::USER, 'platform'), $column)->where('app', static::getPackage());
 
         if (!is_null($ignoreUserId)) {
             $rule = $rule->ignore($ignoreUserId, 'user_id');

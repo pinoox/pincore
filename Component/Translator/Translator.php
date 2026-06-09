@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -10,15 +11,42 @@
  * @license  https://opensource.org/licenses/MIT MIT License
  */
 
-
 namespace Pinoox\Component\Translator;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
 use Illuminate\Translation\Translator as TranslatorIlluminate;
+use Pinoox\Support\SystemApp;
 
 class Translator extends TranslatorIlluminate
 {
+    public function parseKey($key)
+    {
+        if (is_string($key)) {
+            $key = self::normalizeSystemKey($key);
+        }
+
+        return parent::parseKey($key);
+    }
+
+    /**
+     * Map ~group.key to system lang files (system/lang/{locale}/group.lang.php).
+     */
+    public static function normalizeSystemKey(string $key): string
+    {
+        if (!str_starts_with($key, '~')) {
+            return $key;
+        }
+
+        $stripped = SystemApp::stripPathAlias($key);
+
+        if ($stripped !== null) {
+            return $stripped;
+        }
+
+        return ltrim($key, '~');
+    }
+
     public function addPath($path): void
     {
         $this->loader->addPath($path);
@@ -77,7 +105,6 @@ class Translator extends TranslatorIlluminate
     protected function getLine($namespace, $group, $locale, $item, array $replace): string|array|null
     {
         $this->load($namespace, $group, $locale);
-
 
         if (empty($item))
             $line = $this->loaded[$namespace][$group][$locale];

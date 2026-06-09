@@ -31,12 +31,16 @@ use Symfony\Component\Routing\Generator\UrlGeneratorInterface as ObjectPortal1;
  * @method static array matchRequest(\Pinoox\Component\Http\Request $request)
  * @method static array getAllPath()
  * @method static Router add(array|string $path, \Closure|array|string $action = '', string $name = '', array|string $methods = [], array $defaults = [], array $filters = [], ?int $property = NULL, array $data = [], array $flows = [], array $tags = [])
+ * @method static \Pinoox\Component\Router\RouteBuilder builder()
+ * @method static \Pinoox\Component\Router\RouteBuilder route(string $path, \Closure|array|string $action = '', array|string $methods = [], string $name = '')
  * @method static mixed buildAction(mixed $action, ?int $indexCollection = NULL)
  * @method static mixed getAction(string $name)
  * @method static Collection collection(string $path = '', \Pinoox\Component\Router\Router|array|callable|null|string $routes = NULL, mixed $controller = NULL, array|string $methods = [], \Closure|array|string $action = '', array $defaults = [], array $filters = [], string $prefixName = '', array $data = [], array $flows = [], array $tags = [])
  * @method static string canonicalizePath(string $path)
  * @method static ObjectPortal3 build($path, $routes)
- * @method static Router action(string $name, \Closure|array|string $action)
+ * @method static \Pinoox\Component\Router\Action\ActionBuilder|null action(string $name, \Closure|array|string|null $handler = NULL)
+ * @method static mixed resolveAction(string $name, ?string $collectionPrefix = NULL)
+ * @method static string|null findRouteByActionReference(string $reference, ?string $collectionPrefix = NULL)
  * @method static Collection currentCollection()
  * @method static \Pinoox\Component\Router\Collection|null getCollection($index = 0)
  * @method static array all()
@@ -67,7 +71,6 @@ class Router extends Portal
 		    ->setArgument('app', App::__ref());
 	}
 
-
 	/**
 	 * Get the registered name of the component.
 	 * @return string
@@ -76,7 +79,6 @@ class Router extends Portal
 	{
 		return 'router';
 	}
-
 
 	public static function __replace(): array
 	{
@@ -97,7 +99,6 @@ class Router extends Portal
 		];
 	}
 
-
 	/**
 	 * Get exclude method names .
 	 * @return string[]
@@ -107,7 +108,6 @@ class Router extends Portal
 		return [];
 	}
 
-
 	/**
 	 * Get method names for callback object.
 	 * @return string[]
@@ -116,7 +116,7 @@ class Router extends Portal
 	{
 		return [
 		    'add',
-		    'action'
 		];
 	}
 }
+

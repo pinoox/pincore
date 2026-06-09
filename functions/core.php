@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -17,6 +18,7 @@ use Pinoox\Component\Kernel\ContainerBuilder;
 use Pinoox\Component\Store\Config\ConfigInterface;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\Config;
+use Pinoox\Portal\Url;
 use Pinoox\Component\Store\Cookie;
 use Pinoox\Portal\Database\DB;
 use Pinoox\Portal\Env;
@@ -106,15 +108,15 @@ if (!function_exists('container')) {
     }
 }
 
-if (!function_exists('pincore')) {
+if (!function_exists('platform')) {
     /**
-     * Open pincore container
+     * Open platform container
      *
      * @return ContainerBuilder
      */
-    function pincore(): ContainerBuilder
+    function platform(): ContainerBuilder
     {
-        return Container::pincore();
+        return Container::platform();
     }
 }
 
@@ -131,6 +133,13 @@ if (!function_exists('_env')) {
 if (!function_exists('redirect')) {
     function redirect(string $url, int $status = 302): RedirectResponse
     {
+        if ($url !== ''
+            && !str_starts_with($url, 'http://')
+            && !str_starts_with($url, 'https://')
+            && !str_starts_with($url, '//')) {
+            $url = Url::link($url);
+        }
+
         return new RedirectResponse($url, $status);
     }
 }
@@ -161,7 +170,7 @@ if (!function_exists('session')) {
      */
     function session($key = null, $default = null)
     {
-        $session = app()->session();
+        $session = App::___()->session();
         if (is_null($key)) {
             return $session;
         }
@@ -178,29 +187,14 @@ if (!function_exists('session')) {
     }
 }
 
-if (!function_exists('app')) {
+if (!function_exists('runtime')) {
     /**
-     * @param null $key
-     * @param null $default
-     * @return \Pinoox\Component\Package\App|mixed
-     * @throws Exception
+     * Active HTTP App kernel (request, session, router, …).
+     * For app.php manifest use app() instead.
      */
-    function app($key = null, $default = null)
+    function runtime(): \Pinoox\Component\Package\App
     {
-        $app = App::___();
-        if (is_null($key)) {
-            return $app;
-        }
-
-        if (is_array($key)) {
-            foreach ($key as $name => $value) {
-                $app->set($name, $value);
-            }
-
-            return $app;
-        }
-
-        return $app->get($key, $default);
+        return App::___();
     }
 }
 
@@ -233,7 +227,7 @@ if (!function_exists('cookie')) {
     ): CookieSymfony|InputBag
     {
         return $name === null
-            ? app()->cookie()
+            ? App::___()->cookie()
             : Cookie::create(
                 name: $name,
                 value: $value,

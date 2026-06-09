@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -22,7 +23,7 @@ use Composer\Autoload\ClassLoader;
 class LoaderManager
 
 {
-    const method = '__register';
+    const method = '__registerLifecycle';
     const classes = [
         'Portal\\',
         'Pinoox\Component\Kernel\BootInterface'
@@ -64,23 +65,8 @@ class LoaderManager
         if (empty($classes))
             return;
 
-        $reflectionClass = new \ReflectionClass($className);
-        if ($reflectionClass->hasMethod(self::method)) {
-            $reflectionMethod = $reflectionClass->getMethod(self::method);
-            if ($reflectionMethod->isStatic() && $reflectionMethod->getDeclaringClass()->getName() === $className) {
-                $reflectionParams = $reflectionMethod->getParameters();
-                if (count($reflectionParams) > 0) {
-                    if (isset($this->classParams[$className])) {
-                        //Pass custom specified parameters
-                        $reflectionMethod->invoke(null, $this->classParams[$className]);
-                    } else {
-                        //Pass common parameters
-                        $reflectionMethod->invoke(null, $this->params);
-                    }
-                } else {
-                    $reflectionMethod->invoke(null);
-                }
-            }
+        if (method_exists($className, self::method)) {
+            call_user_func([$className, self::method]);
         }
     }
 
@@ -147,3 +133,4 @@ class LoaderManager
         }
     }
 }
+

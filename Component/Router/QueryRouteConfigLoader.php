@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -12,8 +13,11 @@
 
 namespace Pinoox\Component\Router;
 
-use Pinoox\Component\Foundation\ApplicationPaths;
 use Pinoox\Component\Kernel\Loader;
+use Pinoox\Component\Package\Routing\AppRouteMatcher;
+use Pinoox\Component\Package\Routing\Domain;
+use Pinoox\Portal\App\AppEngine;
+use Pinoox\Support\SystemConfig;
 
 class QueryRouteConfigLoader
 {
@@ -49,8 +53,10 @@ class QueryRouteConfigLoader
             return [];
         }
 
-        $file = rtrim(str_replace('\\', '/', $basePath), '/')
-            . '/apps/' . $package . '/config/query_route.config.php';
+        $appPath = AppEngine::exists($package)
+            ? AppEngine::path($package)
+            : SystemConfig::path('apps') . '/' . $package;
+        $file = rtrim(str_replace('\\', '/', $appPath), '/') . '/config/query_route.config.php';
 
         if (!is_file($file)) {
             return [];
@@ -63,44 +69,50 @@ class QueryRouteConfigLoader
 
     private static function resolvePackageName(): ?string
     {
+        $host = Domain::normalizeHost((string)($_SERVER['HTTP_HOST'] ?? ''));
+        $domainMatch = Domain::match($host);
+
+        if ($domainMatch !== null && self::isStable($domainMatch->package)) {
+            return $domainMatch->package;
+        }
+
         $routes = self::loadRouterMap();
 
         if ($routes === []) {
             return null;
         }
 
+        $routes = AppRouteMatcher::normalizeRoutes($routes);
         $pathInfo = $_SERVER['PATH_INFO'] ?? '';
 
         if ($pathInfo !== '' && $pathInfo !== '/') {
-            return self::matchPackageByPath($routes, $pathInfo);
+            $match = AppRouteMatcher::match($pathInfo, $routes, static fn(string $package): bool => self::isStable($package));
+
+            return $match['package'] ?? ($routes['/'] ?? null);
         }
 
         foreach (self::requestSegments() as $segment) {
-            $route = '/' . $segment;
+            $match = AppRouteMatcher::match($segment, $routes, static fn(string $package): bool => self::isStable($package));
 
-            if (isset($routes[$route])) {
-                return $routes[$route];
+            if ($match !== null) {
+                return $match['package'];
             }
         }
 
-        return $routes['/'] ?? null;
+        return $routes['/'] ?? $routes['*'] ?? null;
     }
 
-    private static function matchPackageByPath(array $routes, string $pathInfo): ?string
+    private static function isStable(string $package): bool
     {
-        $package = $routes['/'] ?? null;
-        $parts = array_values(array_filter(explode('/', trim($pathInfo, '/'))));
-
-        foreach ($parts as $part) {
-            $route = '/' . $part;
-
-            if (isset($routes[$route])) {
-                $package = $routes[$route];
-                break;
-            }
+        if (!AppEngine::exists($package)) {
+            return false;
         }
 
-        return $package;
+        try {
+            return (bool)AppEngine::config($package)->get('enable');
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private static function requestSegments(): array
@@ -130,13 +142,14 @@ class QueryRouteConfigLoader
         }
 
         $basePath = rtrim(str_replace('\\', '/', $basePath), '/');
+        $systemRouter = SystemConfig::path('system_router');
+
         $candidates = [
-            ApplicationPaths::runtimeConfigPath('app/router.config.php'),
-            ApplicationPaths::projectConfigPath('app/router.config.php'),
-            ApplicationPaths::pincoreConfigPath('app/router.config.php'),
-            ApplicationPaths::legacyCorePinkerPath('config/app/router.config.php'),
-            $basePath . '/pincore/pinker/config/app/router.config.php',
-            $basePath . '/pincore/config/app/router.config.php',
+            $basePath . '/pinker/config/app-router.config.php',
+            $basePath . '/pinker/system/config/app/router.config.php',
+            $systemRouter,
+            $basePath . '/vendor/pinoox/pincore/config/app-router.config.php',
+            $basePath . '/pincore/config/app-router.config.php',
         ];
 
         foreach ($candidates as $file) {
@@ -152,3 +165,4 @@ class QueryRouteConfigLoader
         return [];
     }
 }
+

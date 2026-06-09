@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -10,9 +11,7 @@
  * @license  https://opensource.org/licenses/MIT MIT License
  */
 
-
 namespace Pinoox\Component\Source;
-
 
 use Composer\Autoload\ClassLoader;
 use Pinoox\Component\Helpers\Str;
@@ -27,13 +26,25 @@ use Symfony\Component\DependencyInjection\Reference;
 abstract class Portal
 {
     protected static mixed $__lastHistory = null;
+
     protected static array $__history = [];
+
     protected static string $__method = '';
+
     protected static array $__args = [];
+
     protected static array $__watcher = [];
+
     protected static array $__subNameClasses = [];
+
+    protected static array $__registered = [];
+
+    protected static array $__booted = [];
+
     protected static ClassLoader $__classLoader;
+
     protected static string $__vendorDir;
+
     protected static string $__baseDir;
 
     /**
@@ -55,10 +66,30 @@ abstract class Portal
     {
         $ids = static::__ids();
         foreach ($ids as $id) {
+            static::__rebuildService($id);
             static::__container()->removeDefinition($id);
         }
 
-        static::__register();
+        unset(static::$__registered[static::__lifecycleKey()], static::$__booted[static::__lifecycleKey()]);
+        static::__registerLifecycle();
+    }
+
+    private static function __rebuildService(string $id): void
+    {
+        $container = static::__container();
+
+        if (!$container->has($id)) {
+            return;
+        }
+
+        try {
+            $service = $container->get($id);
+
+            if (is_object($service) && method_exists($service, '__portalRebuild')) {
+                $service->__portalRebuild();
+            }
+        } catch (\Throwable) {
+        }
     }
 
     final protected function __args($index = null): array
@@ -81,6 +112,57 @@ abstract class Portal
      */
     public static function __register(): void
     {
+    }
+
+    /**
+     * Boot the portal after its services are registered.
+     */
+    public static function __boot(): void
+    {
+    }
+
+    final public static function __registerLifecycle(): void
+    {
+        static::__ensureRegistered();
+        static::__ensureBooted();
+    }
+
+    /**
+     * Lifecycle cache key. App-scoped portals ({@see __app()}) register once per package id.
+     */
+    final protected static function __lifecycleKey(): string
+    {
+        $app = static::__app();
+
+        if ($app !== null && $app !== '' && $app !== '~') {
+            return static::__id();
+        }
+
+        return static::class;
+    }
+
+    final protected static function __ensureRegistered(): void
+    {
+        $key = static::__lifecycleKey();
+
+        if (!empty(static::$__registered[$key])) {
+            return;
+        }
+
+        static::$__registered[$key] = true;
+        static::__register();
+    }
+
+    final protected static function __ensureBooted(): void
+    {
+        $key = static::__lifecycleKey();
+
+        if (!empty(static::$__booted[$key])) {
+            return;
+        }
+
+        static::$__booted[$key] = true;
+        static::__boot();
     }
 
     /**
@@ -125,7 +207,6 @@ abstract class Portal
         return [];
     }
 
-
     /**
      * Get compiled replace methods.
      * @return array
@@ -162,6 +243,8 @@ abstract class Portal
      */
     protected static function callMethod(string $method, array $args): mixed
     {
+        PortalCallSite::capture(static::class, $method, $args, debug_backtrace(\DEBUG_BACKTRACE_IGNORE_ARGS, 18));
+
         $instance = static::__instance();
 
         if (empty($instance) || self::checkMethodHasExclude($method) || !self::checkMethodHasInclude($method)) {
@@ -249,7 +332,6 @@ abstract class Portal
         }
     }
 
-
     /**
      * Handle dynamic, static calls to the object.
      *
@@ -277,7 +359,6 @@ abstract class Portal
     {
         return static::callMethod($method, $args);
     }
-
 
     /**
      * Get the last result of calls to the object.
@@ -315,7 +396,9 @@ abstract class Portal
         static::__before($name);
 
         if (!$container->has($name))
-            static::__register();
+            static::__registerLifecycle();
+        else
+            static::__ensureBooted();
 
         if (!empty($name) && $container->has($name)) {
             try {
@@ -447,7 +530,7 @@ abstract class Portal
      */
     final public static function __container(): ContainerBuilder
     {
-        return Str::firstHas(static::class, 'App') ? Container::app() : Container::pincore();
+        return Str::firstHas(static::class, 'App') ? Container::app() : Container::platform();
     }
 
     /**
@@ -535,3 +618,4 @@ abstract class Portal
         return $names;
     }
 }
+

@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -12,7 +13,6 @@
 
 namespace Pinoox\Component\Kernel;
 
-use Pinoox\Component\Foundation\ApplicationPaths;
 use Pinoox\Component\Helpers\Str;
 use Pinoox\Component\Package\AppManager;
 use Pinoox\Portal\App\AppEngine;
@@ -51,12 +51,13 @@ class Terminal
 
     private function finds(): void
     {
-        $this->loadTerminals(ApplicationPaths::pincorePath());
+        $this->loadTerminals(PINOOX_CORE_PATH);
 
         $packages = AppEngine::all();
         /**
          * @var AppManager $app
          */
+
         foreach ($packages as $app) {
             $this->loadTerminals($app->path(), $app->package());
         }
@@ -79,6 +80,7 @@ class Terminal
         /**
          * @var SplFileInfo $f
          */
+
         foreach ($finder as $f) {
             $loc = $f->getPath();
             $namespace = !empty($package) ? "App\\" . $package . '\\' : "Pinoox" . '\\';

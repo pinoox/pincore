@@ -79,6 +79,9 @@ use Symfony\Component\HttpFoundation\StreamedResponse as ObjectPortal2;
  * @method static ObjectPortal5 disk($name = NULL)
  * @method static ObjectPortal6 cloud()
  * @method static ObjectPortal5 build($config)
+ * @method static ObjectPortal5 app(?string $package = NULL, ?string $disk = NULL)
+ * @method static ObjectPortal5 package(?string $package = NULL, ?string $disk = NULL)
+ * @method static string appPath(?string $package = NULL, string $path = '')
  * @method static ObjectPortal5 createLocalDriver(array $config)
  * @method static ObjectPortal5 createFtpDriver(array $config)
  * @method static ObjectPortal5 createSftpDriver(array $config)
@@ -104,7 +107,6 @@ class Storage extends Portal
 		]);
 	}
 
-
 	/**
 	 * Get the registered name of the component.
 	 * @return string
@@ -113,7 +115,6 @@ class Storage extends Portal
 	{
 		return 'storage';
 	}
-
 
 	/**
 	 * Get exclude method names .
@@ -124,7 +125,6 @@ class Storage extends Portal
 		return [];
 	}
 
-
 	/**
 	 * Get method names for callback object.
 	 * @return string[]
@@ -134,3 +134,4 @@ class Storage extends Portal
 		return [];
 	}
 }
+

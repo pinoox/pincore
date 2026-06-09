@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -14,25 +15,35 @@ namespace Pinoox\Component\Migration;
 
 use Illuminate\Database\Schema\Builder;
 use Pinoox\Model\Table;
-use Pinoox\Model\MigrationModel;
+use Pinoox\Model\HistoryModel;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\Database\DB;
+use Pinoox\Support\SystemConfig;
+use Pinoox\Support\SystemApp;
 use Symfony\Component\Finder\Finder;
 
 class MigrationToolkit
 {
     // Constants for actions
+
     private const ACTION_RUN = 'run';
+
     private const ACTION_ROLLBACK = 'rollback';
+
     private const ACTION_INIT = 'init';
+
     private const ACTION_CREATE = 'create';
+
     private const ACTION_STATUS = 'status';
 
     // Constants for patterns
+
     private const TIMESTAMP_PATTERN = '/^\d{4}_\d{2}_\d{2}_\d{6}_/';
+
     private const MIGRATION_FILENAME_PATTERN = '/(\d{4}_\d{2}_\d{2}_\d{6})/';
 
     // Table name extraction patterns (order matters - more specific patterns first)
+
     private const TABLE_NAME_PATTERNS = [
         'create_table' => '/^create_(.+)_table$/',
         'drop_table' => '/^drop_(.+)_table$/',
@@ -50,7 +61,7 @@ class MigrationToolkit
     private string $migrationPath = '';
     private string $migrationName = '';
     private string $tableName = '';
-    private string $migrationFolder = 'migrations';
+    private string $migrationFolder = 'database/migrations';
     private string $action = self::ACTION_RUN;
     private array $errors = [];
     private array $migrations = [];
@@ -93,6 +104,13 @@ class MigrationToolkit
             $migrations = $this->loadMigrationFiles();
 
             if (empty($migrations)) {
+                if ($this->package === 'platform' && $this->action === self::ACTION_INIT) {
+                    throw new \RuntimeException(
+                        'No migration files found in: ' . $this->migrationPath
+                        . '. Check platform migrations path (~pincore/database/migrations).',
+                    );
+                }
+
                 return $this;
             }
 
@@ -101,13 +119,13 @@ class MigrationToolkit
                 $migrationTableMigration = null;
                 foreach ($migrations as $migration) {
                     $migrationInfo = $this->extractMigrationInfo($migration);
-                    if (strpos($migrationInfo['fileName'], 'create_migration_table') !== false) {
+                    if ($this->isHistoryTableMigration($migrationInfo['fileName'])) {
                         $migrationTableMigration = $migrationInfo;
                         break;
                     }
                 }
 
-                if ($migrationTableMigration !== null) {
+                if ($migrationTableMigration !== null && $this->action === self::ACTION_INIT) {
                     $this->migrations = [$migrationTableMigration];
                     return $this;
                 }
@@ -129,7 +147,29 @@ class MigrationToolkit
     public function isExistsMigrationTable(): bool
     {
         try {
-            return $this->schema->hasTable(Table::MIGRATION);
+            $connection = DB::connection('platform');
+            $physical = DB::physicalTableName(Table::HISTORY, 'platform');
+            $database = (string) $connection->getDatabaseName();
+
+            if ($database !== '' && $physical !== '') {
+                $row = $connection->selectOne(
+                    'SELECT 1 AS found FROM information_schema.tables WHERE table_schema = ? AND table_name = ? LIMIT 1',
+                    [$database, $physical],
+                );
+
+                if ($row !== null) {
+                    return true;
+                }
+            }
+
+            $prefix = (string) $connection->getTablePrefix();
+            $table = DB::tableName(Table::HISTORY, 'platform');
+
+            if ($prefix !== '' && str_starts_with($table, $prefix)) {
+                $table = substr($table, strlen($prefix));
+            }
+
+            return DB::schema('platform')->hasTable($table);
         } catch (\Exception $e) {
             $this->addError($e);
             return false;
@@ -189,9 +229,10 @@ class MigrationToolkit
      */
     private function initializeMigrationPath(): void
     {
-        if ($this->package === 'pincore') {
-            $this->migrationPath = path('~pincore') . '/Database/' . $this->migrationFolder;
+        if ($this->package === 'platform') {
+            $this->migrationPath = SystemConfig::platformPath('migrations');
         } else {
+            $this->migrationFolder = trim(SystemConfig::rawPath('app_migrations', 'database/migrations'), '/\\');
             $this->migrationPath = AppEngine::path($this->package) . '/' . $this->migrationFolder;
         }
     }
@@ -206,11 +247,13 @@ class MigrationToolkit
         $files = [];
         $finder = new Finder();
 
-        if (!is_dir($this->migrationPath)) {
+        $paths = $this->migrationSearchPaths();
+
+        if (empty($paths)) {
             return $files;
         }
 
-        $finder->in($this->migrationPath)->files()->name('*.php');
+        $finder->in($paths)->files()->name('*.php');
 
         foreach ($finder as $file) {
             $filename = $file->getBasename('.php');
@@ -260,7 +303,7 @@ class MigrationToolkit
             $migrationInfo = $this->extractMigrationInfo($migration);
 
             // If this is the migration table creation migration, handle it separately
-            if (strpos($migrationInfo['fileName'], 'create_migration_table') !== false) {
+            if ($this->isHistoryTableMigration($migrationInfo['fileName'])) {
                 $migrationTableMigration = $migrationInfo;
                 continue;
             }
@@ -284,12 +327,18 @@ class MigrationToolkit
      */
     private function shouldSkipFile(string $filename): bool
     {
-        if ($this->action === self::ACTION_INIT && !str_contains($filename, 'migration')) {
+        if ($this->action === self::ACTION_INIT && !$this->isHistoryTableMigration($filename)) {
             return true;
         }
 
-        if ($this->action === self::ACTION_RUN && str_contains($filename, 'migration')) {
-            return true;
+        if ($this->action === self::ACTION_RUN && $this->isHistoryTableMigration($filename)) {
+            if (!$this->isExistsMigrationTable()) {
+                return false;
+            }
+
+            $fileName = pathinfo($filename, PATHINFO_FILENAME);
+
+            return MigrationQuery::is_exists($fileName, $this->package);
         }
 
         return false;
@@ -301,10 +350,6 @@ class MigrationToolkit
     private function shouldSkipMigration(array $migration): bool
     {
         if ($this->action === self::ACTION_ROLLBACK && empty($migration['sync'])) {
-            return true;
-        }
-
-        if ($this->action === self::ACTION_RUN && !empty($migration['sync'])) {
             return true;
         }
 
@@ -401,6 +446,11 @@ class MigrationToolkit
         }
     }
 
+    private function migrationSearchPaths(): array
+    {
+        return is_dir($this->migrationPath) ? [$this->migrationPath] : [];
+    }
+
     /**
      * Convert string to snake_case
      */
@@ -415,8 +465,7 @@ class MigrationToolkit
      */
     private function makeTableName(string $modelName): string
     {
-        $packageName = AppEngine::config($this->package)->get('package');
-        return $packageName . '_' . $this->toSnakeCase($modelName);
+        return $this->toSnakeCase($modelName);
     }
 
     /**
@@ -457,7 +506,7 @@ class MigrationToolkit
             $fileName = $this->getFileName($migration);
             foreach ($dbMigrations as $dbMigration) {
                 if ($fileName === $dbMigration['migration']) {
-                    $migration['sync'] = true;
+                    $migration['sync'] = $dbMigration;
                     break;
                 }
             }
@@ -476,7 +525,10 @@ class MigrationToolkit
                 return null;
             }
 
-            return MigrationModel::where('app', $this->package)->get()->toArray();
+            return HistoryModel::where('type', MigrationQuery::TYPE_MIGRATION)
+                ->where('app', $this->package)
+                ->get()
+                ->toArray();
         } catch (\Exception $e) {
             $this->addError($e);
             return null;
@@ -490,4 +542,11 @@ class MigrationToolkit
     {
         return $this->loadMigrationFiles();
     }
+
+    private function isHistoryTableMigration(string $filename): bool
+    {
+        return str_contains($filename, 'create_history_table')
+            || str_contains($filename, 'create_migration_table');
+    }
 }
+

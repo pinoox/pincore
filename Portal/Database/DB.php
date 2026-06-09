@@ -34,6 +34,7 @@ use Illuminate\Pagination\Cursor;
 use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Pagination\Paginator;
 use PDO as ObjectPortal8;
+use Pinoox\Component\Database\DatabaseConfig;
 use Pinoox\Component\Kernel\Container;
 use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Source\Portal;
@@ -137,6 +138,21 @@ use Pinoox\Portal\Config;
  * @method static \Illuminate\Contracts\Database\Query\Expression|string orderColumn(array|string $field)
  * @method static string orderDirection(string $type)
  * @method static Connection connection($connection = NULL)
+ * @method static Connection core()
+ * @method static Connection app(?string $package = NULL, string $name = 'default')
+ * @method static Connection package(?string $package = NULL, string $name = 'default')
+ * @method static string currentConnectionName()
+ * @method static string connectionNameForModel(string $class)
+ * @method static string connectionNameForPackage(?string $package = NULL, string $name = 'default')
+ * @method static bool registerPackageConnections(string $package)
+ * @method static string tableName(string $table, ?string $package = NULL)
+ * @method static string tableNameForModel(string $table, string $class)
+ * @method static string physicalTableName(string $table, ?string $package = null)
+ * @method static string tablePrefixForPackage(?string $package = NULL)
+ * @method static string|null packageNameForModel(string $class)
+ * @method static Connection currentConnection($connection = NULL)
+ * @method static ObjectPortal1 currentSchema($connection = NULL)
+ * @method static ObjectPortal3 currentTable($table, $as = NULL, $connection = NULL)
  * @method static ObjectPortal1 schema($connection = NULL)
  * @method static Connection getConnection($name = NULL)
  * @method static addConnection(array $config, $name = 'default')
@@ -152,13 +168,36 @@ use Pinoox\Portal\Config;
  */
 class DB extends Portal
 {
+    private static bool $coreRegistered = false;
+
+    private static bool $registering = false;
+
     public static function __register(): void
     {
         self::__bind(\Pinoox\Component\Database\DatabaseManager::class)->setArguments([
             Container::Illuminate()
         ]);
+    }
 
+    public static function __boot(): void
+    {
         self::resolvePagination();
+    }
+
+    /**
+     * @param list<mixed> $args
+     */
+    protected static function callMethod(string $method, array $args): mixed
+    {
+        if (!self::$coreRegistered && !self::$registering && !self::allowsUnregisteredAccess($method)) {
+            self::register();
+        }
+
+        return parent::callMethod($method, $args);
+    }
+
+    public static function __before(string $name): void
+    {
     }
 
     public static function hasConnection(): bool
@@ -173,77 +212,111 @@ class DB extends Portal
         return false;
     }
 
+    /**
+     * Register the core database connection when a DB operation is first needed (CLI lazy boot).
+     *
+     * @throws Exception
+     */
+    public static function ensureRegistered(): void
+    {
+        if (!self::$coreRegistered && !self::$registering) {
+            self::register();
+        }
+    }
+
+    /**
+     * Re-register the core connection with fresh credentials (installer, config reload).
+     *
+     * @param array<string, mixed> $config Illuminate connection config (driver, host, …)
+     * @throws Exception
+     */
+    public static function refreshCoreConnection(array $config): void
+    {
+        self::$coreRegistered = false;
+        self::$registering = false;
+
+        $manager = self::___();
+
+        foreach (['default', 'platform'] as $connection) {
+            try {
+                $manager->getDatabaseManager()->purge($connection);
+            } catch (\Throwable) {
+            }
+        }
+
+        self::$registering = true;
+
+        try {
+            $manager->registerCoreConnection($config);
+            self::setEventDispatcher(new Dispatcher(Container::Illuminate()));
+            self::setAsGlobal();
+            self::bootEloquent();
+            self::$coreRegistered = true;
+        } finally {
+            self::$registering = false;
+        }
+    }
 
     /**
      * @throws Exception
      */
     public static function register(): void
     {
-        $config = self::getConfig();
-        // add default connection
-        self::addConnection($config);
+        if (self::$coreRegistered || self::$registering) {
+            return;
+        }
 
-        // Set the event dispatcher used by Eloquent models... (optional)
-        self::setEventDispatcher(new Dispatcher(Container::Illuminate()));
+        self::$registering = true;
 
-        //Make this Capsule instance available globally.
-        self::setAsGlobal();
-        // Setup the Eloquent ORM... (optional; unless you've used setEventDispatcher())
-        self::bootEloquent();
+        try {
+            $config = self::getConfig();
+            self::registerCoreConnection($config);
+
+            self::setEventDispatcher(new Dispatcher(Container::Illuminate()));
+            self::setAsGlobal();
+            self::bootEloquent();
+
+            self::$coreRegistered = true;
+        } finally {
+            self::$registering = false;
+        }
     }
-
 
     /**
      * @throws Exception
      */
     public static function getConfig($key = null)
     {
-        $mode = self::mode();
-        if (!($config = Config::name('~database')->getLinear(null, $mode))) {
-            throw new Exception('Database config "' . $mode . '" not defined');
+        $root = Config::name('~database')->get();
+
+        if (!is_array($root)) {
+            throw new Exception('Database config is invalid.');
         }
 
-        $config = self::mergeEnvDatabaseConfig($config);
+        $config = DatabaseConfig::connectionConfig($root, self::connectionName());
 
-        return $config[$key] ?? $config;
+        return $key !== null ? ($config[$key] ?? null) : $config;
     }
 
-    /**
-     * When DB_HOST is set in .env, override Pinker/file config (12-factor).
-     */
-    private static function mergeEnvDatabaseConfig(array $config): array
+    public static function connectionName(): string
     {
-        $host = $_ENV['DB_HOST'] ?? getenv('DB_HOST');
-        if ($host === false || $host === '') {
-            return $config;
-        }
-
-        $overrides = [
-            'driver' => $_ENV['DB_CONNECTION'] ?? getenv('DB_CONNECTION') ?: ($config['driver'] ?? 'mysql'),
-            'host' => $host,
-            'port' => $_ENV['DB_PORT'] ?? getenv('DB_PORT') ?: ($config['port'] ?? '3306'),
-            'database' => $_ENV['DB_DATABASE'] ?? getenv('DB_DATABASE') ?: ($config['database'] ?? ''),
-            'username' => $_ENV['DB_USERNAME'] ?? getenv('DB_USERNAME') ?: ($config['username'] ?? ''),
-            'password' => $_ENV['DB_PASSWORD'] ?? getenv('DB_PASSWORD') ?: ($config['password'] ?? ''),
-            'charset' => $_ENV['DB_CHARSET'] ?? getenv('DB_CHARSET') ?: ($config['charset'] ?? 'utf8mb4'),
-            'collation' => $_ENV['DB_COLLATION'] ?? getenv('DB_COLLATION') ?: ($config['collation'] ?? 'utf8mb4_unicode_ci'),
-            'prefix' => $_ENV['DB_PREFIX'] ?? getenv('DB_PREFIX') ?: ($config['prefix'] ?? ''),
-        ];
-
-        $timezone = $_ENV['DB_TIMEZONE'] ?? getenv('DB_TIMEZONE');
-        if ($timezone !== false && $timezone !== '') {
-            $overrides['timezone'] = $timezone;
-        }
-
-        return array_merge($config, $overrides);
+        return DatabaseConfig::connectionName();
     }
 
-
+    /** @deprecated Use {@see connectionName()} */
     public static function mode()
     {
-        return Config::name('~pinoox')->get('mode');
+        return self::connectionName();
     }
 
+    public static function __replace(): array
+    {
+        return [
+            'connection' => fn($connection = null) => self::__instance()->currentConnection($connection),
+            'schema' => fn($connection = null) => self::__instance()->currentSchema($connection),
+            'table' => fn($table, $as = null, $connection = null) => self::__instance()->currentTable($table, $as, $connection),
+        ];
+    }
 
     /**
      * Get the registered name of the component.
@@ -253,7 +326,6 @@ class DB extends Portal
     {
         return 'database';
     }
-
 
     /**
      * Get method names for callback object.
@@ -288,4 +360,20 @@ class DB extends Portal
             return Cursor::fromEncoded(App::getRequest()->input()->get($cursorName));
         });
     }
+
+    private static function allowsUnregisteredAccess(string $method): bool
+    {
+        return in_array($method, [
+            'getDatabaseManager',
+            'getContainer',
+            'setContainer',
+            'addConnection',
+            'registerCoreConnection',
+            'setAsGlobal',
+            'bootEloquent',
+            'setEventDispatcher',
+            'unsetEventDispatcher',
+        ], true);
+    }
 }
+
