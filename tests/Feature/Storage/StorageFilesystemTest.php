@@ -1,5 +1,6 @@
 <?php
 
+use Pinoox\Component\File;
 use Pinoox\Component\Store\Config\ConfigInterface;
 use Pinoox\Component\Store\FileSystem\FilesystemManager;
 use Pinoox\Support\SystemConfig;
@@ -12,6 +13,25 @@ beforeEach(function () {
 afterEach(function () {
     SystemConfig::clearCache();
     deleteStorageFilesystemTestDirectory(str_replace('\\', '/', testFixtures('storage_apps')));
+});
+
+it('writes multi-server deny rules when the storage root is first created', function () {
+    $root = str_replace('\\', '/', testFixtures('storage_root_guard'));
+
+    deleteStorageFilesystemTestDirectory($root);
+
+    expect(File::ensureStorageRootProtection($root))->toBeTrue()
+        ->and(is_file($root . '/.htaccess'))->toBeTrue()
+        ->and(is_file($root . '/web.config'))->toBeTrue()
+        ->and(is_file($root . '/nginx.conf'))->toBeTrue()
+        ->and(is_file($root . '/Caddyfile'))->toBeTrue()
+        ->and(file_get_contents($root . '/.htaccess'))->toContain('Require all denied')
+        ->and(file_get_contents($root . '/web.config'))->toContain('<deny users="*" />')
+        ->and(file_get_contents($root . '/nginx.conf'))->toContain('location ^~ /storage/');
+
+    expect(File::ensureStorageRootProtection($root))->toBeTrue();
+
+    deleteStorageFilesystemTestDirectory($root);
 });
 
 it('creates app scoped filesystems for pinoox packages', function () {

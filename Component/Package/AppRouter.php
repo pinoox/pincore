@@ -44,8 +44,8 @@ class AppRouter
      * Resolve the active app for the current HTTP request.
      *
      * Order:
-     * 1. Host mapping from pincore/config/domain.config.php (explicit hosts only)
-     * 2. Longest path prefix from pincore/config/app-router.config.php
+     * 1. Host mapping from {project}/config/domain.config.php (explicit hosts only)
+     * 2. Longest path prefix from {project}/config/app-router.config.php
      * 3. Default route "/"
      * 4. Wildcard route "*"
      * 5. Fallback welcome app

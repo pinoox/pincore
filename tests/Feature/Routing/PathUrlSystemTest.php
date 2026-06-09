@@ -11,15 +11,28 @@ use Pinoox\Component\Path\Path;
 use Pinoox\Component\Path\Url;
 use Pinoox\Component\Router\Router;
 use Pinoox\Component\Store\Config\ConfigInterface;
+use Pinoox\Support\SystemConfig;
+
+beforeEach(function () {
+    putenv('PINOOX_APPS_PATH=apps');
+    $_ENV['PINOOX_APPS_PATH'] = 'apps';
+    $_SERVER['PINOOX_APPS_PATH'] = 'apps';
+    SystemConfig::clearCache();
+});
+
+afterEach(function () {
+    cleanupTestArtifacts();
+});
 
 it('resolves core path aliases through Path helpers', function () {
     $basePath = pathUrlTestNormalize(testProjectRoot());
     $corePath = pathUrlTestNormalize(testCoreRoot());
+    $projectConfig = pathUrlTestNormalize(SystemConfig::projectConfigPath());
     $path = new Path($basePath, new NameParser(), new PathUrlTestEngine(), null);
 
     expect($path->root())->toBe($basePath)
         ->and($path->system('pinoox.config.php'))
-        ->toBe($corePath . '/config/pinoox.config.php')
+        ->toBe($projectConfig . '/pinoox.config.php')
         ->and($path->apps('com_acme_demo'))
         ->toBe($basePath . '/apps/com_acme_demo')
         ->and($path->resolve('~config/app/source.config.php'))

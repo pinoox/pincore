@@ -9,6 +9,10 @@
 # Writable storage (logs, cache, sessions)
 /storage/*
 !/storage/.gitkeep
+!/storage/.htaccess
+!/storage/web.config
+!/storage/nginx.conf
+!/storage/Caddyfile
 !/storage/**/.gitkeep
 
 # App packages created at runtime (standalone dev / tests)

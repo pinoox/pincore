@@ -52,11 +52,15 @@ it('loads theme manifest through pinker with theme-source defaults', function ()
         ]),
     ]);
 
-    $overrideDir = testProjectRoot() . '/pinker/state/apps/com_test_theme_manifest/theme/toranj';
+    $sourceFile = AppTestKit::path('com_test_theme_manifest', 'theme/toranj/theme.php');
+    $overrideFile = themeManifestPinkerOverrideFile($sourceFile);
+    $overrideDir = dirname($overrideFile);
+
     if (!is_dir($overrideDir)) {
         mkdir($overrideDir, 0777, true);
     }
-    file_put_contents($overrideDir . '/theme.php', <<<'PHP'
+
+    file_put_contents($overrideFile, <<<'PHP'
 <?php
 return [
     '__pinker_override__' => true,
@@ -65,6 +69,9 @@ return [
         'developer' => 'pinker team',
     ],
     'remove' => [],
+    'info' => [
+        'updated_at' => 4102444800,
+    ],
 ];
 PHP);
 
@@ -74,6 +81,9 @@ PHP);
         ->and($manifest->developer())->toBe('pinker team')
         ->and($manifest->copyright())->toBe('MIT')
         ->and($manifest->cover())->toBe('cover.png');
+
+    @unlink($overrideFile);
+    themeManifestDeletePinkerOverrideTree($sourceFile);
 });
 it('discovers installed themes with theme.php', function () {
     themeManifestWriteApp([
@@ -151,38 +161,73 @@ function themeManifestPhp(array $data): string
 }
 function themeManifestWriteApp(array $themeFiles, array $appExtra = []): void
 {
-    $dir = themeManifestAppDir();
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
+    $package = 'com_test_theme_manifest';
     $app = array_merge([
-        'package' => 'com_test_theme_manifest',
+        'package' => $package,
         'enable' => true,
         'name' => 'Theme Manifest Test',
         'theme' => 'default',
         'router' => ['routes' => []],
     ], $appExtra);
-    file_put_contents($dir . '/app.php', "<?php\n\nreturn " . var_export($app, true) . ";\n");
+
+    $files = [
+        'app.php' => "<?php\n\nreturn " . var_export($app, true) . ";\n",
+    ];
+
     foreach ($themeFiles as $relative => $content) {
-        $target = $dir . '/theme/' . str_replace('/', DIRECTORY_SEPARATOR, $relative);
-        $folder = dirname($target);
-        if (!is_dir($folder)) {
-            mkdir($folder, 0777, true);
-        }
-        file_put_contents($target, $content);
+        $files['theme/' . str_replace('\\', '/', $relative)] = $content;
     }
+
+    AppTestKit::fakeApp($package, $files);
 }
+
 function themeManifestDeleteApp(string $package): void
 {
-    themeManifestDeleteDirectory(testProjectRoot() . '/apps/' . $package);
-    themeManifestDeleteDirectory(testProjectRoot() . '/pinker/apps/' . $package);
-    themeManifestDeleteDirectory(testProjectRoot() . '/pinker/state/apps/' . $package);
+    $sourceFile = AppTestKit::path($package, 'theme/toranj/theme.php');
+    themeManifestDeletePinkerOverrideTree($sourceFile);
+    AppTestKit::deleteFakeApp($package);
     themeManifestDeleteDirectory(testFixtures('theme_manifest'));
     AppEnvBridge::reset();
 }
+
+function themeManifestPinkerOverrideFile(string $sourceFile): string
+{
+    $baked = \Pinoox\Portal\Pinker::bakedFileFromSource($sourceFile);
+    $pinkerRoot = rtrim(str_replace('\\', '/', \Pinoox\Support\SystemConfig::path('pinker')), '/');
+
+    return $pinkerRoot . '/state/' . substr(str_replace('\\', '/', $baked), strlen($pinkerRoot) + 1);
+}
+
+function themeManifestDeletePinkerOverrideTree(string $sourceFile): void
+{
+    $overrideFile = themeManifestPinkerOverrideFile($sourceFile);
+    $overrideDir = dirname($overrideFile);
+
+    if (is_file($overrideFile)) {
+        @unlink($overrideFile);
+    }
+
+    if (!is_dir($overrideDir)) {
+        return;
+    }
+
+    themeManifestDeleteDirectory($overrideDir);
+
+    $parent = dirname($overrideDir);
+    while ($parent !== dirname($parent) && str_contains($parent, '/pinker/state/')) {
+        if ((scandir($parent) ?: []) === ['.', '..']) {
+            @rmdir($parent);
+            $parent = dirname($parent);
+            continue;
+        }
+
+        break;
+    }
+}
+
 function themeManifestAppDir(): string
 {
-    return testProjectRoot() . '/apps/com_test_theme_manifest';
+    return AppTestKit::path('com_test_theme_manifest');
 }
 function themeManifestTempFile(string $name): string
 {

@@ -39,10 +39,13 @@ composer test:apps
 
 Most tests are **isolated** — they never touch production apps or project assets:
 
+- Writable test apps live under `pincore/tests/Fixtures/runtime/apps/` (not project `apps/`).
+- Project `pinker/` is still used so pinker/state integration tests can run locally.
+- Real project apps (`com_pinoox_*`, your apps) stay registered via an auto-generated test registry so integration tests can still resolve them.
 - Use `com_test_*` package names via `testPackage('suffix')` or `TestSandbox::packageName()`.
-- Writable files go under `pincore/tests/Fixtures/sandbox/` via `testSandbox('path/to/file')`.
-- `cleanupTestArtifacts()` (before/after each test) removes `com_test_*`, sandbox files, and test caches.
-- Shared helpers live in `tests/Support/` (never define duplicate global functions in test files).
+- Other writable files go under `pincore/tests/Fixtures/sandbox/` via `testSandbox('path/to/file')`.
+- `cleanupTestArtifacts()` (before/after each test) removes transient runtime apps and sandbox files.
+- Set `PINOOX_TEST_USE_PROJECT_PATHS=1` to disable runtime path redirection (local debugging only).
 
 ### Non-isolated tests
 
@@ -71,7 +74,8 @@ PINOOX_INSTALLER_INTEGRATION=1 php pinoox test platform --suite=Installer
 |--------|---------|
 | `testSandbox('docroot/assets/x.js')` | Isolated file path |
 | `testPackage('webfix')` | → `com_test_webfix` |
-| `fakeApp($package, $files)` | Temporary app under `apps/` (cleaned automatically) |
+| `testRuntimeApps()` | Isolated apps root (`tests/Fixtures/runtime/apps`) |
+| `fakeApp($package, $files)` | Temporary app under test runtime apps (cleaned automatically) |
 | `cleanupTestArtifacts()` | Reset filesystem + registries |
 | `writeTestApp()` / `deleteTestApp()` | Database feature helpers (`tests/Support/DatabaseTestHelpers.php`) |
 
@@ -100,7 +104,9 @@ pincore/tests/
 │   └── …
 ├── Unit/                # Pure unit tests (no HTTP boot)
 ├── Support/             # Shared helpers & sample classes
-└── Fixtures/sandbox/    # Writable test workspace (gitignored contents)
+└── Fixtures/
+    ├── runtime/         # Test apps + pinker (gitignored contents)
+    └── sandbox/         # Other writable test workspace
 ```
 
 ## Adding a test

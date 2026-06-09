@@ -141,6 +141,7 @@ HELP
                 $export .= "    '{$path}' => '{$pkg}',\n";
             }
             $export .= "];\n";
+            FileSystem::dumpFile($sourceRouter, $export);
             FileSystem::dumpFile($bakedRouter, $export);
             $output->writeln("<info>Router configuration updated.</info>");
         } else {

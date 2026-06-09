@@ -1,6 +1,7 @@
 <?php
 
 use Pinoox\Component\Kernel\Loader;
+use Pinoox\Component\Test\AppTestKit;
 use Pinoox\Portal\App\AppProvider;
 use Pinoox\Portal\Pinker;
 
@@ -292,9 +293,7 @@ it('maps pincore config source files to pinker/config', function () {
 
 function deletePinkerTestApp(string $package): void
 {
-    deletePinkerTestDirectory(testProjectRoot() . '/apps/' . $package);
-    deletePinkerTestDirectory(testProjectRoot() . '/pinker/apps/' . $package);
-    deletePinkerTestDirectory(testProjectRoot() . '/pinker/state/apps/' . $package);
+    AppTestKit::deleteFakeApp($package);
 }
 
 function pinkerTestPath(string $path): string

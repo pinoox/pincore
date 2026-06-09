@@ -95,38 +95,15 @@ class ExceptionContext
     }
 
     /**
+     * Platform distribution version shown in debug UI.
+     *
      * @return array{name: string, code: int|null, label: string}
      */
     public static function pinooxVersion(): array
     {
-        $name = '';
-        $code = null;
+        $version = \Pinoox\Component\Package\Pinx\PinxVersion::platform();
 
-        if (function_exists('config')) {
-            try {
-                $name = trim((string) config('~pinoox.version_name', ''));
-                $rawCode = config('~pinoox.version_code', null);
-                if ($rawCode !== null && $rawCode !== '') {
-                    $code = (int) $rawCode;
-                }
-            } catch (\Throwable) {
-            }
-        }
-
-        if ($name === '') {
-            $configFile = self::projectRoot() . '/pincore/config/pinoox.config.php';
-            if (is_file($configFile)) {
-                $config = include $configFile;
-                if (is_array($config)) {
-                    $name = trim((string) ($config['version_name'] ?? ''));
-                    if (isset($config['version_code']) && $config['version_code'] !== '') {
-                        $code = (int) $config['version_code'];
-                    }
-                }
-            }
-        }
-
-        return self::versionPayload($name, $code);
+        return self::versionPayload($version['name'], $version['code']);
     }
 
     /**

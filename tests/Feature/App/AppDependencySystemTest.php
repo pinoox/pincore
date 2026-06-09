@@ -8,6 +8,7 @@ use Pinoox\Component\Package\Pinx\PinxBuilder;
 use Pinoox\Component\Package\Pinx\PinxInstaller;
 use Pinoox\Component\Package\Pinx\PinxManifest;
 use Pinoox\Component\Package\Pinx\PinxReader;
+use Pinoox\Component\Test\AppTestKit;
 use Pinoox\Portal\App\AppEngine;
 
 beforeEach(function () {
@@ -146,11 +147,6 @@ function appDepBuild(string $package): array
 
 function appDepWriteTestApp(string $package, array $extra = []): void
 {
-    $dir = appDepAppDir($package);
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
-
     $config = array_merge([
         'package' => $package,
         'enable' => true,
@@ -161,20 +157,16 @@ function appDepWriteTestApp(string $package, array $extra = []): void
         'router' => ['routes' => []],
     ], $extra);
 
-    $export = var_export($config, true);
-    file_put_contents($dir . '/app.php', "<?php\n\nreturn {$export};\n");
-    file_put_contents($dir . '/marker.txt', $package);
-
-    $themeDir = $dir . '/theme/default';
-    if (!is_dir($themeDir)) {
-        mkdir($themeDir, 0777, true);
-    }
+    AppTestKit::fakeApp($package, [
+        'app.php' => "<?php\n\nreturn " . var_export($config, true) . ";\n",
+        'marker.txt' => $package,
+        'theme/default/.gitkeep' => '',
+    ]);
 }
 
 function appDepDeleteTestApp(string $package): void
 {
-    appDepDeleteDirectory(appDepAppDir($package));
-    appDepDeleteDirectory(testProjectRoot() . '/pinker/apps/' . $package);
+    AppTestKit::deleteFakeApp($package);
 }
 
 function appDepDeleteDirectory(string $dir): void
@@ -201,7 +193,7 @@ function appDepDeleteDirectory(string $dir): void
 
 function appDepAppDir(string $package): string
 {
-    return testProjectRoot() . '/apps/' . $package;
+    return AppTestKit::path($package);
 }
 
 function appDepCleanupArtifacts(): void

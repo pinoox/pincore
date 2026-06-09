@@ -12,9 +12,15 @@ class SystemConfig
     /** Config names that must never go through Pinker (bootstrap / path resolution). */
     private const DIRECT_LOAD_CONFIGS = ['paths'];
 
+    /** Deploy configs: project source with pincore stub fallback. */
+    private const PROJECT_LAYER_CONFIGS = ['apps', 'domain', 'app-router'];
+
+    /** Platform manifest ({project}/config) merged onto pincore runtime defaults. */
+    private const MERGED_PLATFORM_CONFIGS = ['pinoox'];
+
     /** @var array<string, string> legacy path key → v3 key */
     private const PATH_KEY_ALIASES = [
-        'system_config' => 'project_config',
+        'system_config' => 'config',
         'system_registry' => 'project_registry',
         'system_router' => 'project_router',
         'system_lang' => 'platform_lang',
@@ -148,6 +154,80 @@ class SystemConfig
         return self::corePath(self::join('config', $path));
     }
 
+    public static function projectConfigPath(string $path = ''): string
+    {
+        $override = self::env('PINOOX_PROJECT_CONFIG_PATH');
+
+        if (is_string($override) && $override !== '') {
+            return self::join(self::resolvePath($override), $path);
+        }
+
+        $base = '~/config';
+
+        if (array_key_exists('paths', self::$cache) && is_array(self::$cache['paths'])) {
+            $configured = self::$cache['paths']['project_config'] ?? null;
+
+            if (is_string($configured) && $configured !== '') {
+                $base = $configured;
+            }
+        }
+
+        return self::join(self::resolvePath($base), $path);
+    }
+
+    public static function projectLayerConfigFile(string $config): string
+    {
+        if (in_array($config, self::MERGED_PLATFORM_CONFIGS, true)) {
+            return self::platformPinooxManifestFile();
+        }
+
+        $projectFile = self::projectConfigPath($config . '.config.php');
+
+        if (is_file($projectFile)) {
+            return $projectFile;
+        }
+
+        return self::corePath('config/' . $config . '.config.php');
+    }
+
+    public static function platformPinooxTemplateFile(): string
+    {
+        return self::corePath('config/pinoox.config.php');
+    }
+
+    public static function platformPinooxManifestFile(): string
+    {
+        return self::projectConfigPath('pinoox.config.php');
+    }
+
+    public static function ensureProjectConfigFiles(): void
+    {
+        foreach (self::PROJECT_LAYER_CONFIGS as $config) {
+            self::ensureProjectConfigFile($config, self::corePath('config/' . $config . '.config.php'));
+        }
+
+        self::ensureProjectConfigFile('pinoox', self::corePath('stubs/pinoox.config.stub'));
+    }
+
+    private static function ensureProjectConfigFile(string $config, string $stub): void
+    {
+        $projectFile = self::projectConfigPath($config . '.config.php');
+
+        if (is_file($projectFile) || !is_file($stub)) {
+            return;
+        }
+
+        $directory = dirname($projectFile);
+
+        if (!is_dir($directory)) {
+            @mkdir($directory, 0755, true);
+        }
+
+        if (is_dir($directory)) {
+            @copy($stub, $projectFile);
+        }
+    }
+
     public static function pinkerConfigPath(string $path = ''): string
     {
         return self::join(self::path('pinker'), self::join('config', $path));
@@ -178,6 +258,7 @@ class SystemConfig
         foreach ([
             '~config' => self::configPath(),
             '~system' => self::configPath(),
+            '~project' => self::join(self::rootPath(), 'config'),
             '~pincore' => self::corePath(),
             '~pinker' => self::pathWithoutAlias('pinker', 'pinker'),
             '~storage' => self::pathWithoutAlias('storage', 'storage'),
@@ -226,10 +307,48 @@ class SystemConfig
             return self::$cache[$config];
         }
 
-        $mainFile = self::configPath($config . '.config.php');
+        if (
+            (in_array($config, self::PROJECT_LAYER_CONFIGS, true) || in_array($config, self::MERGED_PLATFORM_CONFIGS, true))
+            && !array_key_exists('paths', self::$cache)
+        ) {
+            self::load('paths');
+        }
 
+        if (in_array($config, self::MERGED_PLATFORM_CONFIGS, true)) {
+            return self::$cache[$config] = self::loadMergedPlatformConfig($config);
+        }
+
+        $mainFile = in_array($config, self::PROJECT_LAYER_CONFIGS, true)
+            ? self::projectLayerConfigFile($config)
+            : self::configPath($config . '.config.php');
+
+        return self::$cache[$config] = self::loadConfigFromFile($config, $mainFile);
+    }
+
+    private static function loadMergedPlatformConfig(string $config): array
+    {
+        $templateFile = self::corePath('config/' . $config . '.config.php');
+        $base = self::loadConfigFromFile($config, $templateFile);
+
+        $manifestFile = self::projectConfigPath($config . '.config.php');
+
+        if (!is_file($manifestFile)) {
+            return $base;
+        }
+
+        $manifest = require $manifestFile;
+
+        if (!is_array($manifest)) {
+            return $base;
+        }
+
+        return array_replace_recursive($base, $manifest);
+    }
+
+    private static function loadConfigFromFile(string $config, string $mainFile): array
+    {
         if (!is_file($mainFile)) {
-            return self::$cache[$config] = [];
+            return [];
         }
 
         if (self::shouldLoadViaPinker($config, $mainFile)) {
@@ -237,13 +356,13 @@ class SystemConfig
             $loaded = Pinker::create($mainFile, $bakedFile)->pickup();
 
             if (is_array($loaded)) {
-                return self::$cache[$config] = $loaded;
+                return $loaded;
             }
         }
 
         $loaded = require $mainFile;
 
-        return self::$cache[$config] = is_array($loaded) ? $loaded : [];
+        return is_array($loaded) ? $loaded : [];
     }
 
     private static function shouldLoadViaPinker(string $config, string $mainFile): bool

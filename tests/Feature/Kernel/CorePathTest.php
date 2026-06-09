@@ -20,9 +20,11 @@ it('resolves the pincore path through the central core path constant', function 
 it('resolves the system app path through the system alias', function () {
     $basePath = corePathTestNormalize(testProjectRoot());
     $corePath = corePathTestNormalize(testCoreRoot());
+    $projectConfig = corePathTestNormalize(testProjectRoot() . '/config');
     $path = new Path($basePath, new NameParser(), new CorePathTestEngine(), null);
 
-    expect($path->get('~system'))->toBe($corePath . '/config')
+    expect($path->get('~system'))->toBe($projectConfig)
+        ->and($path->get('~config'))->toBe($projectConfig)
         ->and($path->get('~pincore/lang/en/file.lang.php'))
         ->toBe($corePath . '/lang/en/file.lang.php');
 });

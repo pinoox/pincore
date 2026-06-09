@@ -155,42 +155,16 @@ it('builds a runtime profile snapshot', function () {
 
 function writeRuntimeModeTestApp(string $package, array $config): void
 {
-    $dir = testProjectRoot() . '/apps/' . $package;
-
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
-
-    file_put_contents($dir . '/app.php', "<?php\n\nreturn " . var_export([
-        'package' => $package,
-        'enable' => true,
-        'name' => $package,
-        ...$config,
-    ], true) . ";\n");
+    writeTestApp($package, $config);
 }
 
 function deleteRuntimeModeTestApp(string $package): void
 {
-    $root = testProjectRoot();
-    deleteRuntimeModeDirectory($root . '/apps/' . $package);
-    deleteRuntimeModeDirectory($root . '/pinker/apps/' . $package);
+    deleteTestApp($package);
 }
 
 function deleteRuntimeModeDirectory(string $dir): void
 {
-    if (!is_dir($dir)) {
-        return;
-    }
-
-    $items = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::CHILD_FIRST,
-    );
-
-    foreach ($items as $item) {
-        $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
-    }
-
-    rmdir($dir);
+    deleteDirectory($dir);
 }
 

@@ -31,8 +31,8 @@ class AppRouterCommand extends Terminal
                 <<<'HELP'
 Maps a URL path to an app package (which app handles /shop, /panel, etc.).
 
-Path routes live in pincore/config/app-router.config.php.
-Host/domain routes live in pincore/config/domain.config.php and are checked first.
+Path routes live in {project}/config/app-router.config.php (stub fallback: pincore/config/).
+Host/domain routes live in {project}/config/domain.config.php and are checked first.
 
 Examples:
 

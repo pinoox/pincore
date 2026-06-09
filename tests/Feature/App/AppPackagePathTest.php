@@ -60,6 +60,7 @@ it('detects package names from a custom apps folder configured by env', function
     } finally {
         putenv('PINOOX_APPS_PATH');
         unset($_ENV['PINOOX_APPS_PATH'], $_SERVER['PINOOX_APPS_PATH']);
+        \Tests\Support\TestRuntime::bootstrap(testProjectRoot());
         SystemConfig::clearCache();
     }
 });

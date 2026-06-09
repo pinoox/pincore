@@ -39,9 +39,24 @@ it('builds test responses with helpers', function () {
 });
 
 it('detects package from app test path', function () {
-    $file = str_replace('\\', '/', AppTestKit::projectRoot()) . '/apps/com_demo/tests/Feature/DemoTest.php';
+    $file = AppTestKit::path('com_demo', 'tests/Feature/DemoTest.php');
 
     expect(AppTestKit::detectPackageFromPath($file))->toBe('com_demo');
+});
+
+it('stores transient fake apps under tests/Fixtures/runtime/apps', function () {
+    if (\Tests\Support\TestRuntime::usesProjectPaths()) {
+        test()->markTestSkipped('Runtime apps path override disabled.');
+    }
+
+    fakeApp('com_test_appkit');
+
+    expect(appPath('com_test_appkit'))->toBe(testRuntimeApps() . '/com_test_appkit')
+        ->and(SystemConfig::path('apps'))->toBe(testRuntimeApps());
+
+    if (AppEngine::exists('com_pinoox_welcome')) {
+        expect(AppEngine::path('com_pinoox_welcome'))->toContain('/apps/com_pinoox_welcome');
+    }
 });
 
 it('detects package from custom apps folder path', function () {
@@ -58,6 +73,7 @@ it('detects package from custom apps folder path', function () {
     } finally {
         putenv('PINOOX_APPS_PATH');
         unset($_ENV['PINOOX_APPS_PATH'], $_SERVER['PINOOX_APPS_PATH']);
+        \Tests\Support\TestRuntime::bootstrap(testProjectRoot());
         SystemConfig::clearCache();
     }
 });

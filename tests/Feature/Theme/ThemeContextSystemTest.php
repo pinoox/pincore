@@ -104,47 +104,41 @@ it('restores previous context after within_theme()', function () {
 
 function writeThemeContextTestApp(array $config, array $themeFiles = []): void
 {
-    $dir = appThemeContextDir();
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
-
+    $package = 'com_test_theme_ctx';
     $app = array_merge([
-        'package' => 'com_test_theme_ctx',
+        'package' => $package,
         'enable' => true,
         'name' => 'Theme Context Test',
         'version-code' => 1,
         'router' => ['routes' => []],
     ], $config);
 
-    file_put_contents($dir . '/app.php', "<?php\n\nreturn " . var_export($app, true) . ";\n");
+    $files = [
+        'app.php' => "<?php\n\nreturn " . var_export($app, true) . ";\n",
+    ];
 
     foreach ($themeFiles as $relative => $content) {
-        $path = $dir . '/theme/' . $relative;
-        $folder = dirname($path);
-        if (!is_dir($folder)) {
-            mkdir($folder, 0777, true);
-        }
-        file_put_contents($path, $content);
+        $files['theme/' . $relative] = $content;
     }
 
     foreach (['site', 'panel', 'kids', 'default'] as $theme) {
-        $marker = $dir . '/theme/' . $theme;
-        if (!is_dir($marker)) {
-            mkdir($marker, 0777, true);
+        $marker = 'theme/' . $theme . '/.gitkeep';
+        if (!isset($files[$marker])) {
+            $files[$marker] = '';
         }
     }
+
+    AppTestKit::fakeApp($package, $files);
 }
 
 function deleteThemeContextTestApp(string $package): void
 {
-    themeContextDeleteDirectory(testProjectRoot() . '/apps/' . $package);
-    themeContextDeleteDirectory(testProjectRoot() . '/pinker/apps/' . $package);
+    AppTestKit::deleteFakeApp($package);
 }
 
 function appThemeContextDir(): string
 {
-    return testProjectRoot() . '/apps/com_test_theme_ctx';
+    return AppTestKit::path('com_test_theme_ctx');
 }
 
 function themeContextDeleteDirectory(string $dir): void

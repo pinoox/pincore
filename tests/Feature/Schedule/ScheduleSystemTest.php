@@ -1,5 +1,6 @@
 <?php
 
+use Pinoox\Component\Test\AppTestKit;
 use Pinoox\Cron\CronExpression;
 use Pinoox\Cron\ScheduleRegistry;
 use Pinoox\Cron\ScheduleRunner;
@@ -136,20 +137,14 @@ PHP);
 
 function scheduleSystemWriteTestApp(string $package, string $schedule): void
 {
-    $dir = testProjectRoot() . '/apps/' . $package;
-
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
-
-    file_put_contents($dir . '/app.php', "<?php\n\nreturn ['package' => '{$package}', 'enable' => true, 'name' => '{$package}'];\n");
-    file_put_contents($dir . '/schedule.php', $schedule);
+    AppTestKit::fakeApp($package, [
+        'schedule.php' => $schedule,
+    ]);
 }
 
 function scheduleSystemDeleteTestApp(string $package): void
 {
-    scheduleSystemDeleteDirectory(testProjectRoot() . '/apps/' . $package);
-    scheduleSystemDeleteDirectory(testProjectRoot() . '/pinker/apps/' . $package);
+    AppTestKit::deleteFakeApp($package);
 }
 
 function scheduleSystemDeleteDirectory(string $dir): void

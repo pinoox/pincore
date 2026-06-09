@@ -25,6 +25,79 @@ it('resolves configurable project paths from env values', function () {
         ->and(SystemConfig::path('wizard_tmp'))->toBe(testFixtures('system_config/custom_pinker/wizard_tmp'));
 });
 
+it('loads deploy configs from project config with pincore stub fallback', function () {
+    $projectConfig = systemConfigTestRoot() . '/deploy_config';
+    $corePath = testCoreRoot();
+
+    deleteSystemConfigTestDirectory($projectConfig);
+    mkdir($projectConfig, 0755, true);
+    file_put_contents(
+        $projectConfig . '/app-router.config.php',
+        "<?php\n\nreturn ['/' => 'com_test_project_router'];\n",
+    );
+
+    setSystemConfigTestEnv('PINOOX_PROJECT_CONFIG_PATH', testFixturesProjectRelative('system_config/deploy_config'));
+    SystemConfig::clearCache();
+
+    expect(SystemConfig::projectConfigPath())->toBe($projectConfig)
+        ->and(SystemConfig::projectLayerConfigFile('app-router'))->toBe($projectConfig . '/app-router.config.php')
+        ->and(SystemConfig::get('app-router', '/'))->toBe('com_test_project_router')
+        ->and(SystemConfig::projectLayerConfigFile('domain'))->toBe($corePath . '/config/domain.config.php');
+
+    deleteSystemConfigTestDirectory($projectConfig);
+});
+
+it('merges platform manifest onto pincore runtime defaults', function () {
+    $projectConfig = systemConfigTestRoot() . '/pinoox_deploy';
+    $corePath = testCoreRoot();
+    $template = include $corePath . '/config/pinoox.config.php';
+
+    deleteSystemConfigTestDirectory($projectConfig);
+    mkdir($projectConfig, 0755, true);
+    file_put_contents(
+        $projectConfig . '/pinoox.config.php',
+        "<?php\n\nreturn ['version_name' => '2.5.0', 'version_code' => 25, 'name' => 'Deploy Project', 'log' => ['level' => 'error']];\n",
+    );
+
+    setSystemConfigTestEnv('PINOOX_PROJECT_CONFIG_PATH', testFixturesProjectRelative('system_config/pinoox_deploy'));
+    SystemConfig::clearCache();
+
+    $kernel = include $corePath . '/config/pincore.config.php';
+
+    expect(SystemConfig::get('pinoox', 'version_name'))->toBe('2.5.0')
+        ->and(SystemConfig::get('pinoox', 'version_code'))->toBe(25)
+        ->and(SystemConfig::get('pinoox', 'name'))->toBe('Deploy Project')
+        ->and(SystemConfig::get('pinoox', 'log.level'))->toBe('error')
+        ->and(SystemConfig::get('pinoox', 'lang'))->toBe($template['lang'])
+        ->and(SystemConfig::get('pincore', 'version_name'))->toBe($kernel['version_name'])
+        ->and(SystemConfig::get('pincore', 'version_code'))->toBe($kernel['version_code']);
+
+    deleteSystemConfigTestDirectory($projectConfig);
+});
+
+it('loads runtime defaults from pincore when manifest only sets version', function () {
+    $projectConfig = systemConfigTestRoot() . '/pinoox_manifest_only';
+    $corePath = testCoreRoot();
+    $template = include $corePath . '/config/pinoox.config.php';
+
+    deleteSystemConfigTestDirectory($projectConfig);
+    mkdir($projectConfig, 0755, true);
+    file_put_contents(
+        $projectConfig . '/pinoox.config.php',
+        "<?php\n\nreturn ['version_name' => '2.5.0', 'version_code' => 25];\n",
+    );
+
+    setSystemConfigTestEnv('PINOOX_PROJECT_CONFIG_PATH', testFixturesProjectRelative('system_config/pinoox_manifest_only'));
+    SystemConfig::clearCache();
+
+    expect(SystemConfig::get('pinoox', 'version_name'))->toBe('2.5.0')
+        ->and(SystemConfig::get('pinoox', 'version_code'))->toBe(25)
+        ->and(SystemConfig::get('pinoox', 'lang'))->toBe($template['lang'])
+        ->and(SystemConfig::get('pinoox', 'log.rotate'))->toBe($template['log']['rotate']);
+
+    deleteSystemConfigTestDirectory($projectConfig);
+});
+
 it('uses top-level patch paths outside the database folders', function () {
     $corePath = testCoreRoot();
 
@@ -126,6 +199,8 @@ function restoreSystemConfigTestEnv(): void
         'PINOOX_APPS_PATH',
         'PINOOX_PINKER_PATH',
         'PINOOX_STORAGE_PATH',
+        'PINOOX_PROJECT_REGISTRY_PATH',
+        'PINOOX_PROJECT_CONFIG_PATH',
     ] as $key) {
         putenv($key);
         unset($_ENV[$key], $_SERVER[$key]);

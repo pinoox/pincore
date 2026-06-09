@@ -27,7 +27,7 @@ class AppDomainCommand extends Terminal
         $this
             ->setHelp(
                 <<<'HELP'
-Shows host and wildcard subdomain mappings from pincore/config/domain.config.php.
+Shows host and wildcard subdomain mappings from {project}/config/domain.config.php.
 
 Domain routing is evaluated before path routes in app-router.config.php.
 

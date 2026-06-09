@@ -82,18 +82,19 @@ it('resolves templates and assets from parent themes', function () {
 it('detects absolute theme asset paths for public url conversion', function () {
     scaffoldThemeInheritanceApps();
 
-    $logoPath = testProjectRoot() . '/apps/com_test_theme_child/theme/brand/logo.png';
+    $logoPath = AppTestKit::path('com_test_theme_child', 'theme/brand/logo.png');
     file_put_contents($logoPath, 'png');
 
     $stack = ThemeStack::resolve('com_test_theme_child');
     $view = new \Pinoox\Component\Template\View($stack['paths'], '', []);
     $filesystemPath = str_replace('\\', '/', $view->assets('logo.png', true));
     $basePath = rtrim(str_replace('\\', '/', testProjectRoot()), '/');
+    $expectedRelative = ltrim(substr(str_replace('\\', '/', $logoPath), strlen($basePath)), '/');
 
     expect($view->isFilesystemPath($filesystemPath))->toBeTrue()
         ->and(assets_is_filesystem_path($filesystemPath))->toBeTrue()
         ->and(ltrim(substr($filesystemPath, strlen($basePath)), '/'))
-        ->toBe('apps/com_test_theme_child/theme/brand/logo.png');
+        ->toBe($expectedRelative);
 
     @unlink($logoPath);
 });
@@ -101,7 +102,7 @@ it('detects absolute theme asset paths for public url conversion', function () {
 it('builds public theme asset urls without leaking filesystem paths', function () {
     scaffoldThemeInheritanceApps();
 
-    $logoPath = testProjectRoot() . '/apps/com_test_theme_child/theme/brand/logo.png';
+    $logoPath = AppTestKit::path('com_test_theme_child', 'theme/brand/logo.png');
     file_put_contents($logoPath, 'png');
 
     $stack = ThemeStack::resolve('com_test_theme_child');
@@ -119,7 +120,7 @@ it('builds public theme asset urls without leaking filesystem paths', function (
 it('resolves assets from another theme folder in the same app', function () {
     scaffoldThemeInheritanceApps();
 
-    $parentLogo = testProjectRoot() . '/apps/com_test_theme_child/theme/default/parent-logo.png';
+    $parentLogo = AppTestKit::path('com_test_theme_child', 'theme/default/parent-logo.png');
     file_put_contents($parentLogo, 'png');
 
     ['file' => $file, 'theme' => $theme] = \Pinoox\Component\Template\Theme\ThemeAssets::parseThemedLink('@default/parent-logo.png');
@@ -174,33 +175,25 @@ function scaffoldThemeInheritanceApps(bool $withThemePhp = false): void
 
 function writeThemeInheritanceApp(string $package, array $config, array $themeFiles): void
 {
-    $dir = testProjectRoot() . '/apps/' . $package;
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
-
-    file_put_contents($dir . '/app.php', "<?php\n\nreturn " . var_export([
-        'package' => $package,
-        'enable' => true,
-        'name' => $package,
-        ...$config,
-    ], true) . ";\n");
+    $files = [
+        'app.php' => "<?php\n\nreturn " . var_export([
+            'package' => $package,
+            'enable' => true,
+            'name' => $package,
+            ...$config,
+        ], true) . ";\n",
+    ];
 
     foreach ($themeFiles as $relative => $content) {
-        $target = $dir . '/theme/' . str_replace('/', DIRECTORY_SEPARATOR, $relative);
-        $folder = dirname($target);
-        if (!is_dir($folder)) {
-            mkdir($folder, 0777, true);
-        }
-        file_put_contents($target, $content);
+        $files['theme/' . str_replace('\\', '/', $relative)] = $content;
     }
+
+    AppTestKit::fakeApp($package, $files);
 }
 
 function deleteThemeInheritanceTestApp(string $package): void
 {
-    $root = testProjectRoot();
-    deleteThemeInheritanceDirectory($root . '/apps/' . $package);
-    deleteThemeInheritanceDirectory($root . '/pinker/apps/' . $package);
+    AppTestKit::deleteFakeApp($package);
 }
 
 function deleteThemeInheritanceDirectory(string $dir): void

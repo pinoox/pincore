@@ -2,15 +2,19 @@
 
 use Pinoox\Component\Package\Scaffold\AppCreateInput;
 use Pinoox\Component\Package\Scaffold\AppCreateScaffolder;
+use Pinoox\Component\Test\AppTestKit;
 use Pinoox\Portal\FileSystem;
 use Pinoox\Support\SystemConfig;
 
+beforeEach(function () {
+    foreach (['com_test_create_none', 'com_test_create_vue', 'com_test_create_vite', 'com_test_read_package'] as $package) {
+        AppTestKit::deleteFakeApp($package);
+    }
+});
+
 afterEach(function () {
     foreach (['com_test_create_none', 'com_test_create_vue', 'com_test_create_vite', 'com_test_read_package'] as $package) {
-        $dir = SystemConfig::path('apps') . '/' . $package;
-        if (is_dir($dir)) {
-            FileSystem::remove($dir);
-        }
+        AppTestKit::deleteFakeApp($package);
     }
 });
 

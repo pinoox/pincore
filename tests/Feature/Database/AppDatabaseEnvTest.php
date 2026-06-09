@@ -345,7 +345,7 @@ it('maps app .env database keys through AppEnvBridge', function () {
 
 
 
-    $appRoot = testProjectRoot() . '/apps/' . $package;
+    $appRoot = appPath($package);
 
     file_put_contents($appRoot . '/.env', "DB_USE=mariadb\nDB_PREFIX=envshop_\nLANG=fa\n");
 
@@ -397,7 +397,7 @@ it('does not map project DB_CONNECTION from app .env onto app config', function 
 
 
 
-    $appRoot = testProjectRoot() . '/apps/' . $package;
+    $appRoot = appPath($package);
 
     file_put_contents($appRoot . '/.env', "DB_CONNECTION=mysql\nLANG=fa\n");
 

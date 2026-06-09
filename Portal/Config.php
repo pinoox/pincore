@@ -63,6 +63,14 @@ class Config extends Portal
 
     private static function initFileConfig(string|ReferenceInterface $fileName): ObjectPortal1
     {
+        if (self::isPinooxConfigReference($fileName)) {
+            return self::initPinooxConfig();
+        }
+
+        if (self::isPincoreConfigReference($fileName)) {
+            return self::initPincoreConfig();
+        }
+
         if (is_string($fileName)) {
         $fileName = $fileName . '.' . self::ext;
         }
@@ -86,6 +94,59 @@ class Config extends Portal
         }
 
         $pinker = Pinker::file($ref);
+        return self::create(new FileConfigStrategy($pinker));
+    }
+
+    private static function isPinooxConfigReference(string|ReferenceInterface $fileName): bool
+    {
+        if ($fileName instanceof ReferenceInterface) {
+            $value = (string) $fileName->getValue();
+
+            return str_ends_with($value, 'pinoox.config.php')
+                || str_ends_with($value, 'pinoox');
+        }
+
+        return preg_match('#~pinoox(\.config\.php)?$#', $fileName) === 1;
+    }
+
+    private static function initPinooxConfig(): ObjectPortal1
+    {
+        $templateFile = SystemConfig::platformPinooxTemplateFile();
+        $bakedFile = Pinker::bakedFileFromSource($templateFile);
+        $pinker = Pinker::create(is_file($templateFile) ? $templateFile : '', $bakedFile);
+        $strategy = new FileConfigStrategy($pinker);
+
+        $manifestFile = SystemConfig::platformPinooxManifestFile();
+
+        if (is_file($manifestFile)) {
+            $manifest = require $manifestFile;
+
+            if (is_array($manifest) && $manifest !== []) {
+                $strategy->merge($manifest);
+            }
+        }
+
+        return self::create($strategy);
+    }
+
+    private static function isPincoreConfigReference(string|ReferenceInterface $fileName): bool
+    {
+        if ($fileName instanceof ReferenceInterface) {
+            $value = (string) $fileName->getValue();
+
+            return str_ends_with($value, 'pincore.config.php')
+                || str_ends_with($value, 'pincore');
+        }
+
+        return preg_match('#~pincore(\.config\.php)?$#', $fileName) === 1;
+    }
+
+    private static function initPincoreConfig(): ObjectPortal1
+    {
+        $mainFile = SystemConfig::corePath('config/pincore.config.php');
+        $bakedFile = Pinker::bakedFileFromSource($mainFile);
+        $pinker = Pinker::create(is_file($mainFile) ? $mainFile : '', $bakedFile);
+
         return self::create(new FileConfigStrategy($pinker));
     }
 
