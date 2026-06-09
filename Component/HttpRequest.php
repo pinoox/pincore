@@ -11,9 +11,7 @@
  * @license  https://opensource.org/licenses/MIT MIT License
  */
 
-
 namespace Pinoox\Component;
-
 
 use Pinoox\Component\Helpers\HelperHeader;
 use Pinoox\Component\Helpers\Str;
@@ -26,7 +24,6 @@ class HttpRequest
     const PUT = 'PUT';
     const DELETE = 'DELETE';
     const PATCH = 'PATCH';
-
 
     const json = 'json';
     const form = 'form';
@@ -339,7 +336,7 @@ class HttpRequest
 
             // options
             $headers = $this->getHeaders();
-            curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, Url::isHttps());
+            curl_setopt($curl, CURLOPT_SSL_VERIFYPEER, Url::isSecure());
             curl_setopt($curl, CURLOPT_URL, $url);
             curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
             curl_setopt($curl, CURLOPT_RETURNTRANSFER, 1);

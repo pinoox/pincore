@@ -17,6 +17,7 @@ namespace Pinoox\Portal\Wizard;
 use Pinoox\Component\Source\Portal;
 use Pinoox\Component\Wizard\Wizard as ObjectPortal1;
 use Pinoox\Portal\App\AppEngine;
+use Pinoox\Support\SystemConfig;
 
 /**
  * @method static array|bool install()
@@ -35,17 +36,14 @@ use Pinoox\Portal\App\AppEngine;
  */
 class AppWizard extends Portal
 {
-     private const tmpPathRoot = 'wizard_tmp';
-
     public static function __register(): void
     {
-        $tmpPath = path('pinker/' . self::tmpPathRoot);
+        $tmpPath = SystemConfig::path('wizard_tmp');
         self::__bind(\Pinoox\Component\Wizard\AppWizard::class)->setArguments([
             $tmpPath,
             AppEngine::__ref()
         ]);
     }
-
 
     /**
      * Get the registered name of the component.
@@ -56,7 +54,6 @@ class AppWizard extends Portal
         return 'app.wizard';
     }
 
-
     /**
      * Get exclude method names .
      * @return string[]
@@ -65,7 +62,6 @@ class AppWizard extends Portal
     {
         return [];
     }
-
 
     /**
      * Get method names for callback object.
@@ -78,3 +74,4 @@ class AppWizard extends Portal
         ];
     }
 }
+

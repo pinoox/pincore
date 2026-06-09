@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -245,7 +246,7 @@ abstract class Wizard implements WizardInterface
      */
     protected function targetFile(): string
     {
-        return $this->type === 'app' ? 'app.php' : 'meta.json';
+        return $this->type === 'app' ? 'app.php' : 'theme.php';
     }
 
     /**
@@ -311,11 +312,7 @@ abstract class Wizard implements WizardInterface
      */
     protected function loadTargetFileFromPin(): void
     {
-        if ($this->type == 'template') {
-            $this->info = json_decode(file_get_contents($this->tmpPathPackage . '/' . $this->targetFile()), true);
-        } else {
-            $this->info = include $this->tmpPathPackage . '/' . $this->targetFile();
-        }
+        $this->info = include $this->tmpPathPackage . '/' . $this->targetFile();
 
         $this->setPackage();
 
@@ -342,3 +339,4 @@ abstract class Wizard implements WizardInterface
             FileSystem::remove($this->tmpPathPackage);
     }
 }
+

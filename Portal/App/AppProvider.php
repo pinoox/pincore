@@ -27,7 +27,10 @@ use Pinoox\Portal\Event;
 use Pinoox\Portal\Kernel\HttpKernel;
 use Pinoox\Portal\Kernel\Terminal;
 use Pinoox\Portal\Session;
-use Symfony\Component\ErrorHandler\Debug;
+use Pinoox\Component\Kernel\Debug\PinooxDebug;
+use Pinoox\Component\Runtime\RuntimeMode;
+use Pinoox\Component\Store\Config\Config as ConfigStore;
+use Pinoox\Support\SystemConfig;
 
 /**
  * @method static AppProvider prerequisite()
@@ -55,7 +58,10 @@ class AppProvider extends Portal
             Session::__ref(),
             Event::__ref(),
         ]);
+    }
 
+    public static function __boot(): void
+    {
         self::require();
     }
 
@@ -63,9 +69,18 @@ class AppProvider extends Portal
     {
         SessionStarter::configureSavePath();
         Dumper::register();
-        Debug::enable();
+
         Env::register();
-        DB::register();
+        SystemConfig::clearCache();
+        ConfigStore::reloadEnvSensitive();
+
+        if (RuntimeMode::bootDebugEnabled()) {
+            PinooxDebug::enable();
+        }
+
+        if (PHP_SAPI !== 'cli') {
+            DB::register();
+        }
     }
 
     /**
@@ -77,3 +92,4 @@ class AppProvider extends Portal
         return 'app.provider';
     }
 }
+

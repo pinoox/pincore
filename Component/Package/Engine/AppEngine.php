@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -10,10 +11,12 @@
  * @license  https://opensource.org/licenses/MIT MIT License
  */
 
-
 namespace Pinoox\Component\Package\Engine;
 
-
+use Pinoox\Component\AppEvent\AppBootstrap;
+use Pinoox\Component\Cache\AppCacheConfig;
+use Pinoox\Component\Cache\Store\RouteCacheStore;
+use Pinoox\Component\Router\Action\ActionRegistry;
 use Pinoox\Component\Package\AppManager;
 use Pinoox\Component\Package\Loader\ArrayLoader;
 use Pinoox\Component\Package\Loader\ChainLoader;
@@ -21,7 +24,9 @@ use Pinoox\Component\Package\Loader\LoaderInterface;
 use Pinoox\Component\Package\Loader\PackageLoader;
 use Pinoox\Component\Package\Reference\ReferenceInterface;
 use Pinoox\Component\Path\Manager\PathManager;
+use Pinoox\Component\Kernel\Loader;
 use Pinoox\Component\Router\Router;
+use Pinoox\Component\Package\AppEnv\AppEnvBridge;
 use Pinoox\Component\Store\Config\Config;
 use Pinoox\Component\Store\Config\Strategy\FileConfigStrategy;
 use Pinoox\Component\Store\Baker\Pinker;
@@ -71,9 +76,15 @@ class AppEngine implements EngineInterface
      * @param string $appFile
      * @param string $folderPinker
      */
-    public function __construct(private string $pathApp, private string $appFile, private string $folderPinker, ?array $defaultData = null)
+    public function __construct(
+        private string $pathApp,
+        private string $appFile,
+        private string $folderPinker,
+        ?array $defaultData = null,
+        array $packages = [],
+    )
     {
-        $this->arrayLoader = new ArrayLoader($appFile);
+        $this->arrayLoader = new ArrayLoader($appFile, $packages);
         $this->packageLoader = new PackageLoader($appFile, $pathApp);
         $this->initDefaultData($defaultData);
 
@@ -95,6 +106,15 @@ class AppEngine implements EngineInterface
     public function getDefaultData() : array
     {
         return $this->defaultData;
+    }
+
+    public function __portalRebuild(): void
+    {
+        $this->appConfig = [];
+        $this->appLang = [];
+        $this->router = [];
+        $this->appManager = [];
+        $this->pathManager = [];
     }
 
     public function stable(string|ReferenceInterface $packageName): bool
@@ -131,8 +151,22 @@ class AppEngine implements EngineInterface
         $routes = $this->config($packageName)->get('router.routes');
         if (empty($this->router[$packageName][$path])) {
             $this->router[$packageName][$path] = \Pinoox\Portal\Router::build($path, $routes);
+            AppBootstrap::applyRoutes($packageName, $this->router[$packageName][$path], false);
+            self::warmRouteCache($packageName);
         }
         return $this->router[$packageName][$path];
+    }
+
+    private static function warmRouteCache(string $package): void
+    {
+        if (!AppCacheConfig::storeEnabled('routes', $package)) {
+            return;
+        }
+
+        $actions = RouteCacheStore::loadActions($package);
+        if ($actions !== null) {
+            ActionRegistry::importManifest($package, $actions, mergeRuntimeHandlers: true);
+        }
     }
 
     public function manager(ReferenceInterface|string $packageName): AppManager
@@ -176,19 +210,33 @@ class AppEngine implements EngineInterface
 
         if (empty($this->appConfig[$packageName])) {
             $mainFile = $this->path($packageName, $this->appFile);
-            $bakedFile = $this->path($packageName, $this->folderPinker . '/' . $this->appFile);
+            $basePath = rtrim(str_replace('\\', '/', (string)Loader::getBasePath()), '/');
+            $pinkerPath = rtrim(str_replace('\\', '/', $this->folderPinker), '/');
+            if (!preg_match('/^[A-Za-z]:\//', $pinkerPath) && !str_starts_with($pinkerPath, '/')) {
+                $pinkerPath = $basePath . '/' . $pinkerPath;
+            }
+
+            $bakedFile = $pinkerPath . '/apps/' . $packageName . '/' . $this->appFile;
             $pinker = new Pinker($mainFile, $bakedFile);
             $pinker
-                ->dumping(true);
+                ->dumping(true)
+                ->runtimeDefaults($this->defaultData);
             $fileStrategy = new FileConfigStrategy($pinker);
             $config = new Config($fileStrategy);
-            $config->merge($this->defaultData);
+
+            $pickup = $pinker->pickup();
+            $resolved = array_replace_recursive(
+                $this->defaultData,
+                is_array($pickup) ? $pickup : [],
+            );
+
+            $config->setData($resolved);
             $config->set('package', $packageName);
+            AppEnvBridge::apply($config, $packageName, $this->path($packageName));
             $this->appConfig[$packageName] = $config;
         }
         return $this->appConfig[$packageName];
     }
-
 
     /**
      * Exists app.
@@ -210,6 +258,11 @@ class AppEngine implements EngineInterface
     public function add(string $packageName, string $path): void
     {
         $this->arrayLoader->add($packageName, $path);
+    }
+
+    public function registeredPackages(): array
+    {
+        return $this->arrayLoader->getPackages();
     }
 
     /**
@@ -265,7 +318,6 @@ class AppEngine implements EngineInterface
         return !!preg_match('/^[a-zA-Z]+[a-zA-Z0-9]*+[_]\s{0,1}[a-zA-Z0-9]+[_]\s{0,1}[a-zA-Z0-9]+[_]{0,1}[a-zA-Z0-9]+$/m', $packageName);
     }
 
-
     public function all(): array
     {
         $files = [];
@@ -285,6 +337,7 @@ class AppEngine implements EngineInterface
         /**
          * @var SplFileInfo $file
          */
+
         foreach ($files as $file) {
             $package = $file->getRelativePath();
             if ($this->supports($package)) {
@@ -294,3 +347,4 @@ class AppEngine implements EngineInterface
         return $result;
     }
 }
+

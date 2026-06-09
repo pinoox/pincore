@@ -14,11 +14,11 @@
 
 namespace Pinoox\Portal;
 
-use Pinoox\Component\Foundation\ApplicationPaths;
-use Pinoox\Component\Package\Reference\NameReference;
+use Pinoox\Component\Kernel\Loader;
 use Pinoox\Component\Package\Reference\ReferenceInterface;
 use Pinoox\Component\Source\Portal;
 use Pinoox\Component\Store\Baker\Pinker as ObjectPortal1;
+use Pinoox\Support\SystemConfig;
 
 /**
  * @method static \Pinoox\Component\Store\Baker\Pinker create(string $mainFile = '', string $bakedFile = '', ?Pinoox\Component\Store\Baker\FileHandlerInterface $fileHandler = NULL)
@@ -36,17 +36,16 @@ class Pinker extends Portal
 		self::__bind(ObjectPortal1::class);
 	}
 
-
 	public static function folder(string $path, string $file): ObjectPortal1
 	{
-		$mainFile = $path . '/' . $file;
+		$mainFilePath = self::ds($path . '/' . $file);
+		$mainFile = $mainFilePath;
 		$mainFile = is_file($mainFile) ? $mainFile : '';
 
-		$bakedFile = $path . '/' . self::folder . '/' . $file;
+		$bakedFile = self::bakedFileFromSource($mainFilePath);
 
 		return self::create($mainFile, $bakedFile);
 	}
-
 
 	/**
 	 * get pinker by file
@@ -56,46 +55,11 @@ class Pinker extends Portal
 	 */
 	public static function file(string|ReferenceInterface $fileName): ObjectPortal1
 	{
-		$reference = Path::reference($fileName);
-
-		if ($reference->getPackageName() === '~') {
-			return self::coreConfigPinker($reference);
-		}
-
-		$mainFile = Path::createPath($fileName, 'pincore');
-		$mainFile = is_file($mainFile) ? $mainFile : '';
-		$bakedFileName = !is_string($fileName) ? $fileName->getValue() : $fileName;
-		$bakedFileName = self::folder . '/' . $bakedFileName;
-
-		if (!is_string($fileName)) {
-		    $fileName = NameReference::create($fileName->getPackageName(), $bakedFileName);
-		}
-
-		$bakedFile = Path::createPath($fileName, 'pincore');
-
+		$mainFilePath = self::ds(Path::resolve($fileName, 'pincore'));
+		$mainFile = is_file($mainFilePath) ? $mainFilePath : '';
+		$bakedFile = self::bakedFileFromSource($mainFilePath);
 		return self::create($mainFile, $bakedFile);
 	}
-
-	private static function coreConfigPinker(ReferenceInterface $reference): ObjectPortal1
-	{
-		$relative = $reference->getValue();
-
-		if (str_starts_with($relative, self::folder . '/')) {
-			$relative = substr($relative, strlen(self::folder) + 1);
-		}
-
-		$mainFile = ApplicationPaths::pincorePath() . $relative;
-		$mainFile = is_file($mainFile) ? $mainFile : '';
-
-		$configRelative = str_starts_with($relative, 'config/')
-		    ? substr($relative, strlen('config/'))
-		    : $relative;
-
-		$bakedFile = ApplicationPaths::runtimeConfigPath($configRelative);
-
-		return self::create($mainFile, $bakedFile);
-	}
-
 
 	/**
 	 * get pinker by path
@@ -107,18 +71,49 @@ class Pinker extends Portal
 	public static function path(string $file, ?string $basePath = null): ObjectPortal1
 	{
 		$basePath = !empty($basePath) ? $basePath . '/' : '';
+		$mainFile = self::ds($basePath . $file);
+		if (!self::isAbsolutePath($mainFile) && is_string(Loader::getBasePath())) {
+			$mainFile = self::ds(Loader::getBasePath() . '/' . $mainFile);
+		}
+
 		return self::create(
-		    self::ds($basePath . $file),
-		    self::ds($basePath . Pinker::folder . '/' . $file),
+		    $mainFile,
+		    self::bakedFileFromSource($mainFile),
 		);
 	}
 
+	public static function bakedFileFromSource(string $sourceFile): string
+	{
+		$sourceFile = self::ds($sourceFile);
+		$basePath = self::rootPath();
+		$relative = $sourceFile;
+		$corePath = defined('PINOOX_CORE_PATH') ? rtrim(self::ds(\PINOOX_CORE_PATH), '/') : $basePath . '/pincore';
+
+		if (!empty($corePath) && str_starts_with($sourceFile, $corePath . '/config/')) {
+			$relative = 'config' . substr($sourceFile, strlen($corePath . '/config'));
+		} elseif (!empty($corePath) && ($sourceFile === $corePath || str_starts_with($sourceFile, $corePath . '/'))) {
+			$relative = 'pincore' . substr($sourceFile, strlen($corePath));
+		} elseif (!empty($basePath) && str_starts_with($sourceFile, $basePath . '/')) {
+			$relative = substr($sourceFile, strlen($basePath) + 1);
+		}
+
+		return self::ds(SystemConfig::path('pinker') . '/' . ltrim($relative, '/'));
+	}
+
+	public static function rootPath(): string
+	{
+		return rtrim(self::ds((string)Loader::getBasePath()), '/');
+	}
+
+	private static function isAbsolutePath(string $path): bool
+	{
+		return preg_match('/^[A-Za-z]:\//', $path) === 1 || str_starts_with($path, '/');
+	}
 
 	public static function ds(string $path): string
 	{
 		return str_replace('\\', '/', $path);
 	}
-
 
 	/**
 	 * Get the registered name of the component.
@@ -129,7 +124,6 @@ class Pinker extends Portal
 		return 'pinker';
 	}
 
-
 	/**
 	 * Get include method names .
 	 * @return string[]
@@ -138,7 +132,6 @@ class Pinker extends Portal
 	{
 		return ['file', 'create','build'];
 	}
-
 
 	/**
 	 * Get method names for callback object.
@@ -149,3 +142,4 @@ class Pinker extends Portal
 		return [];
 	}
 }
+

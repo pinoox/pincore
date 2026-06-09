@@ -14,18 +14,38 @@
 namespace Pinoox\Model\Scope;
 
 
+use Closure;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Scope;
 
 class AppScope implements Scope
 {
-    public function __construct(private readonly string $app)
+    /** @param Closure(): list<string> $resolver */
+    public function __construct(private readonly Closure $resolver)
     {
+    }
+
+    /**
+     * @param Closure(): list<string> $resolver
+     */
+    public static function for(Closure $resolver): self
+    {
+        return new self($resolver);
     }
 
     public function apply(Builder $builder, Model $model)
     {
-        return $builder->where('app', $this->app);
+        $apps = ($this->resolver)();
+
+        if ($apps === []) {
+            return $builder;
+        }
+
+        if (count($apps) === 1) {
+            return $builder->where('app', $apps[0]);
+        }
+
+        return $builder->whereIn('app', $apps);
     }
 }

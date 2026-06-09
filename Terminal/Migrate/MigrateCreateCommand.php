@@ -11,18 +11,22 @@ use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Finder\Finder;
 
 #[AsCommand(
     name: 'migrate:create',
-    description: 'Create a new Migration Schema.',
+    description: 'Create a new database migration file',
+    aliases: ['mg:create', 'mg:make'],
 )]
+
 class MigrateCreateCommand extends Terminal
 {
+    use SelectsMigrationPackage;
+
     private string $package;
 
     private string $migration;
-
 
     /**
      * @var MigrationToolkit
@@ -32,15 +36,16 @@ class MigrateCreateCommand extends Terminal
     protected function configure(): void
     {
         $this
-            ->addArgument('migration', InputArgument::REQUIRED, 'Enter name of migration name')
-            ->addArgument('package', InputArgument::OPTIONAL, 'Enter the package name of app you want to migrate schemas',$this->getDefaultPackage());
+            ->setHelp('Example: php pinoox migrate:create create_products_table com_my_shop')
+            ->addArgument('migration', InputArgument::REQUIRED, 'Migration name (e.g. create_products_table)')
+            ->addArgument('package', InputArgument::OPTIONAL, 'App package or platform. Leave empty to pick from the list.');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         parent::execute($input, $output);
 
-        $this->package = $input->getArgument('package');
+        $this->package = $this->resolvePackage($input, $output, new SymfonyStyle($input, $output));
         $this->migration = $input->getArgument('migration');
 
         $this->init();
@@ -48,7 +53,6 @@ class MigrateCreateCommand extends Terminal
 
         return Command::SUCCESS;
     }
-
 
     private function init(): void
     {
@@ -71,7 +75,8 @@ class MigrateCreateCommand extends Terminal
             $isCreated = StubGenerator::generate('migration.create.stub', $this->getExportPath(), [
                 'copyright' => StubGenerator::get('copyright.stub'),
                 'table' => $this->mig->getTableName(),
-                'namespace' => "App\\$this->package\migrations",
+                'package' => $this->package,
+                'namespace' => $this->getNamespace(),
             ]);
 
             if ($isCreated) {
@@ -104,4 +109,12 @@ class MigrateCreateCommand extends Terminal
         return $this->mig->filePath() . '.php';
     }
 
+    private function getNamespace(): string
+    {
+        return $this->package === 'platform'
+            ? 'Pinoox\\Database\\migrations'
+            : 'App\\' . $this->package . '\\database\\migrations';
+    }
+
 }
+

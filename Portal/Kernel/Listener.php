@@ -16,6 +16,8 @@ namespace Pinoox\Portal\Kernel;
 
 use Pinoox\Component\Kernel\Listener\ActionRoutesManageListener;
 use Pinoox\Component\Kernel\Listener\ExceptionListener;
+use Pinoox\Component\Kernel\Listener\PinooxExceptionRenderListener;
+use Pinoox\Component\Kernel\Listener\QueryRouteCanonicalListener;
 use Pinoox\Component\Kernel\Listener\QueryRouteListener;
 use Pinoox\Component\Kernel\Listener\RequestListener;
 use Pinoox\Component\Kernel\Listener\RouteEmptyListener;
@@ -24,13 +26,10 @@ use Pinoox\Component\Kernel\Listener\RouterListener;
 use Pinoox\Component\Kernel\Listener\TransactionalListener;
 use Pinoox\Component\Kernel\Listener\ViewListener;
 use Pinoox\Component\Source\Portal;
-use Pinoox\Controller\ErrorController;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\Database\DB;
-use Pinoox\Portal\Cache;
 use Pinoox\Portal\Logger;
 use Pinoox\Portal\Validation;
-use Symfony\Component\HttpKernel\EventListener\ErrorListener;
 use Symfony\Component\HttpKernel\EventListener\ResponseListener;
 
 class Listener extends Portal
@@ -46,6 +45,7 @@ class Listener extends Portal
             ->setArgument('debug', false);
 
         self::__bind(RouteEmptyListener::class, 'routeEmpty');
+        self::__bind(QueryRouteCanonicalListener::class, 'queryRouteCanonical');
         self::__bind(QueryRouteListener::class, 'queryRoute');
         self::__bind(ViewListener::class, 'view');
         self::__bind(RequestListener::class, 'request')->setArguments([
@@ -61,8 +61,7 @@ class Listener extends Portal
 
         self::__bind(ExceptionListener::class, 'exception');
 
-        self::__bind(ErrorListener::class, 'core_exception')
-            ->setArguments([[ErrorController::class, 'exception']]);
+        self::__bind(PinooxExceptionRenderListener::class, 'pinooxExceptionRender');
 
         self::__bind(TransactionalListener::class, 'transactional')
             ->setArguments([DB::__ref()]);
@@ -77,7 +76,6 @@ class Listener extends Portal
         return 'kernel.listener';
     }
 
-
     /**
      * Get method names for callback object.
      * @return string[]
@@ -86,7 +84,6 @@ class Listener extends Portal
     {
         return [];
     }
-
 
     /**
      * Get exclude method names .
@@ -97,3 +94,4 @@ class Listener extends Portal
         return [];
     }
 }
+

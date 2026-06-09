@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -42,8 +43,11 @@ class Terminal extends Command
     #[NoReturn] protected function error($message, $newLine = true): void
     {
         $this->output->write("<error>$message</error>");
-        if ($newLine) $this->newline();
-        exit;
+        if ($newLine) {
+            $this->output->writeln('');
+        }
+
+        throw new TerminalAbortException(is_string($message) ? $message : (string) $message);
     }
 
     protected function success($message, $newLine = true): void
@@ -69,9 +73,9 @@ class Terminal extends Command
         $this->output->writeln('');
     }
 
-    #[NoReturn] protected function stop(): void
+    protected function stop(): void
     {
-        exit;
+        throw new TerminalAbortException('Command stopped.');
     }
 
     protected function table($columns, $rows)
@@ -91,9 +95,8 @@ class Terminal extends Command
         return $io->askQuestion($question);
     }
 
-
     protected function getDefaultPackage(): string
     {
-        return _env('PINOOX_CLI_PACKAGE', 'pincore');
+        return _env('PINOOX_CLI_PACKAGE', \Pinoox\Support\Platform::PACKAGE);
     }
 }

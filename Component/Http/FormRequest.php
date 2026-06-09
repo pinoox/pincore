@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -10,12 +11,11 @@
  * @license  https://opensource.org/licenses/MIT MIT License
  */
 
-
 namespace Pinoox\Component\Http;
 
 use Illuminate\Support\MessageBag;
 use Illuminate\Support\ValidatedInput;
-use Pinoox\Component\Upload\FileUploader;
+use Pinoox\Component\File\UploadBuilder;
 use Pinoox\Component\Validation\AuthorizationException;
 use Pinoox\Component\Validation\ValidationException;
 use Illuminate\Validation\Validator;
@@ -59,6 +59,7 @@ abstract class FormRequest
         $this->files = $request->files;
         $this->cookies = $request->cookies;
         $this->request = $request->request;
+        $this->query = $request->query;
         $this->server = $request->server;
         $this->headers = $request->headers;
         $this->parameters = $request->parameters;
@@ -67,6 +68,31 @@ abstract class FormRequest
     public function getPayload(): InputBag
     {
         return $this->global->getPayload();
+    }
+
+    public function payload(string $key, mixed $default = null): mixed
+    {
+        return $this->global->payload($key, $default);
+    }
+
+    public function payloadMany(string|array $keys, mixed $default = null, mixed $removeNull = false): array
+    {
+        return $this->global->payloadMany($keys, $default, $removeNull);
+    }
+
+    public function queryOne($key, mixed $default = null): mixed
+    {
+        return $this->global->queryOne($key, $default);
+    }
+
+    public function only(array $keys): array
+    {
+        return $this->global->only($keys);
+    }
+
+    public function except(array $keys): array
+    {
+        return $this->global->except($keys);
     }
 
     public function validate($key = null, $default = null)
@@ -84,12 +110,19 @@ abstract class FormRequest
         return true;
     }
 
+    protected function authorizeAbility(string|array $abilities, bool $requireAll = false): void
+    {
+        if (!\Pinoox\Portal\Access::can($abilities, null, $requireAll)) {
+            throw new AuthorizationException('This action is unauthorized.');
+        }
+    }
+
     public function file(string $key, mixed $default = null): UploadedFile
     {
         return $this->global->file($key, $default);
     }
 
-    public function store(string $key, $destination, $access = 'public', mixed $default = null): ?FileUploader
+    public function store(string $key, $destination, $access = 'public', mixed $default = null): ?UploadBuilder
     {
         return $this->global->store($key, $destination, $access, $default);
     }
@@ -118,7 +151,6 @@ abstract class FormRequest
 
         return $this->with($validator);
     }
-
 
     protected function addAfterArrayToValidator(Validator $validator): void
     {
@@ -294,7 +326,6 @@ abstract class FormRequest
         return $validator;
     }
 
-
     protected function getValidatorInstance(): Validator
     {
         return $this->validation();
@@ -350,3 +381,4 @@ abstract class FormRequest
         return [];
     }
 }
+

@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -9,7 +10,6 @@
  * @link https://www.pinoox.com/
  * @license  https://opensource.org/licenses/MIT MIT License
  */
-
 
 namespace Pinoox\Component\Template\Engine;
 
@@ -39,20 +39,23 @@ class TwigEngine implements EngineInterface
     public Environment $template;
 
     /**
-     * TwigEngine constructor.
      * @param TemplateNameParserInterface $parser
-     * @param LoaderInterface|string|array $folder
-     * @param string|null $rootPath
+     * @param LoaderInterface|string|list<string> $paths Absolute theme paths or custom loader
+     * @param array<string, mixed> $environmentOptions Twig Environment constructor options
      */
-    public function __construct(TemplateNameParserInterface $parser, LoaderInterface|string|array $folder, ?string $rootPath = null)
-    {
-
-        if ($folder instanceof LoaderInterface) {
-            $this->fileLoader = $folder;
+    public function __construct(
+        TemplateNameParserInterface $parser,
+        LoaderInterface|string|array $paths,
+        array $environmentOptions = [],
+    ) {
+        if ($paths instanceof LoaderInterface) {
+            $this->fileLoader = $paths;
         } else {
-            $this->fileLoader = new FilesystemLoader($folder, $rootPath);
+            $this->fileLoader = new FilesystemLoader();
+            foreach ($this->normalizePaths($paths) as $path) {
+                $this->fileLoader->addPath($path);
+            }
         }
-
 
         $this->arrayLoader = new ArrayLoader();
         $this->loader = new ChainLoader([
@@ -60,7 +63,26 @@ class TwigEngine implements EngineInterface
             $this->fileLoader
         ]);
         $this->parser = $parser;
-        $this->template = new Environment($this->loader);
+        $this->template = new Environment($this->loader, $environmentOptions);
+    }
+
+    /**
+     * @param string|list<string> $paths
+     * @return list<string>
+     */
+    private function normalizePaths(string|array $paths): array
+    {
+        $paths = is_array($paths) ? $paths : [$paths];
+        $normalized = [];
+
+        foreach ($paths as $path) {
+            $path = rtrim(str_replace('\\', '/', (string) $path), '/');
+            if ($path !== '' && is_dir($path)) {
+                $normalized[] = $path;
+            }
+        }
+
+        return $normalized;
     }
 
     /**
@@ -183,12 +205,11 @@ class TwigEngine implements EngineInterface
                 if (count($functions) > 1) {
                     $functions = $functions[1];
                 }
-                $namespace = $isNamespace ? File::extract_namespace(Dir::path('~pincore/boot/routes.php')) : null;
+                $namespace = $isNamespace ? File::extract_namespace(Path::get('~pincore/boot/routes.php')) : null;
                 $this->addInternalFunction($functions, $namespace);
             }
         }
     }
-
 
     /**
      * render view

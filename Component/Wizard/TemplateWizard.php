@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -23,13 +24,12 @@ class TemplateWizard extends Wizard implements WizardInterface
     {
         parent::open($path);
 
-        //extract target file (meta.json)
+        //extract target file (theme.php)
         $this->extractTemp($this->targetFile());
         $this->loadTargetFileFromPin();
 
         return $this;
     }
-
 
     /**
      * @throws ZipException
@@ -42,7 +42,6 @@ class TemplateWizard extends Wizard implements WizardInterface
             'listFiles' => $zip->getListFiles(),
         ];
     }
-
 
     public function getInfo(): array|null
     {

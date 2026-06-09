@@ -1,4 +1,5 @@
 <?php
+
 /**
  *      ****  *  *     *  ****  ****  *    *
  *      *  *  *  * *   *  *  *  *  *   *  *
@@ -10,19 +11,14 @@
  * @license  https://opensource.org/licenses/MIT MIT License
  */
 
-
 namespace Pinoox\Component\Helpers;
 
-
 use Pinoox\Component\Store\Config\Data\DataManager;
-use Pinoox\Portal\FileSystem;
-use Symfony\Component\Dotenv\Dotenv;
-use Symfony\Component\Dotenv\Exception\PathException;
-use Symfony\Component\Templating\Storage\FileStorage;
 
 class Env
 {
     private static $dataManager;
+
     private static $initData;
 
     public function __construct(private readonly string $basePath = '')
@@ -54,19 +50,6 @@ class Env
 
     public function register(): void
     {
-        $dotenv = new Dotenv();
-        $path = $this->basePath . '/.env';
-        try {
-            $dotenv->bootEnv($path);
-
-            if (isset($_SERVER['SYMFONY_DOTENV_VARS']))
-                unset($_SERVER['SYMFONY_DOTENV_VARS']);
-
-            if (isset($_ENV['SYMFONY_DOTENV_VARS']))
-                unset($_ENV['SYMFONY_DOTENV_VARS']);
-        }catch (PathException $e)
-        {
-
-        }
+        EnvBootstrap::load($this->basePath);
     }
 }
