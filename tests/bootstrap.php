@@ -4,7 +4,26 @@
  * Shared bootstrap for framework and app tests.
  */
 
-require_once dirname(__DIR__, 2) . '/launcher/core-path.php';
+$coreTestsDir = rtrim(str_replace('\\', '/', __DIR__), '/');
+$platformRoot = null;
+
+foreach ([2, 4] as $depth) {
+    $candidate = dirname($coreTestsDir, $depth);
+
+    if (is_file($candidate . '/launcher/core-path.php')) {
+        $platformRoot = $candidate;
+        break;
+    }
+}
+
+if ($platformRoot === null) {
+    throw new RuntimeException(
+        'Could not locate Pinoox project root (launcher/core-path.php) from core tests path: ' . $coreTestsDir,
+    );
+}
+
+require_once $platformRoot . '/launcher/core-path.php';
+require_once PINOOX_CORE_PATH . 'launcher/test-paths.php';
 require_once PINOOX_BASE_PATH . '/vendor/autoload.php';
 require_once PINOOX_CORE_PATH . 'functions/base.php';
 require_once __DIR__ . '/Support/AppTestHelpers.php';

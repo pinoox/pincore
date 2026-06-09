@@ -1,0 +1,10 @@
+#!/usr/bin/env php
+<?php
+
+/**
+ * CLI entry for standalone pincore (core Terminal commands).
+ *
+ * Full platform installs use the project-root `pinoox` binary instead.
+ */
+
+require __DIR__ . '/../launcher/bootstrap.php';
