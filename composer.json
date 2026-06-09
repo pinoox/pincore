@@ -71,13 +71,30 @@
       "Tests\\": "tests/"
     }
   },
+  "require-dev": {
+    "nikic/php-parser": "^v4.19.4",
+    "pestphp/pest": "^v1.23.1",
+    "nunomaduro/collision": "^v6.4.0"
+  },
   "scripts": {
     "test": "pest --configuration=phpunit.xml",
-    "test:unit": "pest --configuration=phpunit.xml --testsuite=Unit"
+    "test:unit": "pest --configuration=phpunit.xml --testsuite=Unit",
+    "pincore": "@php bin/pincore"
   },
+  "bin": [
+    "bin/pincore"
+  ],
   "config": {
-    "sort-packages": true
+    "sort-packages": true,
+    "allow-plugins": {
+      "pestphp/pest-plugin": true
+    }
   },
   "minimum-stability": "dev",
+  "extra": {
+    "branch-alias": {
+      "dev-master": "3.0.x-dev"
+    }
+  },
   "prefer-stable": true
 }

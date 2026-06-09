@@ -1,12 +1,15 @@
 <?php
 
 /**
- * App test bootstrap — loads platform tests and reads package from app.php.
+ * App test bootstrap — loads core tests and reads package from app.php.
  *
  * Loaded automatically by: php pinoox test {{package}}
- * Manual run: php vendor/bin/pest apps/{{package}}/tests --bootstrap=apps/{{package}}/tests/bootstrap.php --configuration=phpunit.xml
+ * Manual run: php vendor/bin/pest apps/{{package}}/tests --bootstrap=apps/{{package}}/tests/bootstrap.php --configuration=vendor/pinoox/pincore/phpunit.xml
  */
-require dirname(__DIR__, 3) . '/tests/bootstrap.php';
+$platformRoot = dirname(__DIR__, 3);
+
+require $platformRoot . '/launcher/test-paths.php';
+require pinoox_core_tests_dir($platformRoot) . '/bootstrap.php';
 
 \Pinoox\Component\Test\AppTestKit::setPackage(
     \Pinoox\Component\Test\AppTestKit::packageFromAppDir(dirname(__DIR__)),

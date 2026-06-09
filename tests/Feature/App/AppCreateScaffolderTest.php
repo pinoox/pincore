@@ -121,6 +121,7 @@ it('reads package from app.php for app tests', function () {
     $bootstrap = (string) file_get_contents($appDir . '/tests/bootstrap.php');
 
     expect($bootstrap)->toContain('packageFromAppDir')
+        ->and($bootstrap)->toContain('pinoox_core_tests_dir')
         ->and($bootstrap)->not->toContain('package.php');
 });
 

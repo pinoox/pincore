@@ -28,7 +28,11 @@ php pinoox test platform --exclude-group=non-isolated
 php pinoox test --list-suites
 
 # Direct Pest (same as php pinoox test platform)
-php vendor/bin/pest --configuration=pincore/phpunit.xml --testsuite=Routing
+php vendor/bin/pest --configuration=vendor/pinoox/pincore/phpunit.xml --testsuite=Routing
+
+# From platform root via Composer
+composer test:core
+composer test:apps
 ```
 
 ## Isolation

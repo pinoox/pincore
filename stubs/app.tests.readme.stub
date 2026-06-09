@@ -41,7 +41,7 @@ it('returns the home page', function () {
 | File | Role |
 |------|------|
 | `../app.php` | Package name (`'package'` key) — required |
-| `bootstrap.php` | Loads platform tests + reads package from app.php |
+| `bootstrap.php` | Loads core tests from vendor/pincore (or ./pincore in dev) + reads package from app.php |
 | `Pest.php` | Pest hooks (`AppTestCase`) |
 | `Feature/` | HTTP / integration tests |
 | `Unit/` | Pure unit tests (no HTTP) |
