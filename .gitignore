@@ -1,0 +1,81 @@
+# =============================================================================
+# Pincore — runtime, secrets, generated artifacts
+# =============================================================================
+
+# Baker cache & build output (~pinker)
+/pinker/*
+!/pinker/.gitkeep
+
+# Writable storage (logs, cache, sessions)
+/storage/*
+!/storage/.gitkeep
+!/storage/**/.gitkeep
+
+# App packages created at runtime (standalone dev / tests)
+/apps/*
+!/apps/.gitkeep
+
+# Environment & local credentials
+.env
+.env.*
+!.env.example
+
+# Local MAMP / PHP error dumps
+**/MAMP_php_error_log*
+
+
+# =============================================================================
+# PHP & Composer
+# =============================================================================
+
+/vendor/
+composer.lock
+.phpunit.result.cache
+.phpunit.cache
+/coverage/
+/auth.json
+_ide_helper.php
+
+
+# =============================================================================
+# Node.js (theme stubs / local frontend tooling)
+# =============================================================================
+
+node_modules/
+package-lock.json
+
+
+# =============================================================================
+# Generated test fixtures (keep directory markers)
+# =============================================================================
+
+/tests/Fixtures/**/*
+!/tests/Fixtures/**/.gitkeep
+
+
+# =============================================================================
+# IDEs & editors
+# =============================================================================
+
+.idea/
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+.cursor/
+.editorconfig
+.zed/
+.nova/
+.phpactor.json
+.codex/
+
+
+# =============================================================================
+# OS & misc
+# =============================================================================
+
+.DS_Store
+Thumbs.db
+*.log
