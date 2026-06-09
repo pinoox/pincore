@@ -32,8 +32,12 @@ require_once __DIR__ . '/Support/InstallerTestHelpers.php';
 require_once __DIR__ . '/Support/DatabaseTestHelpers.php';
 
 require_once __DIR__ . '/Support/TestSandbox.php';
+require_once __DIR__ . '/Support/TestRuntime.php';
 
 \Pinoox\Component\Helpers\EnvBootstrap::load(PINOOX_BASE_PATH);
+
+Tests\Support\TestRuntime::bootstrap($platformRoot);
+\Pinoox\Support\SystemConfig::clearCache();
 
 // PHPUnit/Pest: test runtime overrides machine env (individual tests may override again).
 putenv('APP_ENV=test');
@@ -49,3 +53,9 @@ $testPackage = getenv('PINOOX_TEST_PACKAGE') ?: ($_ENV['PINOOX_TEST_PACKAGE'] ??
 if (is_string($testPackage) && $testPackage !== '') {
     Pinoox\Component\Test\AppTestKit::setPackage($testPackage);
 }
+
+register_shutdown_function(static function (): void {
+    if (class_exists(\Pinoox\Component\Test\AppTestKit::class, false)) {
+        \Pinoox\Component\Test\AppTestKit::cleanupTransientArtifacts(false);
+    }
+});

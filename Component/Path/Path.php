@@ -208,7 +208,7 @@ class Path implements PathInterface
     private function systemPath(string $value): string
     {
         foreach ([
-            SystemConfig::rawPath('app_config', 'config') => 'project_config',
+            SystemConfig::rawPath('app_config', 'config') => 'config',
             SystemConfig::rawPath('app_lang', 'lang') => 'platform_lang',
             SystemConfig::rawPath('app_migrations', 'database/migrations') => 'platform_migrations',
             SystemConfig::rawPath('app_seed', 'database/seed') => 'platform_seed',

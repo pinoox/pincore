@@ -133,6 +133,88 @@ class File
         return (self::generate($folder . "/.htaccess", $data)) ? true : false;
     }
 
+    public static function storageRootHtaccessContent(): string
+    {
+        return self::storageProtectionStubContent('storage.htaccess.stub');
+    }
+
+    public static function storageRootProtectionContent(string $stubFile): string
+    {
+        return self::storageProtectionStubContent($stubFile);
+    }
+
+    private static function storageProtectionStubContent(string $stubFile): string
+    {
+        static $cache = [];
+
+        if (isset($cache[$stubFile])) {
+            return $cache[$stubFile];
+        }
+
+        $stub = dirname(__DIR__) . '/stubs/' . ltrim($stubFile, '/');
+
+        if (is_file($stub)) {
+            return $cache[$stubFile] = (string) file_get_contents($stub);
+        }
+
+        if ($stubFile === 'storage.htaccess.stub') {
+            return $cache[$stubFile] = "Options -Indexes\n<IfModule mod_authz_core.c>\n    Require all denied\n</IfModule>\n<IfModule !mod_authz_core.c>\n    Order deny,allow\n    Deny from all\n</IfModule>\n";
+        }
+
+        return $cache[$stubFile] = '';
+    }
+
+    /**
+     * @return array<string, string> filename => stub
+     */
+    public static function storageRootProtectionFiles(): array
+    {
+        return [
+            '.htaccess' => 'storage.htaccess.stub',
+            'web.config' => 'storage.web.config.stub',
+            'nginx.conf' => 'storage.nginx.conf.stub',
+            'Caddyfile' => 'storage.caddyfile.stub',
+        ];
+    }
+
+    public static function ensureStorageRootProtection(string $storageRoot): bool
+    {
+        $storageRoot = rtrim(str_replace('\\', '/', $storageRoot), '/');
+
+        if ($storageRoot === '') {
+            return false;
+        }
+
+        if (!is_dir($storageRoot) && !@mkdir($storageRoot, 0755, true)) {
+            return false;
+        }
+
+        $ok = true;
+
+        foreach (self::storageRootProtectionFiles() as $file => $stubFile) {
+            $content = self::storageRootProtectionContent($stubFile);
+
+            if ($content === '') {
+                continue;
+            }
+
+            $path = $storageRoot . '/' . $file;
+
+            if (is_file($path)) {
+                continue;
+            }
+
+            $ok = self::generate($path, $content) && $ok;
+        }
+
+        return $ok;
+    }
+
+    public static function ensureStorageRootHtaccess(string $storageRoot): bool
+    {
+        return self::ensureStorageRootProtection($storageRoot);
+    }
+
     /**
      * Copy file or folder
      *

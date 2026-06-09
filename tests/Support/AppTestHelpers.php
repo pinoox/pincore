@@ -94,6 +94,16 @@ function deleteFakeApp(string $package): void
 function cleanupTestArtifacts(): void
 {
     AppTestKit::cleanupTransientArtifacts();
+
+    if (!\Tests\Support\TestRuntime::usesProjectPaths()) {
+        \Tests\Support\TestRuntime::bootstrap(testProjectRoot());
+        \Pinoox\Support\SystemConfig::clearCache();
+
+        try {
+            \Pinoox\Portal\App\AppEngine::__rebuild();
+        } catch (\Throwable) {
+        }
+    }
 }
 
 function testSandbox(string $relative = ''): string
@@ -109,6 +119,16 @@ function testSandboxRoot(): string
 function testPackage(string $suffix): string
 {
     return \Tests\Support\TestSandbox::packageName($suffix);
+}
+
+function testRuntimeRoot(): string
+{
+    return \Tests\Support\TestRuntime::root();
+}
+
+function testRuntimeApps(): string
+{
+    return \Tests\Support\TestRuntime::appsRoot();
 }
 
 function testProjectRoot(): string

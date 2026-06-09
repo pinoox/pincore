@@ -16,14 +16,19 @@ it('declares the Path portal contract', function () {
 it('resolves system app paths through aliases', function () {
     $basePath = testProjectRoot();
     $corePath = testCoreRoot();
+    $projectConfig = rtrim(str_replace('\\', '/', \Pinoox\Support\SystemConfig::projectConfigPath()), '/');
 
     expect(Path::___())->toBeInstanceOf(\Pinoox\Component\Path\Path::class)
         ->and(Path::get('~config/pinoox.config.php'))
-        ->toBe($corePath . '/config/pinoox.config.php')
+        ->toBe($projectConfig . '/pinoox.config.php')
         ->and(Path::root())
         ->toBe($basePath)
         ->and(Path::system('pinoox.config.php'))
-        ->toBe($corePath . '/config/pinoox.config.php');
+        ->toBe($projectConfig . '/pinoox.config.php')
+        ->and(Path::pincore('config/pinoox.config.php'))
+        ->toBe($corePath . '/config/pinoox.config.php')
+        ->and(Path::pincore('config/pincore.config.php'))
+        ->toBe($corePath . '/config/pincore.config.php');
 });
 
 it('resolves named references through resolve()', function () {

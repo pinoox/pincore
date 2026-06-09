@@ -2,6 +2,8 @@
 
 namespace Pinoox\Component\Server;
 
+use Pinoox\Support\SystemConfig;
+
 /**
  * Routes whose path looks like a static file must bypass the web-server static handler.
  *
@@ -189,9 +191,12 @@ final class WebServerFix
     public static function routerMap(?string $documentRoot = null): array
     {
         $root = $documentRoot ?? self::guessDocumentRoot();
+        $systemRouter = SystemConfig::path('system_router');
         $candidates = [
             $root . '/pinker/config/app-router.config.php',
             $root . '/pinker/system/config/app/router.config.php',
+            $systemRouter,
+            $root . '/config/app-router.config.php',
             $root . '/vendor/pinoox/pincore/config/app-router.config.php',
             $root . '/pincore/config/app-router.config.php',
         ];

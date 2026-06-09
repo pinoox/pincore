@@ -20,7 +20,7 @@ class SystemApp
 
     public static function basePath(): string
     {
-        return SystemConfig::configPath();
+        return SystemConfig::projectConfigPath();
     }
 
     public static function path(string $path = ''): string
@@ -35,13 +35,19 @@ class SystemApp
 
     public static function existingPath(string $path, bool $fallbackToCore = true): string
     {
-        $configPath = self::path($path);
+        $projectPath = self::path($path);
 
-        if (is_file($configPath) || is_dir($configPath) || !$fallbackToCore) {
-            return $configPath;
+        if (is_file($projectPath) || is_dir($projectPath)) {
+            return $projectPath;
         }
 
-        return self::legacyCorePath($path);
+        if (!$fallbackToCore) {
+            return $projectPath;
+        }
+
+        $corePath = self::legacyCorePath('config/' . ltrim(str_replace('\\', '/', $path), '/'));
+
+        return is_file($corePath) || is_dir($corePath) ? $corePath : $projectPath;
     }
 
     public static function stripPathAlias(string $path): ?string

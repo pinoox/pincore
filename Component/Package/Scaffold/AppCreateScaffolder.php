@@ -408,6 +408,7 @@ TWIG);
             $export .= "    '{$path}' => '{$pkg}',\n";
         }
         $export .= "];\n";
+        FileSystem::dumpFile($sourceRouter, $export);
         FileSystem::dumpFile($bakedRouter, $export);
 
         return $routePath;

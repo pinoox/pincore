@@ -19,7 +19,7 @@ class ExceptionContextTest extends TestCase
 
     public function test_app_version_reads_from_installer_app_file(): void
     {
-        $appFile = testProjectRoot() . '/apps/com_pinoox_installer/app.php';
+        $appFile = \Pinoox\Support\SystemConfig::resolvePath('~/apps/com_pinoox_installer/app.php');
         $this->assertFileExists($appFile);
 
         $config = include $appFile;

@@ -9,6 +9,7 @@ use Pinoox\Component\Package\Pinx\PinxManifest;
 use Pinoox\Component\Package\Pinx\PinxReader;
 use Pinoox\Component\Package\Pinx\PinxSignKey;
 use Pinoox\Component\Package\Pinx\PinxVersion;
+use Pinoox\Component\Test\AppTestKit;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Support\SystemConfig;
 use Pinoox\Terminal\Pinx\PinxInfoCommand;
@@ -107,7 +108,7 @@ it('rejects install when minpin is higher than current pinoox version', function
         ->install($build['path'], ['skip_migrate' => true, 'skip_patch' => true, 'skip_cache' => true]);
 
     expect($result->success)->toBeFalse()
-        ->and($result->message)->toContain('requires Pinoox version code');
+        ->and($result->message)->toContain('requires Pinoox kernel version code');
 });
 
 it('installs an app pinx package as update with skipped db steps', function () {
@@ -298,11 +299,6 @@ it('rejects update signed with a different publisher key', function () {
 
 function pinxSystemWriteTestApp(string $package, array $extra = [], bool $withTheme = false, bool $withThemeMeta = false): void
 {
-    $dir = pinxSystemAppDir($package);
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
-
     $config = array_merge([
         'package' => $package,
         'enable' => true,
@@ -312,60 +308,44 @@ function pinxSystemWriteTestApp(string $package, array $extra = [], bool $withTh
         'theme' => 'default',
     ], $extra);
 
-    $export = var_export($config, true);
-    file_put_contents($dir . '/app.php', "<?php\n\nreturn {$export};\n");
-    file_put_contents($dir . '/marker.txt', 'source');
-
     $theme = $withTheme ? 'spark' : 'default';
-    $themeDir = $dir . '/theme/' . $theme;
-    if (!is_dir($themeDir)) {
-        mkdir($themeDir, 0777, true);
-    }
-    file_put_contents($themeDir . '/theme.txt', $theme);
+    $files = [
+        'app.php' => "<?php\n\nreturn " . var_export($config, true) . ";\n",
+        'marker.txt' => 'source',
+        'theme/' . $theme . '/theme.txt' => $theme,
+    ];
 
     if ($withThemeMeta) {
-        file_put_contents($themeDir . '/theme.php', "<?php\n\nreturn " . var_export([
+        $files['theme/' . $theme . '/theme.php'] = "<?php\n\nreturn " . var_export([
             'name' => $theme,
             'package' => $package,
             'title' => ['en' => ucfirst($theme)],
             'version-name' => '1.0',
             'version-code' => 1,
-        ], true) . ";\n");
+        ], true) . ";\n";
     }
+
+    AppTestKit::fakeApp($package, $files);
 }
 
 function pinxSystemDeleteTestApp(string $package): void
 {
-    pinxSystemDeleteDirectory(pinxSystemAppDir($package));
-    pinxSystemDeleteDirectory(testProjectRoot() . '/pinker/apps/' . $package);
-}
-
-function pinxSystemDeleteDirectory(string $dir): void
-{
-    if (!is_dir($dir)) {
-        return;
-    }
-
-    $items = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::CHILD_FIRST
-    );
-
-    foreach ($items as $item) {
-        $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
-    }
-
-    rmdir($dir);
+    AppTestKit::deleteFakeApp($package);
 }
 
 function pinxSystemAppDir(string $package): string
 {
-    return testProjectRoot() . '/apps/' . $package;
+    return AppTestKit::path($package);
 }
 
 function pinxSystemAppFile(string $package): string
 {
     return pinxSystemAppDir($package) . '/app.php';
+}
+
+function pinxSystemDeleteDirectory(string $dir): void
+{
+    deleteDirectory($dir);
 }
 
 function pinxSystemCleanupArtifacts(): void

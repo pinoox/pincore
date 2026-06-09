@@ -4,8 +4,20 @@ use Pinoox\Component\Cache\AppCacheConfig;
 use Pinoox\Component\Cache\AppCacheManager;
 use Pinoox\Component\Cache\AppCachePath;
 use Pinoox\Component\Cache\PhpCacheFile;
+use Pinoox\Component\Test\AppTestKit;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\AppCache;
+
+beforeEach(function () {
+    AppTestKit::boot();
+    deleteTestApp('com_test_cache_build');
+    AppEngine::__rebuild();
+});
+
+afterEach(function () {
+    deleteTestApp('com_test_cache_build');
+    AppEngine::__rebuild();
+});
 
 it('registers app cache portal and helper', function () {
     expect(class_exists(AppCache::class))->toBeTrue()
@@ -23,7 +35,7 @@ it('disables cache in development by default', function () {
 });
 
 it('uses explicit build store overrides when configured', function () {
-    writeAppCacheTestApp('com_test_cache_build', [
+    writeTestApp('com_test_cache_build', [
         'cache' => [
             'build' => [
                 'stores' => [
@@ -86,19 +98,3 @@ it('clears cache directory for a package', function () {
 
     expect(is_dir($root))->toBeFalse();
 });
-
-function writeAppCacheTestApp(string $package, array $config): void
-{
-    $dir = testProjectRoot() . '/apps/' . $package;
-    if (!is_dir($dir)) {
-        mkdir($dir, 0777, true);
-    }
-
-    file_put_contents($dir . '/app.php', "<?php\n\nreturn " . var_export([
-        'package' => $package,
-        'enable' => true,
-        'name' => $package,
-        ...$config,
-    ], true) . ";\n");
-}
-

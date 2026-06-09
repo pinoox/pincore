@@ -167,6 +167,7 @@ class AppTestKit
     public static function fakeApp(string $package, array $files = []): string
     {
         self::boot();
+        self::ensureTestRuntimePaths();
 
         $dir = self::path($package);
 
@@ -214,43 +215,19 @@ class AppTestKit
         self::boot();
 
         $appsRoot = rtrim(str_replace('\\', '/', SystemConfig::path('apps')), '/');
+        self::cleanupTransientAppDirs($appsRoot);
 
-        foreach (glob($appsRoot . '/com_test_*') ?: [] as $path) {
-            if (is_dir($path)) {
-                self::deleteDirectory($path);
-            }
-        }
-
-        foreach (glob($appsRoot . '/com_boot_*') ?: [] as $path) {
-            if (is_dir($path)) {
-                self::deleteDirectory($path);
-            }
+        $coreApps = rtrim(str_replace('\\', '/', SystemConfig::corePath('apps')), '/');
+        if ($coreApps !== $appsRoot) {
+            self::cleanupTransientAppDirs($coreApps);
         }
 
         $pinkerApps = rtrim(str_replace('\\', '/', SystemConfig::path('pinker') . '/apps'), '/');
-        foreach (glob($pinkerApps . '/com_test_*') ?: [] as $path) {
-            if (is_dir($path)) {
-                self::deleteDirectory($path);
-            }
-        }
-        foreach (glob($pinkerApps . '/com_boot_*') ?: [] as $path) {
-            if (is_dir($path)) {
-                self::deleteDirectory($path);
-            }
-        }
+        self::cleanupTransientAppDirs($pinkerApps);
 
         $pinkerState = rtrim(str_replace('\\', '/', SystemConfig::path('pinker') . '/state/apps'), '/');
         if (is_dir($pinkerState)) {
-            foreach (glob($pinkerState . '/com_test_*') ?: [] as $path) {
-                if (is_dir($path)) {
-                    self::deleteDirectory($path);
-                }
-            }
-            foreach (glob($pinkerState . '/com_boot_*') ?: [] as $path) {
-                if (is_dir($path)) {
-                    self::deleteDirectory($path);
-                }
-            }
+            self::cleanupTransientAppDirs($pinkerState);
         }
 
         self::cleanFixtureTree(self::fixturesRoot());
@@ -275,6 +252,39 @@ class AppTestKit
         }
     }
 
+    private static function ensureTestRuntimePaths(): void
+    {
+        if (!class_exists(\Tests\Support\TestRuntime::class, false)) {
+            return;
+        }
+
+        if (\Tests\Support\TestRuntime::usesProjectPaths()) {
+            return;
+        }
+
+        $bootstrap = defined('PINOOX_BASE_PATH')
+            ? rtrim(str_replace('\\', '/', \PINOOX_BASE_PATH), '/')
+            : SystemConfig::rootPath();
+
+        \Tests\Support\TestRuntime::bootstrap($bootstrap);
+        SystemConfig::clearCache();
+    }
+
+    private static function cleanupTransientAppDirs(string $appsRoot): void
+    {
+        if (!is_dir($appsRoot)) {
+            return;
+        }
+
+        foreach (['com_test_*', 'com_boot_*'] as $pattern) {
+            foreach (glob($appsRoot . '/' . $pattern) ?: [] as $path) {
+                if (is_dir($path)) {
+                    self::deleteDirectory($path);
+                }
+            }
+        }
+    }
+
     private static function cleanFixtureTree(string $path): void
     {
         if (is_file($path)) {
@@ -288,7 +298,7 @@ class AppTestKit
         }
 
         foreach (scandir($path) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..' || $entry === '.gitkeep') {
+            if ($entry === '.' || $entry === '..' || $entry === '.gitkeep' || $entry === 'runtime') {
                 continue;
             }
 

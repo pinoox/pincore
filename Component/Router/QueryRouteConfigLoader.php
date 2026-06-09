@@ -148,6 +148,7 @@ class QueryRouteConfigLoader
             $basePath . '/pinker/config/app-router.config.php',
             $basePath . '/pinker/system/config/app/router.config.php',
             $systemRouter,
+            $basePath . '/config/app-router.config.php',
             $basePath . '/vendor/pinoox/pincore/config/app-router.config.php',
             $basePath . '/pincore/config/app-router.config.php',
         ];
