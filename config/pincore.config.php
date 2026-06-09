@@ -11,5 +11,5 @@ return [
     |
     */
     'version_code' => 30,
-    'version_name' => '3.0.0-beta',
+    'version_name' => '3.0',
 ];
