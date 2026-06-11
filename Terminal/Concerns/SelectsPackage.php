@@ -3,6 +3,7 @@
 namespace Pinoox\Terminal\Concerns;
 
 use Pinoox\Portal\App\AppEngine;
+use Pinoox\Support\DevApp;
 use Pinoox\Support\SystemApp;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -37,7 +38,7 @@ trait SelectsPackage
     ): string {
         $package = $this->resolvePackageChoice($input, $output, $io, $config);
 
-        return $package ?? ($config['default'] ?? 'platform');
+        return $package ?? ($config['default'] ?? DevApp::defaultCliPackage());
     }
 
     /**
@@ -67,7 +68,7 @@ trait SelectsPackage
         $allowAll = (bool) ($config['allowAll'] ?? false);
         $optional = (bool) ($config['optional'] ?? false);
         $excludeSystem = (bool) ($config['excludeSystem'] ?? false);
-        $default = (string) ($config['default'] ?? ($allowAll ? 'all' : 'platform'));
+        $default = (string) ($config['default'] ?? ($allowAll ? 'all' : DevApp::defaultCliPackage()));
         $argument = (string) ($config['argument'] ?? 'package');
         $optionNames = $config['options'] ?? ['package', 'app'];
         $sectionTitle = (string) ($config['sectionTitle'] ?? 'Available packages');

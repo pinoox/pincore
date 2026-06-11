@@ -4,6 +4,7 @@ namespace Pinoox\Terminal\Pinx;
 
 use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Package\Pinx\PinxBuilder;
+use Pinoox\Component\Package\Pinx\PinxBuildConfig;
 use Pinoox\Component\Terminal;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Terminal\Concerns\SelectsPackage;
