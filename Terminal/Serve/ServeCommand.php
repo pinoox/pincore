@@ -44,7 +44,7 @@ Environment (.env):
   SERVER_PORT=8000
   SERVER_APP=com_pinoox_manager
 
-The server uses launcher/server.php as a router (same rules as .htaccess).
+The server uses platform/launcher/server.php (or legacy launcher/server.php) as a router (same rules as .htaccess).
 With --app, Pinoox skips app-router matching and always boots the selected app.
 HELP
             )

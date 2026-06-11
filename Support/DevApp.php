@@ -57,7 +57,7 @@ final class DevApp
 
     private static function fromAppsConfig(string $projectRoot): ?string
     {
-        $registryFile = rtrim(str_replace('\\', '/', $projectRoot), '/') . '/config/apps.config.php';
+        $registryFile = self::appsRegistryFile($projectRoot);
 
         if (!is_file($registryFile)) {
             return null;
@@ -94,5 +94,34 @@ final class DevApp
         }
 
         return null;
+    }
+
+    private static function appsRegistryFile(string $projectRoot): string
+    {
+        $projectRoot = rtrim(str_replace('\\', '/', $projectRoot), '/');
+        $override = getenv('PINOOX_PROJECT_REGISTRY_PATH');
+
+        if (is_string($override) && $override !== '') {
+            $path = trim(str_replace('\\', '/', $override));
+
+            if (str_starts_with($path, '~/')) {
+                $path = $projectRoot . '/' . substr($path, 2);
+            } elseif (!preg_match('/^[A-Za-z]:\//', $path) && !str_starts_with($path, '/')) {
+                $path = $projectRoot . '/' . ltrim($path, '/');
+            }
+
+            return str_ends_with($path, '.php') ? $path : $path . '/apps.config.php';
+        }
+
+        foreach ([
+            $projectRoot . '/platform/apps.config.php',
+            $projectRoot . '/config/apps.config.php',
+        ] as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return $projectRoot . '/platform/apps.config.php';
     }
 }

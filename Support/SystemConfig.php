@@ -258,7 +258,9 @@ class SystemConfig
         foreach ([
             '~config' => self::configPath(),
             '~system' => self::configPath(),
-            '~project' => self::join(self::rootPath(), 'config'),
+            '~project' => is_dir(self::join(self::rootPath(), 'platform'))
+                ? self::join(self::rootPath(), 'platform')
+                : self::join(self::rootPath(), 'config'),
             '~pincore' => self::corePath(),
             '~pinker' => self::pathWithoutAlias('pinker', 'pinker'),
             '~storage' => self::pathWithoutAlias('storage', 'storage'),
