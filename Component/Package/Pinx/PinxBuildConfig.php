@@ -25,6 +25,7 @@ class PinxBuildConfig
             '.pinx-build/*',
             'bin',
             'launcher',
+            'platform',
             'storage',
             'pinker',
             'export',

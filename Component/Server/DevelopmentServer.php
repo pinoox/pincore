@@ -110,13 +110,19 @@ class DevelopmentServer
 
     public static function defaultRouterScript(): string
     {
-        $custom = rtrim(str_replace('\\', '/', (string) PINOOX_BASE_PATH), '/') . '/server.php';
+        $root = rtrim(str_replace('\\', '/', (string) PINOOX_BASE_PATH), '/');
 
-        if (is_file($custom)) {
-            return $custom;
+        foreach ([
+            $root . '/platform/launcher/server.php',
+            $root . '/launcher/server.php',
+            $root . '/server.php',
+        ] as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
         }
 
-        return rtrim(str_replace('\\', '/', (string) PINOOX_BASE_PATH), '/') . '/launcher/server.php';
+        return $root . '/platform/launcher/server.php';
     }
 
     public static function phpBinary(): string

@@ -7,7 +7,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | Aliases: ~, ~config (framework), ~project (deploy), ~pincore, ~pinker, ~storage.
-    | Framework config: pincore/config — deploy config: {project}/config
+    | Framework config: pincore/config — deploy config: {project}/platform
     |
     */
     'config' => '~pincore/config',
@@ -17,11 +17,11 @@ return [
     'pinker' => env('PINOOX_PINKER_PATH', 'pinker'),
     'storage' => env('PINOOX_STORAGE_PATH', 'storage'),
 
-    'project_config' => env('PINOOX_PROJECT_CONFIG_PATH', '~/config'),
-    'project_registry' => env('PINOOX_PROJECT_REGISTRY_PATH', '~/config/apps.config.php'),
-    'project_router' => '~/config/app-router.config.php',
-    'project_domain' => '~/config/domain.config.php',
-    'project_pinoox' => '~/config/pinoox.config.php',
+    'project_config' => env('PINOOX_PROJECT_CONFIG_PATH', '~/platform'),
+    'project_registry' => env('PINOOX_PROJECT_REGISTRY_PATH', '~/platform/apps.config.php'),
+    'project_router' => '~/platform/app-router.config.php',
+    'project_domain' => '~/platform/domain.config.php',
+    'project_pinoox' => '~/platform/pinoox.config.php',
     'project_pincore' => '~pincore/config/pincore.config.php',
 
     'platform_lang' => '~pincore/lang',
