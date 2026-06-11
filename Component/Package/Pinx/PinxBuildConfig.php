@@ -10,6 +10,40 @@ use Pinoox\Component\Template\Theme\ThemeManifest;
 class PinxBuildConfig
 {
     /**
+     * Paths always excluded from app .pinx builds unless the app adds them to include overrides.
+     *
+     * @return list<string>
+     */
+    public static function defaultAppExcludes(): array
+    {
+        return [
+            'node_modules',
+            'tests',
+            '.github',
+            'vendor',
+            '.pinx-build',
+            '.pinx-build/*',
+            'bin',
+            'launcher',
+            'storage',
+            'pinker',
+            'export',
+            'export/*',
+            'composer.json',
+            'composer.lock',
+            '.env',
+            '.env.example',
+            '.gitignore',
+            '.htaccess',
+            'README.md',
+            'index.php',
+            'debug-pinx-files.php',
+            'boot-test.php',
+            'MAMP_php_error_log_MAMP',
+        ];
+    }
+
+    /**
      * @return array{
      *     type: string,
      *     target_app: string,
@@ -27,15 +61,17 @@ class PinxBuildConfig
         $raw = self::rawAppConfig($engine, $package);
         $config = $engine->config($package);
         $pinx = is_array($raw['pinx'] ?? null) ? $raw['pinx'] : self::arrayValue($config, 'pinx');
-        $build = is_array($raw['build'] ?? null) ? $raw['build'] : self::arrayValue($config, 'build');
+        $build = array_key_exists('build', $raw) && is_array($raw['build'])
+            ? $raw['build']
+            : [];
         $sign = PinxSignConfig::app($pinx);
 
-        $type = (string) ($pinx['type'] ?? PinxManifest::TYPE_APP);
+        $resolvedType = (string) ($pinx['type'] ?? PinxManifest::TYPE_APP);
         $packageName = (string) ($raw['package'] ?? $config->get('package', $package));
         $pathTheme = (string) ($raw['path-theme'] ?? $config->get('path-theme', 'theme'));
         $themeName = (string) ($pinx['theme_name'] ?? $raw['theme'] ?? $config->get('theme', 'default'));
 
-        if ($type === PinxManifest::TYPE_THEME) {
+        if ($resolvedType === PinxManifest::TYPE_THEME) {
             $themePath = rtrim(str_replace('\\', '/', $engine->path($packageName, $pathTheme . '/' . $themeName)), '/');
             $manifestFile = $themePath . '/' . ThemeManifest::FILE;
 
@@ -49,21 +85,30 @@ class PinxBuildConfig
             $themeManifest?->validate($packageName);
         }
 
-        $exclude = self::stringList($build['exclude'] ?? []);
-        $exclude = array_values(array_unique(array_merge($exclude, [
-            'pinx/sign.key.json',
-            '.pinx',
-            '.pinx/*',
-        ])));
+        $type = in_array($resolvedType, [PinxManifest::TYPE_APP, PinxManifest::TYPE_THEME], true)
+            ? $resolvedType
+            : PinxManifest::TYPE_APP;
+
+        $defaultExcludes = $type === PinxManifest::TYPE_APP ? self::defaultAppExcludes() : [];
+        $customExcludes = self::stringList($build['exclude'] ?? []);
+        $exclude = array_values(array_unique(array_merge(
+            $defaultExcludes,
+            $customExcludes,
+            [
+                'pinx/sign.key.json',
+                '.pinx',
+                '.pinx/*',
+            ],
+        )));
 
         return [
-            'type' => in_array($type, [PinxManifest::TYPE_APP, PinxManifest::TYPE_THEME], true)
-                ? $type
-                : PinxManifest::TYPE_APP,
+            'type' => $type,
             'target_app' => (string) ($pinx['target_app'] ?? $packageName),
             'theme_name' => $themeName,
             'minpin' => (int) ($pinx['minpin'] ?? $raw['minpin'] ?? $config->get('minpin', 0)),
-            'gitignore' => (bool) ($build['gitignore'] ?? true),
+            'gitignore' => array_key_exists('gitignore', $build)
+                ? (bool) $build['gitignore']
+                : true,
             'exclude' => $exclude,
             'include_themes' => self::stringList($build['include_themes'] ?? []),
             'composer' => array_key_exists('composer', $build)

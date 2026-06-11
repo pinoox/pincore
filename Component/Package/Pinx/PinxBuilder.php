@@ -48,14 +48,71 @@ class PinxBuilder
 
         $composerPrepared = false;
         $alwaysInclude = [];
+        $composerPackages = [];
+        $cleanupComposerBuild = false;
 
         if ($build['type'] === PinxManifest::TYPE_APP && $build['composer'] && AppComposerVendor::hasComposerJson($packagePath)) {
-            $composerPrepared = AppComposerVendor::prepare($packagePath)['prepared'];
-            if ($composerPrepared) {
-                $alwaysInclude[] = 'vendor';
+            $composerResult = AppComposerVendor::prepare($packagePath);
+
+            if ($composerResult['prepared'] && is_string($composerResult['vendor_dir'])) {
+                $composerPrepared = true;
+                $cleanupComposerBuild = true;
+                $alwaysInclude[] = [
+                    'path' => $composerResult['vendor_dir'],
+                    'as' => $composerResult['vendor_as'] ?? AppComposerVendor::VENDOR_SUBDIR,
+                ];
+                $composerPackages = $composerResult['packages'] ?? [];
             }
         }
 
+        try {
+            return $this->finalizeBuild(
+                $package,
+                $packagePath,
+                $sourcePath,
+                $build,
+                $manifest,
+                $outputPath,
+                $alwaysInclude,
+                $composerPrepared,
+                $composerPackages,
+                $options,
+            );
+        } finally {
+            if ($cleanupComposerBuild) {
+                AppComposerVendor::cleanup($packagePath);
+            }
+        }
+    }
+
+    /**
+     * @param array{
+     *     type: string,
+     *     target_app: string,
+     *     theme_name: string,
+     *     minpin: int,
+     *     gitignore: bool,
+     *     exclude: list<string>,
+     *     include_themes: list<string>,
+     *     composer: bool,
+     *     sign: array{enabled: bool, require_signature: bool, key_path: ?string, key_id: ?string}
+     * } $build
+     * @param list<string|array{path: string, as?: string}> $alwaysInclude
+     * @param array{sign?: bool, sign_key?: ?string, key_id?: ?string} $options
+     * @return array{path: string, manifest: PinxManifest, files: int, signed: bool, signature: ?array, composer: bool, composer_packages: list<string>}
+     */
+    private function finalizeBuild(
+        string $package,
+        string $packagePath,
+        string $sourcePath,
+        array $build,
+        PinxManifest $manifest,
+        ?string $outputPath,
+        array $alwaysInclude,
+        bool $composerPrepared,
+        array $composerPackages,
+        array $options,
+    ): array {
         $buildConfig = [
             'gitignore' => $build['gitignore'],
             'exclude' => $build['exclude'],
@@ -63,18 +120,14 @@ class PinxBuilder
             'always_include' => $alwaysInclude,
         ];
 
-        if ($build['type'] === PinxManifest::TYPE_APP) {
-            $buildConfig['exclude'] = array_values(array_unique(array_merge(
-                $buildConfig['exclude'],
-                ['export', 'export/*']
-            )));
-        }
-
         $payloadFiles = $this->selector->payloadFiles($sourcePath, $buildConfig);
         $fileCount = count($payloadFiles);
 
         if ($fileCount === 0) {
-            throw new Exception('No files selected for pinx build.');
+            throw new Exception(
+                'No files selected for pinx build. Source: ' . $sourcePath
+                . ' (check build excludes or app path mapping).',
+            );
         }
 
         $outputPath ??= $this->defaultOutputPath($package, $manifest);
@@ -129,6 +182,7 @@ class PinxBuilder
             'signed' => $signed,
             'signature' => $signature,
             'composer' => $composerPrepared,
+            'composer_packages' => $composerPackages,
         ];
     }
 
