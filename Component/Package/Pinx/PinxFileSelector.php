@@ -102,9 +102,11 @@ class PinxFileSelector
             $files[str_replace('\\', '/', $file->getRelativePathname())] = $realPath;
         }
 
-        foreach ($buildConfig['always_include'] ?? [] as $relativeDir) {
+        foreach ($buildConfig['always_include'] ?? [] as $entry) {
+            [$relativeDir, $payloadPrefix] = $this->resolveAlwaysIncludeEntry($entry);
+
             foreach ($this->forcedDirectoryFiles($sourcePath, $relativeDir) as $relativePath => $realPath) {
-                $files[$relativePath] = $realPath;
+                $files[$this->remapAlwaysIncludePath($relativePath, $relativeDir, $payloadPrefix)] = $realPath;
             }
         }
 
@@ -134,6 +136,42 @@ class PinxFileSelector
                 $finder->notPath('theme/' . $themeName);
             }
         }
+    }
+
+    /**
+     * @param string|array{path: string, as?: string} $entry
+     * @return array{0: string, 1: ?string}
+     */
+    private function resolveAlwaysIncludeEntry(string|array $entry): array
+    {
+        if (is_string($entry)) {
+            return [$entry, null];
+        }
+
+        $path = trim((string) ($entry['path'] ?? ''), '/');
+        $as = trim((string) ($entry['as'] ?? ''), '/');
+
+        return [$path, $as !== '' ? $as : null];
+    }
+
+    private function remapAlwaysIncludePath(string $relativePath, string $sourceDir, ?string $payloadPrefix): string
+    {
+        if ($payloadPrefix === null) {
+            return $relativePath;
+        }
+
+        $normalizedRelative = str_replace('\\', '/', $relativePath);
+        $normalizedSource = trim(str_replace('\\', '/', $sourceDir), '/');
+
+        if ($normalizedSource !== '' && str_starts_with($normalizedRelative, $normalizedSource . '/')) {
+            return $payloadPrefix . '/' . substr($normalizedRelative, strlen($normalizedSource) + 1);
+        }
+
+        if ($normalizedRelative === $normalizedSource) {
+            return $payloadPrefix;
+        }
+
+        return $payloadPrefix . '/' . ltrim($normalizedRelative, '/');
     }
 
     private function excludeWildcardPaths(Finder $finder, string $packagePath, string $wildcardPath): void

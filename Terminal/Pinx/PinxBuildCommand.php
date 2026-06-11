@@ -128,7 +128,13 @@ HELP
             }
 
             if (!empty($result['composer'])) {
-                $rows[] = ['Composer', 'vendor/ prepared with --no-dev'];
+                $packages = is_array($result['composer_packages'] ?? null) ? $result['composer_packages'] : [];
+                $rows[] = [
+                    'Composer',
+                    $packages === []
+                        ? 'vendor/ bundled (app requires)'
+                        : 'vendor/ bundled: ' . implode(', ', $packages),
+                ];
             }
 
             $io->definitionList(...array_map(static fn (array $row) => [$row[0] => $row[1]], $rows));
