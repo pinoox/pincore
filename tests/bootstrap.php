@@ -10,21 +10,39 @@ $platformRoot = null;
 foreach ([2, 4] as $depth) {
     $candidate = dirname($coreTestsDir, $depth);
 
-    if (is_file($candidate . '/launcher/core-path.php')) {
-        $platformRoot = $candidate;
-        break;
+    foreach ([
+        '/platform/launcher/core-path.php',
+        '/launcher/core-path.php',
+    ] as $launcherCorePath) {
+        if (is_file($candidate . $launcherCorePath)) {
+            $platformRoot = $candidate;
+            break 2;
+        }
     }
 }
 
 if ($platformRoot === null) {
     throw new RuntimeException(
-        'Could not locate Pinoox project root (launcher/core-path.php) from core tests path: ' . $coreTestsDir,
+        'Could not locate Pinoox project root (platform/launcher/core-path.php) from core tests path: ' . $coreTestsDir,
     );
 }
 
-require_once $platformRoot . '/launcher/core-path.php';
+foreach ([
+    '/platform/launcher/core-path.php',
+    '/launcher/core-path.php',
+] as $launcherCorePath) {
+    if (is_file($platformRoot . $launcherCorePath)) {
+        require_once $platformRoot . $launcherCorePath;
+        break;
+    }
+}
 require_once PINOOX_CORE_PATH . 'launcher/test-paths.php';
-require_once PINOOX_BASE_PATH . '/vendor/autoload.php';
+$loader = require PINOOX_BASE_PATH . '/vendor/autoload.php';
+
+if ($loader instanceof Composer\Autoload\ClassLoader && is_file($platformRoot . '/platform/launcher/core-autoload.php')) {
+    require_once $platformRoot . '/platform/launcher/core-autoload.php';
+    pinoox_register_core_autoload($loader, PINOOX_BASE_PATH, PINOOX_CORE_PATH);
+}
 require_once PINOOX_CORE_PATH . 'functions/base.php';
 require_once __DIR__ . '/Support/AppTestHelpers.php';
 require_once __DIR__ . '/Support/ApiSystemHelpers.php';

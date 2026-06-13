@@ -11,7 +11,7 @@ use Pinoox\Support\SystemConfig;
 it('documents env priority metadata on env-sensitive pinker overrides', function () {
     AppTestKit::boot();
 
-    $overridePath = SystemConfig::path('pinker') . '/state/config/database.config.php';
+    $overridePath = SystemConfig::pinkerStateConfigPath('database');
     $overrideBackup = is_file($overridePath) ? file_get_contents($overridePath) : null;
 
     try {
@@ -52,7 +52,7 @@ it('uses env values instead of pinker when the env key is defined', function () 
 
     $mainFile = SystemConfig::configPath('database.config.php');
     $bakedFile = SystemConfig::pinkerConfigPath('database.config.php');
-    $overridePath = SystemConfig::path('pinker') . '/state/config/database.config.php';
+    $overridePath = SystemConfig::pinkerStateConfigPath('database');
     $overrideBackup = is_file($overridePath) ? file_get_contents($overridePath) : null;
 
     putenv('APP_ENV=' . RuntimeMode::DEVELOPMENT);
@@ -108,7 +108,7 @@ it('falls back to pinker when the mapped env key is not defined', function () {
 
     $mainFile = SystemConfig::configPath('database.config.php');
     $bakedFile = SystemConfig::pinkerConfigPath('database.config.php');
-    $overridePath = SystemConfig::path('pinker') . '/state/config/database.config.php';
+    $overridePath = SystemConfig::pinkerStateConfigPath('database');
     $overrideBackup = is_file($overridePath) ? file_get_contents($overridePath) : null;
 
     putenv('APP_ENV=' . RuntimeMode::PRODUCTION);
