@@ -24,6 +24,8 @@ use Pinoox\Component\Source\Portal;
  * Laravel-style route definitions for Pinoox apps.
  *
  * Route::get('/', '@home')->name('home');
+ * Route::get('/')->actionName('home');
+ * Route::get('/')->named('home');
  * Route::group(['prefix' => 'api', 'flow' => 'auth'], fn () => ...);
  * Route::collect(fn () => ...);
  *

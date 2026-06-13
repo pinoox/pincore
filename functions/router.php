@@ -85,6 +85,8 @@ function route(string $name, array $parameters = [], bool $absolute = true): str
  * Route file helper — config manifest entry point.
  *
  * get('/', '@home')->name('home');
+ * get('/')->actionName('home');
+ * get('/')->named('home');
  * return routes([..., 'routes' => collect(fn () => ...)]);
  */
 function routes(array|callable|null $definition = null): array|\Pinoox\Component\Router\RouteFile|null

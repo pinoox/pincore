@@ -3,9 +3,11 @@
 namespace Pinoox\Component\Router;
 
 use Closure;
+use Pinoox\Component\Router\Concerns\NamesRouteActions;
 
 class RouteBuilder
 {
+    use NamesRouteActions;
     private string $path = '/';
     private array|string|Closure $action = '';
     private string $name = '';
