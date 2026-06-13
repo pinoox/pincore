@@ -15,16 +15,22 @@ namespace Pinoox\Component\Database\Seeder;
 
 use Illuminate\Database\Schema\Builder;
 use Pinoox\Portal\Database\DB;
+use Pinoox\Support\PackageContext;
 
 abstract class SeederBase
 {
     protected Builder $schema;
     protected string $package;
 
-    public function __construct(string $package)
+    public static function usePackage(?string $package): void
     {
+        PackageContext::use($package);
+    }
+
+    public function __construct(?string $package = null)
+    {
+        $this->package = PackageContext::resolve($package);
         $this->schema = DB::schema();
-        $this->package = $package;
     }
 
     /**
@@ -58,4 +64,4 @@ abstract class SeederBase
     {
         return $this->schema;
     }
-} 
+}
