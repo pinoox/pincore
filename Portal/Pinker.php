@@ -90,7 +90,7 @@ class Pinker extends Portal
 		$corePath = defined('PINOOX_CORE_PATH') ? rtrim(self::ds(\PINOOX_CORE_PATH), '/') : $basePath . '/pincore';
 
 		if (!empty($corePath) && str_starts_with($sourceFile, $corePath . '/config/')) {
-			$relative = 'config' . substr($sourceFile, strlen($corePath . '/config'));
+			$relative = 'platform' . substr($sourceFile, strlen($corePath . '/config'));
 		} elseif (!empty($corePath) && ($sourceFile === $corePath || str_starts_with($sourceFile, $corePath . '/'))) {
 			$relative = 'pincore' . substr($sourceFile, strlen($corePath));
 		} elseif (!empty($basePath) && str_starts_with($sourceFile, $basePath . '/')) {

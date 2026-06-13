@@ -244,6 +244,28 @@ it('supports Laravel-compatible env aliases for core runtime config', function (
         ->and(SystemConfig::get('pinoox', 'log.level'))->toBe('warning');
 });
 
+it('loads framework configs from platform when present without merging core defaults', function () {
+    $projectConfig = systemConfigTestRoot() . '/framework_override';
+    $corePath = testCoreRoot();
+
+    deleteSystemConfigTestDirectory($projectConfig);
+    mkdir($projectConfig, 0755, true);
+    file_put_contents(
+        $projectConfig . '/database.config.php',
+        "<?php\n\nreturn ['default' => 'sqlite', 'connections' => ['sqlite' => ['driver' => 'sqlite', 'database' => ':memory:']]];\n",
+    );
+
+    setSystemConfigTestEnv('PINOOX_PROJECT_CONFIG_PATH', testFixturesProjectRelative('system_config/framework_override'));
+    SystemConfig::clearCache();
+
+    expect(SystemConfig::resolveConfigFile('database'))->toBe($projectConfig . '/database.config.php')
+        ->and(SystemConfig::get('database', 'default'))->toBe('sqlite')
+        ->and(SystemConfig::get('database', 'connections.sqlite.database'))->toBe(':memory:')
+        ->and(SystemConfig::resolveConfigFile('session'))->toBe($corePath . '/config/session.config.php');
+
+    deleteSystemConfigTestDirectory($projectConfig);
+});
+
 it('loads cache session and security config from env aliases', function () {
     setSystemConfigTestEnv('CACHE_STORE', 'file');
     setSystemConfigTestEnv('CACHE_PREFIX', 'pin_cache');

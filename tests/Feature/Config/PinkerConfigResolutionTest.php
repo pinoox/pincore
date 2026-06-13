@@ -16,7 +16,7 @@ use Pinoox\Support\SystemConfig;
 it('loads core database config through pinker overrides', function () {
     AppTestKit::boot();
 
-    $overridePath = SystemConfig::path('pinker') . '/state/config/database.config.php';
+    $overridePath = SystemConfig::pinkerStateConfigPath('database');
 
     if (!is_file($overridePath)) {
         test()->markTestSkipped('Database pinker override not present.');

@@ -7,11 +7,11 @@ return [
     |--------------------------------------------------------------------------
     |
     | Aliases: ~, ~config (framework), ~project (deploy), ~pincore, ~pinker, ~storage.
-    | Framework config: pincore/config — deploy config: {project}/platform
+    | Framework config: pincore/config — project override: {project}/platform/*.config.php
     |
     */
     'config' => '~pincore/config',
-    'pinker_config' => '~pinker/config',
+    'pinker_config' => '~pinker/platform',
     'system' => '~pincore/config',
     'apps' => env('PINOOX_APPS_PATH', 'apps'),
     'pinker' => env('PINOOX_PINKER_PATH', 'pinker'),

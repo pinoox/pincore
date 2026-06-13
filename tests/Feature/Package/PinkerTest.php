@@ -282,13 +282,13 @@ it('recovers when the baked cache file is corrupted', function () {
         ->and($pinker->status()['cache_valid'])->toBeTrue();
 });
 
-it('maps pincore config source files to pinker/config', function () {
+it('maps pincore config source files to pinker/platform', function () {
     $basePath = pinkerTestPath(testProjectRoot());
     $corePath = pinkerTestPath(testCoreRoot()) . '/';
     $sourceFile = pinkerTestPath($corePath . 'config/app/source.config.php');
 
     expect(Pinker::bakedFileFromSource($sourceFile))
-        ->toBe($basePath . '/pinker/config/app/source.config.php');
+        ->toBe($basePath . '/pinker/platform/app/source.config.php');
 });
 
 function deletePinkerTestApp(string $package): void

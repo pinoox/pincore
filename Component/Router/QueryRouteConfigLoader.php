@@ -145,9 +145,11 @@ class QueryRouteConfigLoader
         $systemRouter = SystemConfig::path('system_router');
 
         $candidates = [
+            $basePath . '/pinker/platform/app-router.config.php',
             $basePath . '/pinker/config/app-router.config.php',
             $basePath . '/pinker/system/config/app/router.config.php',
             $systemRouter,
+            $basePath . '/platform/app-router.config.php',
             $basePath . '/config/app-router.config.php',
             $basePath . '/vendor/pinoox/pincore/config/app-router.config.php',
             $basePath . '/pincore/config/app-router.config.php',

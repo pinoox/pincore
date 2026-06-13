@@ -193,9 +193,11 @@ final class WebServerFix
         $root = $documentRoot ?? self::guessDocumentRoot();
         $systemRouter = SystemConfig::path('system_router');
         $candidates = [
+            $root . '/pinker/platform/app-router.config.php',
             $root . '/pinker/config/app-router.config.php',
             $root . '/pinker/system/config/app/router.config.php',
             $systemRouter,
+            $root . '/platform/app-router.config.php',
             $root . '/config/app-router.config.php',
             $root . '/vendor/pinoox/pincore/config/app-router.config.php',
             $root . '/pincore/config/app-router.config.php',

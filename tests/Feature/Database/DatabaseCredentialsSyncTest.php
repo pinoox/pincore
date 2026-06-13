@@ -57,7 +57,7 @@ it('throws when DB_CONNECTION is unknown', function () {
 it('syncs installer database credentials to pinker only', function () {
     AppTestKit::boot();
 
-    $overridePath = SystemConfig::path('pinker') . '/state/config/database.config.php';
+    $overridePath = SystemConfig::pinkerStateConfigPath('database');
     $overrideBackup = is_file($overridePath) ? file_get_contents($overridePath) : null;
 
     try {
@@ -125,7 +125,7 @@ it('syncs installer database credentials to pinker only', function () {
 it('syncs mariadb installer credentials and default connection to pinker', function () {
     AppTestKit::boot();
 
-    $overridePath = SystemConfig::path('pinker') . '/state/config/database.config.php';
+    $overridePath = SystemConfig::pinkerStateConfigPath('database');
     $overrideBackup = is_file($overridePath) ? file_get_contents($overridePath) : null;
 
     try {

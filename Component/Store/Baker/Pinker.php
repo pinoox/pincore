@@ -674,15 +674,40 @@ class Pinker
 
     private function loadOverride(): ?array
     {
-        $overrideFile = $this->getOverrideFile();
+        foreach ($this->overrideFileCandidates() as $overrideFile) {
+            if (!is_file($overrideFile)) {
+                continue;
+            }
 
-        if ($overrideFile === null || !is_file($overrideFile)) {
-            return null;
+            $data = $this->fileHandler->retrieve($overrideFile);
+
+            if (is_array($data) && ($data['__pinker_override__'] ?? false) === true) {
+                return $data;
+            }
         }
 
-        $data = $this->fileHandler->retrieve($overrideFile);
+        return null;
+    }
 
-        return is_array($data) && ($data['__pinker_override__'] ?? false) === true ? $data : null;
+    /**
+     * @return list<string>
+     */
+    private function overrideFileCandidates(): array
+    {
+        $overrideFile = $this->getOverrideFile();
+
+        if ($overrideFile === null) {
+            return [];
+        }
+
+        $candidates = [$overrideFile];
+        $legacy = str_replace('/state/platform/', '/state/config/', $overrideFile);
+
+        if ($legacy !== $overrideFile) {
+            $candidates[] = $legacy;
+        }
+
+        return $candidates;
     }
 
     private function makeOverride($source, $current): array
