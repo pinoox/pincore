@@ -16,36 +16,33 @@ namespace Pinoox\Component\Migration;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Builder;
 use Illuminate\Contracts\Database\Query\Expression;
-use Pinoox\Portal\App\App;
 use Pinoox\Portal\Database\DB;
+use Pinoox\Support\PackageContext;
 
 class MigrationBase extends Migration
 {
     public Builder $schema;
 
-    private static ?string $package = null;
-
     public static function usePackage(?string $package): void
     {
-        self::$package = $package;
+        PackageContext::use($package);
     }
 
-    public function __construct()
+    public function __construct(?string $package = null)
     {
-        $package = self::$package ?? App::package();
+        $package = PackageContext::resolve($package);
         $this->schema = DB::schema(DB::connectionNameForPackage($package));
         $this->schema->blueprintResolver(fn($table, $callback, $prefix) => new MigrationBlueprint($table, $callback, $prefix));
     }
 
     protected function table(string $name, ?string $package = null): string
     {
-        return DB::tableName($name, $package ?? self::$package ?? App::package());
+        return DB::tableName($name, $package ?? PackageContext::resolve());
     }
 
     protected function foreignTable(string $name, ?string $package = null): Expression
     {
-        return DB::raw(DB::physicalTableName($name, $package ?? self::$package ?? App::package()));
+        return DB::raw(DB::physicalTableName($name, $package ?? PackageContext::resolve()));
     }
 
 }
-

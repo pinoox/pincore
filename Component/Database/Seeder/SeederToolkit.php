@@ -83,15 +83,23 @@ class SeederToolkit
 
         $finder->in($this->seederSearchPaths())->files()->name('*.php');
 
-        foreach ($finder as $file) {
-            $seederClass = require $file->getRealPath();
-            if ($seederClass instanceof SeederBase) {
-                $this->seeders[] = [
-                    'file' => $file->getRealPath(),
-                    'class' => get_class($seederClass),
-                    'instance' => $seederClass,
-                ];
+        SeederBase::usePackage($this->package);
+
+        try {
+            foreach ($finder as $file) {
+                $path = $file->getRealPath();
+                $seederClass = require $path;
+
+                if ($seederClass instanceof SeederBase) {
+                    $this->seeders[] = [
+                        'file' => $path,
+                        'class' => get_class($seederClass),
+                        'instance' => $seederClass,
+                    ];
+                }
             }
+        } finally {
+            SeederBase::usePackage(null);
         }
     }
 

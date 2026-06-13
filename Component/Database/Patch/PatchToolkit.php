@@ -177,29 +177,39 @@ class PatchToolkit
 
         $finder->in($this->patchPath)->files()->name('*.php')->sortByName();
 
-        foreach ($finder as $file) {
-            $patchClass = require $file->getRealPath();
+        PatchBase::usePackage($this->package);
 
-            if ($patchClass instanceof PatchBase) {
-                $patchClass->setPackage($this->package);
-                $name = $file->getBasename('.php');
-                $record = $this->latestRecord($name);
+        try {
+            foreach ($finder as $file) {
+                $path = $file->getRealPath();
+                $patchClass = require $path;
 
-                $this->patches[] = [
-                    'file' => $file->getRealPath(),
-                    'name' => $name,
-                    'class' => get_class($patchClass),
-                    'instance' => $patchClass,
-                    'ran' => $this->hasRun($name),
-                    'should_run' => $patchClass->shouldRun(),
-                    'can_rollback' => $patchClass->canRollback(),
-                    'description' => $patchClass->description(),
-                    'checksum' => $this->checksum($file->getRealPath()),
-                    'record' => $record,
-                    'status' => $record['status'] ?? 'pending',
-                    'created_at' => $this->createdAt($name, $file->getRealPath()),
-                ];
+                if ($patchClass instanceof PatchBase) {
+                    if (!$patchClass->hasPackage()) {
+                        $patchClass->setPackage($this->package);
+                    }
+
+                    $name = $file->getBasename('.php');
+                    $record = $this->latestRecord($name);
+
+                    $this->patches[] = [
+                        'file' => $path,
+                        'name' => $name,
+                        'class' => get_class($patchClass),
+                        'instance' => $patchClass,
+                        'ran' => $this->hasRun($name),
+                        'should_run' => $patchClass->shouldRun(),
+                        'can_rollback' => $patchClass->canRollback(),
+                        'description' => $patchClass->description(),
+                        'checksum' => $this->checksum($path),
+                        'record' => $record,
+                        'status' => $record['status'] ?? 'pending',
+                        'created_at' => $this->createdAt($name, $path),
+                    ];
+                }
             }
+        } finally {
+            PatchBase::usePackage(null);
         }
     }
 

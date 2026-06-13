@@ -4,16 +4,22 @@ namespace Pinoox\Component\Database\Patch;
 
 use Illuminate\Database\Schema\Builder;
 use Pinoox\Portal\Database\DB;
+use Pinoox\Support\PackageContext;
 
 abstract class PatchBase
 {
     protected Builder $schema;
     protected string $package = '';
 
-    public function __construct(string $package = '')
+    public static function usePackage(?string $package): void
     {
+        PackageContext::use($package);
+    }
+
+    public function __construct(?string $package = null)
+    {
+        $this->package = PackageContext::resolve($package);
         $this->schema = DB::schema();
-        $this->package = $package;
     }
 
     public function run(): void
@@ -56,6 +62,11 @@ abstract class PatchBase
         return $this;
     }
 
+    public function hasPackage(): bool
+    {
+        return $this->package !== '';
+    }
+
     protected function getPackage(): string
     {
         return $this->package;
@@ -66,4 +77,3 @@ abstract class PatchBase
         return $this->schema;
     }
 }
-
