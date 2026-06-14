@@ -50,10 +50,11 @@ trait ManagesCliDatabase
         OutputInterface $output,
         SymfonyStyle $io,
         ?string $argument = 'connection',
+        ?string $default = null,
     ): string {
-        $name = trim((string) ($input->hasArgument($argument) ? $input->getArgument($argument) : ''));
+        $name = trim((string) ($argument !== null && $input->hasArgument($argument) ? $input->getArgument($argument) : ''));
 
-        if ($name !== '') {
+        if ($name !== '' && !$this->isPlatformTarget($name)) {
             if (!in_array($name, $this->platformConnectionNames(), true)) {
                 throw new \InvalidArgumentException('Platform connection not found: ' . $name);
             }
@@ -67,15 +68,17 @@ trait ManagesCliDatabase
             throw new \RuntimeException('No platform connections are configured.');
         }
 
+        $default ??= $this->defaultPlatformDriver();
+
         if (count($names) === 1) {
             return $names[0];
         }
 
         if (!$input->isInteractive()) {
-            throw new \RuntimeException('Connection name is required in non-interactive mode.');
+            return in_array($default, $names, true) ? $default : $names[0];
         }
 
-        $question = new Question('Platform connection: ');
+        $question = new Question(sprintf('Platform connection [%s]: ', $default), $default);
         $question->setAutocompleterValues($names);
         $question->setValidator(function ($answer) use ($names) {
             $answer = strtolower(trim((string) $answer));
@@ -88,6 +91,35 @@ trait ManagesCliDatabase
         });
 
         return $this->getHelper('question')->ask($input, $output, $question);
+    }
+
+    protected function resolvePlatformConnectionTarget(
+        InputInterface $input,
+        OutputInterface $output,
+        SymfonyStyle $io,
+        string $sectionTitle = 'Platform connections',
+    ): string {
+        $names = $this->platformConnectionNames();
+
+        if ($names === []) {
+            throw new \RuntimeException('No platform connections are configured.');
+        }
+
+        if ($input->isInteractive() && count($names) > 1) {
+            $io->section($sectionTitle);
+            $io->table(
+                ['Name', 'Default', 'Driver', 'Host', 'Database'],
+                array_map(static fn (array $row) => [
+                    $row['name'],
+                    $row['default'],
+                    $row['driver'],
+                    $row['host'],
+                    $row['database'],
+                ], DatabaseConnectionToolkit::listPlatformConnections(test: false)),
+            );
+        }
+
+        return $this->resolvePlatformConnectionName($input, $output, $io, argument: null);
     }
 
     /**
