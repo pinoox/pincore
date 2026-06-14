@@ -3,6 +3,7 @@
 namespace Pinoox\Terminal\User\Concerns;
 
 use Pinoox\Component\Transport\TransportRuntime;
+use Pinoox\Model\PermissionModel;
 use Pinoox\Model\RoleModel;
 use Pinoox\Model\UserModel;
 use Pinoox\Portal\Auth;
@@ -31,6 +32,7 @@ trait ManagesCliUsers
         DB::ensureRegistered();
         UserModel::clearBootedModels();
         RoleModel::clearBootedModels();
+        PermissionModel::clearBootedModels();
 
         TransportRuntime::use($package);
     }
