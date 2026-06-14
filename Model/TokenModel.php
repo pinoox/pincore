@@ -16,10 +16,10 @@ namespace Pinoox\Model;
 
 use Pinoox\Component\Database\Model;
 use Pinoox\Component\Transport\TransportConfig;
+use Pinoox\Component\Transport\TransportRuntime;
 use Pinoox\Component\Transport\TransportScenario;
 use Pinoox\Portal\User;
 use Pinoox\Model\Scope\AppScope;
-use Pinoox\Portal\App\App;
 use Pinoox\Portal\Url;
 
 class TokenModel extends Model
@@ -49,32 +49,26 @@ class TokenModel extends Model
         'app'
     ];
 
-    protected static function boot()
+    protected static function booted(): void
     {
-        parent::boot();
-
         static::creating(function ($token) {
             $token->app = $token->app ?? self::getPackage();
             $token->user_id = $token->user_id ?? User::get('user_id');
             $token->ip = $token->ip ?? Url::clientIp();
             $token->user_agent = $token->user_agent ?? Url::userAgent();
         });
+
+        self::addAppGlobalScope();
     }
 
     public static function setPackage(string $package): void
     {
-        App::set('transport.' . TransportScenario::SESSION_TOKEN, $package)->save();
-        self::addAppGlobalScope();
+        TransportRuntime::use($package);
     }
 
     public static function getPackage(): string
     {
         return TransportConfig::package(TransportScenario::SESSION_TOKEN);
-    }
-
-    protected static function booted(): void
-    {
-        self::addAppGlobalScope();
     }
 
     private static function addAppGlobalScope(): void

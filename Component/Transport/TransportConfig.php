@@ -26,10 +26,20 @@ final class TransportConfig
 
     public static function package(string $key): string
     {
+        $runtime = TransportRuntime::active();
+
+        if ($runtime === self::PLATFORM) {
+            return self::PLATFORM;
+        }
+
+        $fallback = ($runtime !== null && $runtime !== '')
+            ? $runtime
+            : App::package();
+
         return self::resolveScope(
             self::readTransportValue($key),
-            App::package(),
-            TransportContext::host(),
+            $fallback,
+            TransportContext::host() ?? $runtime,
         );
     }
 
@@ -150,6 +160,22 @@ final class TransportConfig
 
     private static function readAuthTransportValue(): ?string
     {
+        $runtime = TransportRuntime::active();
+        if ($runtime !== null && $runtime !== '') {
+            if ($runtime === self::PLATFORM) {
+                return null;
+            }
+
+            if (AppEngine::exists($runtime)) {
+                $transport = AppEngine::config($runtime)->get('transport');
+                if (is_array($transport)) {
+                    return self::readAuthFromTransportBlock($transport);
+                }
+
+                return null;
+            }
+        }
+
         $transport = App::get('transport');
         if (!is_array($transport)) {
             return null;
@@ -172,6 +198,22 @@ final class TransportConfig
 
     private static function readTransportValue(string $granularKey): ?string
     {
+        $runtime = TransportRuntime::active();
+        if ($runtime !== null && $runtime !== '') {
+            if ($runtime === self::PLATFORM) {
+                return null;
+            }
+
+            if (AppEngine::exists($runtime)) {
+                $transport = AppEngine::config($runtime)->get('transport');
+                if (is_array($transport)) {
+                    return self::readFromTransportBlock($transport, $granularKey);
+                }
+
+                return null;
+            }
+        }
+
         $transport = App::get('transport');
         if (!is_array($transport)) {
             return null;

@@ -18,8 +18,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Validation\Rule;
 use Pinoox\Component\Database\Model;
 use Pinoox\Component\Transport\TransportConfig;
+use Pinoox\Component\Transport\TransportRuntime;
 use Pinoox\Component\Transport\TransportScenario;
-use Pinoox\Portal\App\App;
 use Pinoox\Portal\Database\DB;
 use Pinoox\Portal\Hash;
 use Pinoox\Model\Scope\AppScope;
@@ -96,15 +96,14 @@ class UserModel extends Model
         return $query->where('metadata->' . $metaKey, $operator, $value, $boolean);
     }
 
-    protected static function boot()
+    protected static function booted(): void
     {
-        parent::boot();
-
         static::creating(function (UserModel $user) {
-            $user->app = $user->app ?: self::getPackage();
+            $user->setAttribute('app', $user->getAttribute('app') ?: self::getPackage());
             $user->status = $user->status ?: self::ACTIVE;
-            if($user->password)
+            if ($user->password) {
                 $user->password = self::hashPassword($user->password);
+            }
         });
 
         static::updating(function (UserModel $user) {
@@ -116,6 +115,8 @@ class UserModel extends Model
         static::deleting(function (UserModel $user) {
             $user->file?->delete();
         });
+
+        self::addAppGlobalScope();
     }
 
     public function getAvatarAttribute()
@@ -168,18 +169,12 @@ class UserModel extends Model
 
     public static function setPackage(string $package): void
     {
-        App::set('transport.' . TransportScenario::USER_TABLE, $package)->save();
-        self::addAppGlobalScope();
+        TransportRuntime::use($package);
     }
 
     public static function getPackage(): string
     {
         return TransportConfig::package(TransportScenario::USER_TABLE);
-    }
-
-    protected static function booted(): void
-    {
-        self::addAppGlobalScope();
     }
 
     private static function addAppGlobalScope(): void

@@ -5,6 +5,7 @@ namespace Pinoox\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Pinoox\Component\Database\Model;
 use Pinoox\Component\Transport\TransportConfig;
+use Pinoox\Component\Transport\TransportRuntime;
 use Pinoox\Component\Transport\TransportScenario;
 use Pinoox\Model\Scope\AppScope;
 
@@ -44,8 +45,7 @@ class RoleModel extends Model
 
     public static function setPackage(string $package): void
     {
-        App::set('transport.' . TransportScenario::ACCESS_TABLE, $package)->save();
-        self::addAppGlobalScope();
+        TransportRuntime::use($package);
     }
 
     protected static function booted(): void
