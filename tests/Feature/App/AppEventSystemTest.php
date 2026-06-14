@@ -14,7 +14,8 @@ it('registers app boot portal and helper', function () {
 it('defines app event names', function () {
     expect(AppEventNames::BOOTING)->toBe('app.booting')
         ->and(AppEventNames::BOOTED)->toBe('app.booted')
-        ->and(AppEventNames::package(AppEventNames::ROUTES, 'com_test'))->toBe('app.routes.com_test');
+        ->and(AppEventNames::package(AppEventNames::ROUTES, 'com_test'))->toBe('app.routes.com_test')
+        ->and(AppEventNames::ROUTE_MATCHED)->toBe('app.route.matched');
 });
 
 it('injects permission flow through route registration helper', function () {

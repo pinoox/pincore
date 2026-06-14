@@ -1,24 +1,97 @@
 <?php
 
 /**
- * App boot stub — register routes, API, flows, and listeners without route files.
+ * App boot stub — register routes, API, flows, listeners, and schedules without route files.
  *
- * @see docs/pinoox-app-events.md
+ * @see packages/docs/en/advanced/boot-and-events.md
  */
 
+use Pinoox\Component\AppEvent\AppEventNames;
 use Pinoox\Component\AppEvent\AppRegister;
 
 return function (AppRegister $register): void {
+    // --- Web routes ---
     // $register->web(function ($router) {
     //     $router->get('/hello', fn () => response('Hello'))->register();
     // });
     //
-    // $register->flowAlias(['auth' => AuthFlow::class]);
+    // $register->route([
+    //     'path' => '/panel',
+    //     'action' => [MainController::class, 'index'],
+    //     'flow' => ['auth'],
+    //     'permission' => 'app.panel.view',
+    // ]);
+
+    // --- API ---
+    // $register->api([
+    //     'version' => 'v1',
+    //     'prefix' => '/items',
+    //     'routes' => [
+    //         ['method' => 'GET', 'uri' => '/', 'action' => [ItemController::class, 'index']],
+    //     ],
+    // ]);
     //
     // $register->apiRoute([
     //     'method' => 'GET',
     //     'uri' => '/ping',
-    //     'action' => fn () => response()->json(['ok' => true]),
+    //     'action' => fn () => ApiResponse::success(['ok' => true]),
     //     'name' => 'ping',
     // ]);
+
+    // --- GraphQL ---
+    // $register->graphql([
+    //     'types' => [UserType::class],
+    //     'queries' => ['user' => UserQuery::class],
+    // ]);
+
+    // --- Flow aliases ---
+    // $register->flowAlias(['auth' => AuthFlow::class]);
+    // $register->alias(['myapp' => ['auth' => AuthFlow::class]]);
+
+    // --- Named actions (routes/actions.php alternative) ---
+    // $register->action('home', fn () => redirect(url('/')));
+
+    // --- Cron (also see schedule.php) ---
+    // $register->schedule(function ($schedule) {
+    //     $schedule->command('reports:daily')->daily();
+    // });
+
+    // --- Events (boot lifecycle) ---
+    // $register->listen(AppEventNames::package(AppEventNames::BOOTED, $register->package()), $listener);
+    // $register->subscribe(MyEventSubscriber::class);
+    //
+    // --- Core request events (dispatched by framework on every HTTP request) ---
+    // use Pinoox\Component\AppEvent\AppRouteMatchedEvent;
+    // use Pinoox\Component\AppEvent\AppControllerEvent;
+    //
+    // $register->listen(AppEventNames::ROUTE_MATCHED, function (AppRouteMatchedEvent $event): void {});
+    // $register->listen(AppEventNames::route('home'), function (AppRouteMatchedEvent $event): void {});
+    // $register->listen(AppEventNames::apiRoute('auth.login'), function (AppRouteMatchedEvent $event): void {});
+    // $register->listen(AppEventNames::package(AppEventNames::CONTROLLER, $register->package()), function (AppControllerEvent $event): void {});
+
+    // --- Plugin: register when another app boots ---
+    // $register->when('com_host_app', function (AppRegister $host) {
+    //     $host->apiRoute([...]);
+    // });
+
+    // --- Watches (route / API / path / controller / model) ---
+    // use Pinoox\Component\AppEvent\AppWatchContext;
+    //
+    // $register->onRoute('home', function (AppWatchContext $ctx): void {
+    //     // runs when route name matches (before controller)
+    // });
+    //
+    // $register->onApi('auth.login', function (AppWatchContext $ctx): void {});
+    //
+    // $register->onPath('/panel/*', function (AppWatchContext $ctx): void {});
+    //
+    // $register->onController([MainController::class, 'index'], function (AppWatchContext $ctx): void {});
+    //
+    // $register->onAction('home', function (AppWatchContext $ctx): void {});
+    //
+    // $register->onModel(OrderModel::class, 'creating', function (AppWatchContext $ctx): void {
+    //     // $ctx->model
+    // });
+    //
+    // Limit to a host app: $register->onRoute('app.run', $handler, 'com_host_app');
 };
