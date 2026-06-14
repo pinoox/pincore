@@ -69,20 +69,23 @@ HELP
             $target = $this->resolveDatabaseTarget($input, $output, $io, 'Test database for');
         }
 
-        if ($target === '') {
-            $target = $this->resolvePlatformConnectionName($input, $output, $io, 'target');
-        }
-
         try {
-            if ($this->isAppTarget($target) || AppEngine::exists($target)) {
+            if ($this->isAppTarget($target)) {
                 $row = DatabaseConnectionToolkit::describeApp($target, test: true);
+            } elseif ($this->isPlatformTarget($target) || $target === '') {
+                $connection = $this->resolvePlatformConnectionTarget($input, $output, $io);
+                $row = DatabaseConnectionToolkit::describePlatformConnection($connection, test: true);
             } else {
                 $row = DatabaseConnectionToolkit::describePlatformConnection($target, test: true);
             }
         } catch (\InvalidArgumentException $e) {
-            $io->error($e->getMessage());
+            if (AppEngine::exists($target)) {
+                $row = DatabaseConnectionToolkit::describeApp($target, test: true);
+            } else {
+                $io->error($e->getMessage());
 
-            return Command::FAILURE;
+                return Command::FAILURE;
+            }
         }
 
         $ok = ($row['status'] ?? '') === 'connected';

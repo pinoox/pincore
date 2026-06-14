@@ -52,13 +52,12 @@ HELP
             $target = $this->resolveDatabaseTarget($input, $output, $io, 'Show database for');
         }
 
-        if ($target === '') {
-            $target = $this->resolvePlatformConnectionName($input, $output, $io, 'target');
-        }
-
         try {
             if ($this->isAppTarget($target)) {
                 $row = DatabaseConnectionToolkit::describeApp($target, test: true);
+            } elseif ($this->isPlatformTarget($target) || $target === '') {
+                $connection = $this->resolvePlatformConnectionTarget($input, $output, $io);
+                $row = DatabaseConnectionToolkit::describePlatformConnection($connection, test: true);
             } else {
                 $row = DatabaseConnectionToolkit::describePlatformConnection($target, test: true);
             }

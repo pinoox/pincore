@@ -82,6 +82,10 @@ HELP
             return $this->updateAppDatabase($input, $io, $target);
         }
 
+        if ($this->isPlatformTarget($target)) {
+            $target = $this->resolvePlatformConnectionTarget($input, $output, $io);
+        }
+
         return $this->updatePlatformConnection($input, $output, $io, $target);
     }
 
