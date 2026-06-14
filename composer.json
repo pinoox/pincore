@@ -8,7 +8,7 @@
     "hmvc"
   ],
   "type": "library",
-  "version": "3.0.6",
+  "version": "3.0.7",
   "homepage": "https://www.pinoox.com/",
   "license": "MIT",
   "authors": [
@@ -19,8 +19,6 @@
   ],
   "require": {
     "php": "^8.1",
-    "ext-mysqli": "*",
-    "ext-zip": "*",
     "doctrine/dbal": "^3.5",
     "firebase/php-jwt": "^7.0.5",
     "illuminate/database": "^10.40",
@@ -89,6 +87,13 @@
     "allow-plugins": {
       "pestphp/pest-plugin": true
     }
+  },
+  "suggest": {
+    "ext-pdo_mysql": "Required when DB_CONNECTION is mysql or mariadb",
+    "ext-pdo_pgsql": "Required when DB_CONNECTION is pgsql",
+    "ext-pdo_sqlite": "Required when DB_CONNECTION is sqlite",
+    "ext-pdo_sqlsrv": "Required when DB_CONNECTION is sqlsrv",
+    "ext-zip": "Required for Pinx package build and install (.pinx)"
   },
   "minimum-stability": "dev",
   "extra": {
