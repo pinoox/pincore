@@ -48,6 +48,7 @@ require_once __DIR__ . '/Support/AppTestHelpers.php';
 require_once __DIR__ . '/Support/ApiSystemHelpers.php';
 require_once __DIR__ . '/Support/InstallerTestHelpers.php';
 require_once __DIR__ . '/Support/DatabaseTestHelpers.php';
+require_once __DIR__ . '/Support/CliTestHelpers.php';
 
 require_once __DIR__ . '/Support/TestSandbox.php';
 require_once __DIR__ . '/Support/TestRuntime.php';
