@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Template\Theme;
 
+use Pinoox\Component\AppEvent\AppWatchRegistry;
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\View;
@@ -108,6 +109,7 @@ final class ThemeContext
             $stack = ThemeStack::resolve($package, $context);
             View::___()->changeTheme($stack['paths']);
             \Pinoox\Component\Dir::setTheme($stack['name'], $stack['path_theme']);
+            AppWatchRegistry::dispatchTheme($package, $context);
         } catch (\Throwable) {
         }
     }

@@ -206,6 +206,19 @@ class AppRegister
         return $this;
     }
 
+    /**
+     * Run when a theme context or theme folder name becomes active.
+     *
+     * Matches context names from `theme-contexts` (e.g. `panel`) and/or resolved
+     * theme folder names (e.g. `default`, `spark`).
+     *
+     * @param string|list<string> $name
+     */
+    public function onTheme(string|array $name, callable $handler, ?string $package = null): self
+    {
+        return $this->watch('theme', $name, $handler, $package);
+    }
+
     private function watch(string $kind, mixed $match, callable $handler, ?string $package): self
     {
         $this->collector->watches[] = [
