@@ -139,6 +139,85 @@ class AppRegister
         return $this;
     }
 
+    /**
+     * Run when a web route name matches (after route match, before controller).
+     *
+     * @param string|list<string> $name
+     */
+    public function onRoute(string|array $name, callable $handler, ?string $package = null): self
+    {
+        return $this->watch('route', $name, $handler, $package);
+    }
+
+    /**
+     * Run when an API route name matches.
+     *
+     * @param string|list<string> $name
+     */
+    public function onApi(string|array $name, callable $handler, ?string $package = null): self
+    {
+        return $this->watch('api', $name, $handler, $package);
+    }
+
+    /**
+     * Run when the request path matches (supports trailing `*` wildcard).
+     *
+     * @param string|list<string> $pattern
+     */
+    public function onPath(string|array $pattern, callable $handler, ?string $package = null): self
+    {
+        return $this->watch('path', $pattern, $handler, $package);
+    }
+
+    /**
+     * Run when a named action reference matches.
+     *
+     * @param string|list<string> $name
+     */
+    public function onAction(string|array $name, callable $handler, ?string $package = null): self
+    {
+        return $this->watch('action', $name, $handler, $package);
+    }
+
+    /**
+     * Run when a controller class (and optional method) is invoked.
+     *
+     * @param class-string|array{0: class-string, 1?: string} $target
+     */
+    public function onController(string|array $target, callable $handler, ?string $package = null): self
+    {
+        return $this->watch('controller', $target, $handler, $package);
+    }
+
+    /**
+     * Run on an Eloquent model event (creating, updating, saved, …).
+     *
+     * @param class-string $model
+     */
+    public function onModel(string $model, string $event, callable $handler): self
+    {
+        $this->collector->watches[] = [
+            'kind' => 'model',
+            'match' => ['class' => $model, 'event' => $event],
+            'handler' => $handler,
+            'package' => null,
+        ];
+
+        return $this;
+    }
+
+    private function watch(string $kind, mixed $match, callable $handler, ?string $package): self
+    {
+        $this->collector->watches[] = [
+            'kind' => $kind,
+            'match' => $match,
+            'handler' => $handler,
+            'package' => $package,
+        ];
+
+        return $this;
+    }
+
     public function collector(): AppRegisterCollector
     {
         return $this->collector;

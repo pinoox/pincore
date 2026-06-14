@@ -273,6 +273,10 @@ PHP);
             "{$this->appDir}/boot.php",
             (string) file_get_contents($this->stubsPath . 'boot.stub'),
         );
+        FileSystem::dumpFile(
+            "{$this->appDir}/bindings.php",
+            (string) file_get_contents($this->stubsPath . 'bindings.stub'),
+        );
     }
 
     private function writeThemeBase(): void

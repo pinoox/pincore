@@ -38,6 +38,13 @@ class AppRegisterCollector
     public array $schedules = [];
 
     /**
+     * Declarative request/controller/model watches registered from boot.php.
+     *
+     * @var list<array<string, mixed>>
+     */
+    public array $watches = [];
+
+    /**
      * @var array<string, list<callable(AppRegister): void>>
      */
     public array $whenTargets = [];

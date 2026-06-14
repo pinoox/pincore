@@ -15,6 +15,7 @@
 namespace Pinoox\Portal\Kernel;
 
 use Pinoox\Component\Kernel\Listener\ActionRoutesManageListener;
+use Pinoox\Component\Kernel\Listener\AppCoreEventSubscriber;
 use Pinoox\Component\Kernel\Listener\ExceptionListener;
 use Pinoox\Component\Kernel\Listener\PinooxExceptionRenderListener;
 use Pinoox\Component\Kernel\Listener\QueryRouteCanonicalListener;
@@ -43,6 +44,8 @@ class Listener extends Portal
             ->setArgument('logger', Logger::__ref())
             ->setArgument('projectDir', null)
             ->setArgument('debug', false);
+
+        self::__bind(AppCoreEventSubscriber::class, 'appCoreEvents');
 
         self::__bind(RouteEmptyListener::class, 'routeEmpty');
         self::__bind(QueryRouteCanonicalListener::class, 'queryRouteCanonical');

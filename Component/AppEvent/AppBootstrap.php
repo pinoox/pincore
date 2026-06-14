@@ -101,6 +101,7 @@ class AppBootstrap
         self::$globalBootPackagesCache = null;
         self::$kernelReady = false;
         AppRegisterCollector::$pendingWhen = [];
+        AppWatchRegistry::reset();
     }
 
     /**
@@ -317,10 +318,11 @@ class AppBootstrap
         AppApiRegistryStore::absorb($package, $collector);
         AppGraphQLRegistryStore::absorb($package, $collector);
         AppScheduleRegistryStore::absorb($package, $collector);
+        AppWatchRegistry::absorb($package, $collector);
 
         if ($integrate) {
             self::applyIntegration($package, $collector);
-        } elseif ($collector->aliases !== [] || $collector->flows !== [] || $collector->listeners !== [] || $collector->subscribers !== []) {
+        } elseif ($collector->aliases !== [] || $collector->flows !== [] || $collector->listeners !== [] || $collector->subscribers !== [] || $collector->watches !== []) {
             self::$pendingIntegration[$package] = self::mergePending($package, $collector);
         }
     }
@@ -333,6 +335,7 @@ class AppBootstrap
         $pending->aliases = array_replace_recursive($pending->aliases, $collector->aliases);
         $pending->listeners = array_merge($pending->listeners, $collector->listeners);
         $pending->subscribers = array_merge($pending->subscribers, $collector->subscribers);
+        $pending->watches = array_merge($pending->watches, $collector->watches);
 
         return $pending;
     }
@@ -360,6 +363,8 @@ class AppBootstrap
                 Event::addSubscriber(new $subscriber());
             }
         }
+
+        AppWatchRegistry::integrate();
     }
 
     private static function canDispatch(): bool

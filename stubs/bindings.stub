@@ -1,0 +1,12 @@
+<?php
+
+/**
+ * Service container bindings (requires container.enabled in app.php).
+ *
+ * @see packages/docs/en/advanced/boot-and-events.md
+ *
+ * @return array<string, string>
+ */
+return [
+    // MyContract::class => MyService::class,
+];
