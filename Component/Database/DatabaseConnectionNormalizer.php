@@ -10,7 +10,7 @@ use Pinoox\Portal\Database\DB;
 final class DatabaseConnectionNormalizer
 {
     /** @return list<string> */
-    public const INSTALLABLE_DRIVERS = ['mysql', 'mariadb', 'pgsql', 'sqlsrv'];
+    public const INSTALLABLE_DRIVERS = ['mysql', 'mariadb', 'pgsql', 'sqlsrv', 'sqlite'];
 
     /** @var array<string, string> */
     public const DRIVER_LABELS = [
@@ -59,6 +59,10 @@ final class DatabaseConnectionNormalizer
                     ? 'PDO MySQL'
                     : (extension_loaded('mysqli') ? 'MySQLi' : null),
             ],
+            'sqlite' => [
+                'available' => extension_loaded('pdo_sqlite'),
+                'extension' => extension_loaded('pdo_sqlite') ? 'PDO SQLite' : null,
+            ],
             default => ['available' => false, 'extension' => null],
         };
     }
@@ -100,6 +104,12 @@ final class DatabaseConnectionNormalizer
         ];
 
         $config = match ($driver) {
+            'sqlite' => [
+                'driver' => 'sqlite',
+                'database' => $input['database'] ?? ':memory:',
+                'prefix' => (string) ($input['prefix'] ?? ''),
+                'foreign_key_constraints' => $input['foreign_key_constraints'] ?? true,
+            ],
             'pgsql' => array_merge($shared, [
                 'driver' => 'pgsql',
                 'charset' => 'utf8',
@@ -144,29 +154,120 @@ final class DatabaseConnectionNormalizer
             return false;
         }
 
-        $driver = self::driverName($config, (string) ($config['driver'] ?? DatabaseConfig::DEFAULT_CONNECTION));
+        $driver = strtolower(trim((string) ($config['driver'] ?? '')));
 
-        if (!self::extensionStatus($driver)['available']) {
+        if ($driver === 'sqlite') {
+            return self::testSqlite($config);
+        }
+
+        $driverName = self::driverName($config, $driver !== '' ? $driver : DatabaseConfig::DEFAULT_CONNECTION);
+
+        if (!self::extensionStatus($driverName)['available']) {
             return false;
         }
 
-        $normalized = self::normalize($config, $driver);
+        if (self::testMatchingRegisteredConnection($config)) {
+            return true;
+        }
+
+        return self::testProbeConnection($config, $driverName);
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private static function testSqlite(array $config): bool
+    {
+        if (!self::extensionStatus('sqlite')['available']) {
+            return false;
+        }
+
+        $database = (string) ($config['database'] ?? '');
+
+        if ($database !== ':memory:' && $database !== '' && !is_file($database)) {
+            return false;
+        }
+
+        return self::testProbeConnection($config, 'sqlite');
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private static function testMatchingRegisteredConnection(array $config): bool
+    {
+        foreach (['platform', 'default'] as $name) {
+            try {
+                $connection = DB::___()->getConnection($name);
+                $connection->getPdo();
+
+                if (self::connectionEndpointsMatch($config, $connection->getConfig())) {
+                    return true;
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @param array<string, mixed> $expected
+     * @param array<string, mixed> $actual
+     */
+    private static function connectionEndpointsMatch(array $expected, array $actual): bool
+    {
+        $actual = DatabaseConfig::normalizeConnectionDriver($actual);
+        $expectedDriver = DatabaseConfig::normalizeConnectionDriver([
+            'driver' => (string) ($expected['driver'] ?? 'mysql'),
+        ])['driver'];
+
+        foreach (['host', 'database', 'username', 'port'] as $key) {
+            if ((string) ($expected[$key] ?? '') !== (string) ($actual[$key] ?? '')) {
+                return false;
+            }
+        }
+
+        return (string) ($actual['driver'] ?? '') === (string) $expectedDriver;
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private static function testProbeConnection(array $config, string $driver): bool
+    {
+        $normalized = DatabaseConfig::normalizeConnectionDriver(array_replace(
+            self::normalize($config, $driver),
+            array_intersect_key($config, array_flip([
+                'unix_socket',
+                'options',
+                'url',
+                'charset',
+                'collation',
+                'strict',
+                'engine',
+                'timezone',
+                'prefix_indexes',
+                'search_path',
+                'sslmode',
+            ])),
+        ));
+
         $probeName = '__pinoox_db_probe_' . bin2hex(random_bytes(4));
+        $capsule = DB::___();
 
         try {
-            $manager = DB::getDatabaseManager();
-            $manager->addConnection($normalized, $probeName);
-            $manager->getConnection($probeName)->getPdo();
-            $manager->purge($probeName);
+            $capsule->addConnection($normalized, $probeName);
+            $capsule->getConnection($probeName)->getPdo();
 
             return true;
         } catch (\Throwable) {
+            return false;
+        } finally {
             try {
-                DB::getDatabaseManager()->purge($probeName);
+                $capsule->getDatabaseManager()->purge($probeName);
             } catch (\Throwable) {
             }
-
-            return false;
         }
     }
 }
