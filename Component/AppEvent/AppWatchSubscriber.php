@@ -5,6 +5,9 @@ namespace Pinoox\Component\AppEvent;
 use Pinoox\Component\Http\Request;
 use Pinoox\Component\Router\Action\ActionReference;
 use Pinoox\Component\Router\Route;
+use Pinoox\Component\Template\Theme\ThemeContext;
+use Pinoox\Component\Template\Theme\ThemeStack;
+use Pinoox\Portal\App\App;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 class AppWatchSubscriber implements EventSubscriberInterface
@@ -13,7 +16,7 @@ class AppWatchSubscriber implements EventSubscriberInterface
     {
         return [
             AppEventNames::ROUTE_MATCHED => ['onRouteMatched', 0],
-            AppEventNames::CONTROLLER => ['onController', 0],
+            AppEventNames::CONTROLLER => ['onController', -8],
         ];
     }
 
@@ -82,6 +85,83 @@ class AppWatchSubscriber implements EventSubscriberInterface
                 controllerMethod: $event->controllerMethod,
             ));
         }
+
+        AppWatchRegistry::dispatchTheme($activePackage);
+    }
+
+    /**
+     * @param array<string, mixed> $stack
+     */
+    public function dispatchTheme(string $package, ?string $themeContext, array $stack): void
+    {
+        if ($stack === []) {
+            return;
+        }
+
+        $request = $this->resolveRequest($package);
+        $route = $request->attributes->get('_router');
+        $route = $route instanceof Route ? $route : null;
+
+        foreach (AppWatchRegistry::rules() as $rule) {
+            if (($rule['kind'] ?? '') !== 'theme') {
+                continue;
+            }
+
+            if (!$this->packageMatches($rule, $package)) {
+                continue;
+            }
+
+            if (!$this->themeMatches($rule, $themeContext, $stack)) {
+                continue;
+            }
+
+            $this->invoke($rule['handler'] ?? null, new AppWatchContext(
+                request: $request,
+                route: $route,
+                themeContext: $themeContext,
+                themeName: (string) ($stack['name'] ?? ''),
+                themeStack: is_array($stack['stack'] ?? null) ? $stack['stack'] : [],
+            ));
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $rule
+     * @param array<string, mixed> $stack
+     */
+    private function themeMatches(array $rule, ?string $themeContext, array $stack): bool
+    {
+        $names = $this->normalizeMatchList($rule['match'] ?? null);
+        if ($names === []) {
+            return false;
+        }
+
+        $candidates = array_filter([
+            $themeContext,
+            $stack['name'] ?? null,
+            ...(is_array($stack['stack'] ?? null) ? $stack['stack'] : []),
+        ], static fn ($value) => is_string($value) && $value !== '');
+
+        foreach ($names as $name) {
+            if (in_array($name, $candidates, true)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function resolveRequest(string $package): Request
+    {
+        try {
+            $request = App::getRequest();
+            if ($request instanceof Request) {
+                return $request;
+            }
+        } catch (\Throwable) {
+        }
+
+        return Request::create('/');
     }
 
     /**
