@@ -30,20 +30,24 @@ Update user profile fields.
 
 Run without arguments to pick package and user interactively, then edit fields.
 
-Use dedicated options, repeatable --set field=value, or run interactively without field options.
-
 Examples:
   php pinoox user:update
   php pinoox user:update admin --email=new@example.com --mobile=09120000000
-  php pinoox user:update admin com_my_shop --set fname=Demo --set lname=User
-  php pinoox user:update platform 12 --set status=inactive --set group=admin
+  php pinoox user:update admin --meta theme=dark --meta locale=fa
+  php pinoox user:update admin --metadata='{"theme":"dark","locale":"fa"}'
+  php pinoox user:update admin --set meta.theme=dark --set meta.locale=fa
+  php pinoox user:update admin --meta old_key= --set meta.old_key=
 
-Field aliases for --set: first-name, last-name, group, phone, personal-id
+Metadata is merged with existing values. Use empty value to remove a key.
+
+Field aliases for --set: first-name, last-name, group, phone, personal-id, meta.key
 HELP
             )
             ->addArgument('user', InputArgument::OPTIONAL, 'User id, username, or email. Leave empty to pick from the list.')
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
             ->addOption('set', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Set field=value (repeatable)')
+            ->addOption('meta', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Set metadata key=value (repeatable, merged)')
+            ->addOption('metadata', 'm', InputOption::VALUE_REQUIRED, 'Metadata as JSON object (merged with current)')
             ->addOption('username', 'u', InputOption::VALUE_REQUIRED, 'New username')
             ->addOption('email', null, InputOption::VALUE_REQUIRED, 'New email')
             ->addOption('fname', null, InputOption::VALUE_REQUIRED, 'First name')
@@ -85,7 +89,7 @@ HELP
             }
 
             if ($fields === []) {
-                $io->warning('Nothing to update. Pass --set field=value or field options, or run interactively.');
+                $io->warning('Nothing to update. Pass --set, --meta, --metadata, or field options, or run interactively.');
 
                 return Command::SUCCESS;
             }

@@ -243,7 +243,108 @@ trait ManagesCliUsers
             'personal-id' => 'personal_id',
             'personal_id' => 'personal_id',
             'personalid' => 'personal_id',
+            'meta' => 'metadata',
+            'metadata' => 'metadata',
         ];
+    }
+
+    protected function parseUserMetaValue(string $value): mixed
+    {
+        $trimmed = trim($value);
+
+        if ($trimmed === '') {
+            return null;
+        }
+
+        if ($trimmed === 'true') {
+            return true;
+        }
+
+        if ($trimmed === 'false') {
+            return false;
+        }
+
+        if ($trimmed === 'null') {
+            return null;
+        }
+
+        if (is_numeric($trimmed)) {
+            return str_contains($trimmed, '.') ? (float) $trimmed : (int) $trimmed;
+        }
+
+        if (str_starts_with($trimmed, '{') || str_starts_with($trimmed, '[')) {
+            $decoded = json_decode($trimmed, true);
+            if (json_last_error() === JSON_ERROR_NONE) {
+                return $decoded;
+            }
+        }
+
+        return $value;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    protected function parseUserMetadataJson(string $value): array
+    {
+        $decoded = json_decode($value, true);
+
+        if (!is_array($decoded)) {
+            throw new \InvalidArgumentException('Metadata must be a JSON object.');
+        }
+
+        return $decoded;
+    }
+
+    /**
+     * @param list<string|null> $assignments
+     * @return array<string, mixed>
+     */
+    protected function parseUserMetaAssignments(array $assignments): array
+    {
+        $metadata = [];
+
+        foreach ($assignments as $assignment) {
+            if (!is_string($assignment) || $assignment === '') {
+                continue;
+            }
+
+            if (!str_contains($assignment, '=')) {
+                throw new \InvalidArgumentException(
+                    'Invalid --meta value "' . $assignment . '". Use key=value.',
+                );
+            }
+
+            [$key, $value] = explode('=', $assignment, 2);
+            $key = trim($key);
+
+            if ($key === '') {
+                throw new \InvalidArgumentException('Metadata key cannot be empty.');
+            }
+
+            $metadata[$key] = $this->parseUserMetaValue($value);
+        }
+
+        return $metadata;
+    }
+
+    /**
+     * @param array<string, mixed> $metadata
+     */
+    protected function mergeUserMetadata(array $current, array $metadata): array
+    {
+        $merged = $current;
+
+        foreach ($metadata as $key => $value) {
+            if ($value === null) {
+                unset($merged[$key]);
+                continue;
+            }
+
+            $merged[$key] = $value;
+        }
+
+        return $merged;
     }
 
     protected function normalizeUserUpdateField(string $name): ?string
@@ -260,6 +361,7 @@ trait ManagesCliUsers
             'lname' => 'Last name',
             'group_key' => 'Group key',
             'personal_id' => 'Personal ID',
+            'metadata' => 'Metadata',
             default => ucfirst(str_replace('_', ' ', $field)),
         };
     }
@@ -288,6 +390,7 @@ trait ManagesCliUsers
     protected function parseUserSetAssignments(array $setAssignments): array
     {
         $fields = [];
+        $metadata = [];
 
         foreach ($setAssignments as $assignment) {
             if (!is_string($assignment) || $assignment === '') {
@@ -301,16 +404,33 @@ trait ManagesCliUsers
             }
 
             [$rawField, $value] = explode('=', $assignment, 2);
+            $rawField = trim($rawField);
+
+            if (preg_match('/^(meta|metadata)\.(.+)$/i', $rawField, $matches)) {
+                $metadata[$matches[2]] = $this->parseUserMetaValue($value);
+                continue;
+            }
+
+            if (strtolower($rawField) === 'metadata' || strtolower($rawField) === 'meta') {
+                $metadata = array_merge($metadata, $this->parseUserMetadataJson($value));
+                continue;
+            }
+
             $field = $this->normalizeUserUpdateField($rawField);
 
             if ($field === null) {
                 throw new \InvalidArgumentException(
                     'Unknown field "' . $rawField . '". Allowed: '
-                    . implode(', ', $this->userUpdateFields()),
+                    . implode(', ', $this->userUpdateFields())
+                    . ', metadata, meta.key',
                 );
             }
 
             $fields[$field] = $value;
+        }
+
+        if ($metadata !== []) {
+            $fields['_metadata'] = $metadata;
         }
 
         return $fields;
@@ -334,6 +454,20 @@ trait ManagesCliUsers
             }
 
             $fields[$field] = $value;
+        }
+
+        $metadata = is_array($fields['_metadata'] ?? null) ? $fields['_metadata'] : [];
+        unset($fields['_metadata']);
+
+        $metadata = array_merge($metadata, $this->parseUserMetaAssignments($input->getOption('meta') ?? []));
+
+        $metadataJson = $input->getOption('metadata');
+        if (is_string($metadataJson) && $metadataJson !== '') {
+            $metadata = array_merge($metadata, $this->parseUserMetadataJson($metadataJson));
+        }
+
+        if ($metadata !== []) {
+            $fields['_metadata'] = $metadata;
         }
 
         return $fields;
@@ -375,6 +509,11 @@ trait ManagesCliUsers
             $fields[$field] = $answer;
         }
 
+        $metadataAnswer = $io->ask('Metadata JSON (merged with current, empty to skip)', '');
+        if (is_string($metadataAnswer) && trim($metadataAnswer) !== '') {
+            $fields['_metadata'] = $this->parseUserMetadataJson($metadataAnswer);
+        }
+
         return $fields;
     }
 
@@ -393,7 +532,15 @@ trait ManagesCliUsers
             );
         }
 
+        $metadata = $fields['_metadata'] ?? null;
+        unset($fields['_metadata']);
+
         $user->fill($fields);
+
+        if (is_array($metadata)) {
+            $user->metadata = $this->mergeUserMetadata($user->metadata ?? [], $metadata);
+        }
+
         $user->save();
     }
 
@@ -406,6 +553,13 @@ trait ManagesCliUsers
         $lines = [];
 
         foreach ($fields as $field => $value) {
+            if ($field === '_metadata') {
+                $lines[] = $this->userUpdateFieldLabel('metadata') . ': '
+                    . json_encode($value, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+                continue;
+            }
+
             $lines[] = $this->userUpdateFieldLabel($field) . ': ' . (string) $value;
         }
 
