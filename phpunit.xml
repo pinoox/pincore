@@ -34,6 +34,9 @@
         <testsuite name="Database">
             <directory>tests/Feature/Database</directory>
         </testsuite>
+        <testsuite name="Cli">
+            <directory>tests/Feature/Cli</directory>
+        </testsuite>
         <testsuite name="Integration">
             <directory>tests/Feature/Integration</directory>
         </testsuite>
