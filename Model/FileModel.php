@@ -17,10 +17,10 @@ namespace Pinoox\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Pinoox\Component\Database\Model;
 use Pinoox\Component\Transport\TransportConfig;
+use Pinoox\Component\Transport\TransportRuntime;
 use Pinoox\Component\Transport\TransportScenario;
 use Pinoox\Portal\Auth;
 use Pinoox\Model\Scope\AppScope;
-use Pinoox\Portal\App\App;
 use Pinoox\Component\File\FileStorage;
 
 
@@ -80,8 +80,7 @@ class FileModel extends Model
 
     public static function setPackage(string $package): void
     {
-        App::set('transport.' . TransportScenario::FILE_STORAGE, $package)->save();
-        self::addAppGlobalScope();
+        TransportRuntime::use($package);
     }
 
     public static function getPackage(): string
