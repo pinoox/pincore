@@ -94,4 +94,25 @@ return function (AppRegister $register): void {
     // });
     //
     // Limit to a host app: $register->onRoute('app.run', $handler, 'com_host_app');
+
+    // --- Theme (context switch, global view data) ---
+    // use Pinoox\Component\AppEvent\AppControllerEvent;
+    // use Pinoox\Component\AppEvent\AppWatchContext;
+    // use Pinoox\Component\Template\Theme\ThemeContext;
+    // use Pinoox\Portal\View;
+    //
+    // $register->listen(AppEventNames::package(AppEventNames::BOOTED, $register->package()), function (): void {
+    //     View::set('brand', config('brand.name'));
+    // });
+    //
+    // $register->onPath('/panel/*', function (AppWatchContext $ctx): void {
+    //     ThemeContext::activate('panel');
+    // });
+    //
+    // $register->listen(AppEventNames::CONTROLLER, function (AppControllerEvent $event): void {
+    //     if (str_starts_with($event->request->getPathInfo(), '/panel')) {
+    //         ThemeContext::activate('panel');
+    //     }
+    // });
+    // Theme contexts in app.php: theme-contexts + theme_flow_aliases(['site', 'panel'])
 };
