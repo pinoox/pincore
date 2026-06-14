@@ -2,6 +2,7 @@
 
 use Pinoox\Component\Terminal;
 use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Command\Command;
 
 /**
  * Build an anonymous Terminal command that uses one or more CLI traits (for isolated unit-style tests).
@@ -49,4 +50,105 @@ function cliApplication(array $commands): Application
     }
 
     return $application;
+}
+
+/**
+ * @return list<class-string<Command>>
+ */
+function cliCoreCommandClasses(): array
+{
+    static $classes = null;
+
+    if (is_array($classes)) {
+        return $classes;
+    }
+
+    $terminalPath = rtrim(str_replace('\\', '/', testCoreRoot()), '/') . '/Terminal';
+    $classes = [];
+
+    if (!is_dir($terminalPath)) {
+        return $classes;
+    }
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($terminalPath, FilesystemIterator::SKIP_DOTS),
+    );
+
+    /** @var SplFileInfo $file */
+    foreach ($iterator as $file) {
+        if (!$file->isFile() || !str_ends_with($file->getFilename(), 'Command.php')) {
+            continue;
+        }
+
+        $relative = str_replace('\\', '/', substr($file->getPathname(), strlen($terminalPath) + 1));
+        $directory = dirname($relative);
+
+        $namespace = 'Pinoox\\Terminal';
+        if ($directory !== '.' && $directory !== '') {
+            $namespace .= '\\' . str_replace('/', '\\', $directory);
+        }
+
+        $className = $namespace . '\\' . $file->getBasename('.php');
+
+        if (class_exists($className)) {
+            $classes[] = $className;
+        }
+    }
+
+    sort($classes);
+
+    return $classes;
+}
+
+/**
+ * @param class-string<Command> $className
+ */
+function cliInstantiateCommand(string $className): Command
+{
+    $command = new $className();
+
+    if (!$command instanceof Command) {
+        throw new InvalidArgumentException('Expected Symfony command: ' . $className);
+    }
+
+    return $command;
+}
+
+/**
+ * @return list<string>
+ */
+function cliCommandNames(Command $command): array
+{
+    $names = [];
+
+    if ($command->getName() !== null && $command->getName() !== '') {
+        $names[] = $command->getName();
+    }
+
+    if (method_exists($command, 'getAliases')) {
+        foreach ($command->getAliases() as $alias) {
+            $names[] = $alias;
+        }
+    }
+
+    return array_values(array_unique($names));
+}
+
+function cliExpectOptionalPackageArgument(Command $command, string $argument = 'package'): void
+{
+    $definition = $command->getDefinition();
+
+    if (!$definition->hasArgument($argument)) {
+        return;
+    }
+
+    $arg = $definition->getArgument($argument);
+
+    expect($arg->isRequired())->toBeFalse()
+        ->and($arg->getDefault())->toBeNull();
+}
+
+function cliExpectRequiredArgument(Command $command, string $argument): void
+{
+    expect($command->getDefinition()->getArgument($argument)->isRequired())->toBeTrue();
 }
