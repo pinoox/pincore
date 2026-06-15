@@ -40,6 +40,8 @@ class Pinker
     private bool $isCamelToUnderscore = false;
     private string $bakedFile = '';
     private string $mainFile = '';
+    /** @var list<string>|null */
+    private ?array $sourceChangedPaths = null;
     private FileHandlerInterface $fileHandler;
     /**
      * @var Pinker[]
@@ -429,8 +431,14 @@ class Pinker
     private function sourceDataForRead()
     {
         if (!$this->isCacheValid()) {
+            $previousSource = is_file($this->bakedFile) ? $this->fileHandler->retrieve($this->bakedFile) : null;
+            $newSource = $this->sourceData();
+            $this->sourceChangedPaths = $this->changedSourcePaths(
+                is_array($previousSource) ? $previousSource : [],
+                is_array($newSource) ? $newSource : [],
+            );
             $this->removeCache();
-            $this->data = $this->sourceData();
+            $this->data = $newSource;
             $this->bakeCache($this->data);
         }
 
@@ -575,7 +583,7 @@ class Pinker
                 continue;
             }
 
-            if ($sourceIsNewer && $this->pathExists($sourceArray, $path)) {
+            if ($this->shouldPreferSourceOverOverride($path, $sourceArray, $sourceIsNewer)) {
                 $pruneData[] = $path;
                 continue;
             }
@@ -590,7 +598,7 @@ class Pinker
                 continue;
             }
 
-            if ($sourceIsNewer && $this->pathExists($sourceArray, $path)) {
+            if ($this->shouldPreferSourceOverOverride($path, $sourceArray, $sourceIsNewer)) {
                 $pruneRemove[] = $path;
                 continue;
             }
@@ -618,6 +626,50 @@ class Pinker
         }
 
         return filemtime($this->mainFile) > $overrideUpdatedAt;
+    }
+
+    private function shouldPreferSourceOverOverride(string $path, array $sourceArray, bool $sourceIsNewer): bool
+    {
+        if (!$sourceIsNewer || !$this->pathExists($sourceArray, $path)) {
+            return false;
+        }
+
+        if ($this->sourceChangedPaths !== null) {
+            return $this->pathChangedInSource($path, $this->sourceChangedPaths);
+        }
+
+        return $this->isSourceEnvSensitive();
+    }
+
+    /**
+     * @param array<string, mixed> $previous
+     * @param array<string, mixed> $current
+     * @return list<string>
+     */
+    private function changedSourcePaths(array $previous, array $current): array
+    {
+        if ($previous === [] && $current === []) {
+            return [];
+        }
+
+        $changed = array_keys($this->diffData($previous, $current));
+        $removed = $this->removedPaths($previous, $current);
+
+        return array_values(array_unique(array_merge($changed, $removed)));
+    }
+
+    /**
+     * @param list<string> $changedPaths
+     */
+    private function pathChangedInSource(string $path, array $changedPaths): bool
+    {
+        foreach ($changedPaths as $changed) {
+            if ($path === $changed || str_starts_with($path, $changed . '.') || str_starts_with($changed, $path . '.')) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function pathExists(array $data, string $path): bool
