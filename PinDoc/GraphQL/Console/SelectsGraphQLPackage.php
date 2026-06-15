@@ -2,6 +2,7 @@
 
 namespace Pinoox\PinDoc\GraphQL\Console;
 
+use Pinoox\Component\Package\AppManifest;
 use Pinoox\PinDoc\GraphQL\GraphQLRegistry;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Terminal\Concerns\SelectsPackage;
@@ -41,7 +42,7 @@ trait SelectsGraphQLPackage
                 continue;
             }
 
-            $packages[$package] = (string) ($manager->config()->get('name') ?: $package);
+            $packages[$package] = AppManifest::displayName($package);
         }
 
         ksort($packages);

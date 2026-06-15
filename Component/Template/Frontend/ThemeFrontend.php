@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Template\Frontend;
 
+use Pinoox\Component\Package\AppManifest;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\Path;
@@ -120,7 +121,7 @@ class ThemeFrontend
                 continue;
             }
 
-            $matches[$package] = (string) ($manager->config()->get('name') ?: $package);
+            $matches[$package] = AppManifest::displayName($package);
         }
 
         ksort($matches);
