@@ -2,6 +2,7 @@
 
 namespace Pinoox\Terminal\App;
 
+use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Terminal;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\App\AppRouter;
@@ -75,7 +76,7 @@ HELP
 
             $rows[] = [
                 $package,
-                (string) ($config->get('name') ?: $package),
+                AppManifest::displayName($package),
                 $isEnabled ? 'yes' : 'no',
                 $pathRoutes !== [] ? implode(', ', $pathRoutes) : '-',
                 $hostRoutes !== [] ? implode(', ', $hostRoutes) : '-',

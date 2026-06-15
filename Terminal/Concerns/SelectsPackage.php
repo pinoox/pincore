@@ -2,6 +2,7 @@
 
 namespace Pinoox\Terminal\Concerns;
 
+use Pinoox\Component\Package\AppManifest;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Support\DevApp;
 use Pinoox\Support\SystemApp;
@@ -180,7 +181,7 @@ trait SelectsPackage
                 continue;
             }
 
-            $packages[$package] = (string) ($manager->config()->get('name') ?: $package);
+            $packages[$package] = AppManifest::displayName($package);
         }
 
         return $packages;

@@ -2,6 +2,7 @@
 
 namespace Pinoox\Terminal\Theme;
 
+use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Server\DevelopmentServer;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
 use Pinoox\Component\Terminal;
@@ -306,7 +307,7 @@ HELP
                 continue;
             }
 
-            $candidates[$package] = (string) ($manager->config()->get('name') ?: $package);
+            $candidates[$package] = AppManifest::displayName($package);
         }
 
         return $candidates;
