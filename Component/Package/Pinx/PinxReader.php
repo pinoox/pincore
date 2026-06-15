@@ -89,17 +89,19 @@ class PinxReader
         if ($zip->hasEntry('app.php')) {
             $app = $this->loadPhpArray($zip, 'app.php');
 
-            return PinxManifest::fromLegacyApp($app);
+            return $this->legacyAppManifest($zip, $app);
         }
 
         if ($zip->hasEntry(PinxManifest::PAYLOAD_PREFIX . 'app.php')) {
             $app = $this->loadPhpArray($zip, PinxManifest::PAYLOAD_PREFIX . 'app.php');
 
-            return PinxManifest::fromLegacyApp($app);
+            return $this->legacyAppManifest($zip, $app);
         }
 
         if ($zip->hasEntry('theme.php')) {
-            return PinxManifest::fromLegacyTheme($this->loadThemeManifest($zip, 'theme.php'));
+            $theme = $this->loadThemeManifest($zip, 'theme.php');
+
+            return $this->legacyThemeManifest($zip, $theme);
         }
 
         throw new Exception('Unsupported package: manifest.json, app.php, or theme.php not found.');
@@ -145,6 +147,28 @@ class PinxReader
         }
 
         return $data;
+    }
+
+    /**
+     * @param array<string, mixed> $app
+     */
+    private function legacyAppManifest(ZipFile $zip, array $app): PinxManifest
+    {
+        $langPaths = PinxLabelResolver::langPathsFromZip($zip);
+        $resolved = PinxLabelResolver::resolve($app, $langPaths);
+
+        return PinxManifest::fromLegacyApp($app, $resolved);
+    }
+
+    /**
+     * @param array<string, mixed> $theme
+     */
+    private function legacyThemeManifest(ZipFile $zip, array $theme): PinxManifest
+    {
+        $langPaths = PinxLabelResolver::langPathsFromThemeZip($zip);
+        $resolved = PinxLabelResolver::resolve($theme, $langPaths);
+
+        return PinxManifest::fromLegacyTheme($theme, $resolved);
     }
 }
 

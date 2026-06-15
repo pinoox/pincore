@@ -5,6 +5,8 @@ namespace Pinoox\Terminal\Pinx;
 use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Package\Pinx\PinxBuilder;
 use Pinoox\Component\Package\Pinx\PinxBuildConfig;
+use Pinoox\Component\Package\Pinx\PinxCliManifest;
+use Pinoox\Component\Package\Pinx\PinxManifest;
 use Pinoox\Component\Terminal;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Terminal\Concerns\SelectsPackage;
@@ -47,7 +49,8 @@ HELP
             ->addOption('no-sign', null, InputOption::VALUE_NONE, 'Build without signing even when a key exists')
             ->addOption('sign-key', null, InputOption::VALUE_REQUIRED, 'Path to sign.key.json')
             ->addOption('key-id', null, InputOption::VALUE_REQUIRED, 'Publisher key id stored in signature.json')
-            ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip confirmation prompt');
+            ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip confirmation prompt')
+            ->addOption('locale', 'l', InputOption::VALUE_REQUIRED, 'Locale for resolved title/description (e.g. en, fa)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -63,10 +66,21 @@ HELP
         $builder = new PinxBuilder(AppEngine::___());
         $outputPath = $input->getOption('output');
 
+        $locale = trim((string) $input->getOption('locale'));
+        $localeArg = $locale !== '' ? $locale : null;
+
         if (!$input->getOption('yes')) {
             $io->section('Pinx build');
+            $build = PinxBuildConfig::resolve(AppEngine::___(), $package);
+            $previewManifest = PinxManifest::fromAppConfig(
+                PinxBuildConfig::appConfigArray(AppEngine::___(), $package),
+                (string) ($build['type'] ?? PinxManifest::TYPE_APP),
+                $build,
+            );
             $io->text([
                 'Package: <info>' . $package . '</info>',
+                'Name: <info>' . $previewManifest->title($localeArg) . '</info>',
+                'Description: <info>' . ($previewManifest->description($localeArg) ?: '—') . '</info>',
                 'Output: <info>' . ($outputPath ?: '(auto in export/)') . '</info>',
             ]);
 
@@ -103,6 +117,7 @@ HELP
                 ['File', $result['path']],
                 ['Type', $manifest->type()],
                 ['Package', $manifest->package()],
+                ...PinxCliManifest::summaryRows($manifest, $localeArg),
                 ['Version', $manifest->versionName() . ' #' . $manifest->versionCode()],
                 ['Files', (string) $result['files']],
                 ['Signed', $result['signed'] ? 'yes' : 'no'],
