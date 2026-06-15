@@ -76,6 +76,7 @@ class AppCreateScaffolder
             "{$this->appDir}/Component",
             "{$this->appDir}/Portal",
             "{$this->appDir}/lang/en",
+            "{$this->appDir}/lang/fa",
             "{$this->appDir}/database/migrations",
             "{$this->appDir}/database/seed",
             "{$this->appDir}/patches",
@@ -87,9 +88,7 @@ class AppCreateScaffolder
     {
         $appFile = SystemConfig::rawPath('app_file', 'app.php');
         $name = $this->input->package;
-        $displayName = $this->escapePhpString($this->input->displayName);
         $developer = $this->escapePhpString($this->input->developer);
-        $description = $this->escapePhpString($this->input->description);
 
         $frontendBlock = '';
         if ($this->input->hasViteStack()) {
@@ -110,9 +109,10 @@ PHP;
 
 return [
     'package' => '{$name}',
-    'name' => '{$displayName}',
+    'name' => '{$name}',
+    'title' => '@manifest.title',
     'developer' => '{$developer}',
-    'description' => '{$description}',
+    'description' => '@manifest.description',
     'version-name' => '1.0',
     'version-code' => 1,
     'icon' => 'icon.png',
@@ -130,6 +130,22 @@ PHP;
 
         FileSystem::dumpFile("{$this->appDir}/{$appFile}", $appConfig);
         FileSystem::dumpFile("{$this->appDir}/.env.example", AppEnvExample::appFile());
+        $this->writeManifestLangFiles();
+    }
+
+    private function writeManifestLangFiles(): void
+    {
+        $stub = (string) file_get_contents($this->stubsPath . 'manifest.lang.stub');
+        $title = $this->escapePhpString($this->input->displayName);
+        $description = $this->escapePhpString($this->input->description);
+        $content = str_replace(
+            ['{{title}}', '{{description}}'],
+            [$title, $description],
+            $stub,
+        );
+
+        FileSystem::dumpFile("{$this->appDir}/lang/en/manifest.lang.php", $content);
+        FileSystem::dumpFile("{$this->appDir}/lang/fa/manifest.lang.php", $content);
     }
 
     private function writeRouterFiles(): void

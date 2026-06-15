@@ -4,9 +4,10 @@ namespace Pinoox\Component\Template\Theme;
 
 use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Package\ManifestConfig;
+use Pinoox\Component\Package\ManifestLabel;
+use Pinoox\Component\Package\ManifestLangLoader;
 use Pinoox\Component\Package\ManifestPinkerLoader;
 use Pinoox\Portal\App\AppEngine as AppEnginePortal;
-use Pinoox\Portal\Lang;
 
 /**
  * Theme folder manifest (theme.php).
@@ -137,14 +138,39 @@ final class ThemeManifest
 
     public function title(?string $locale = null): string
     {
-        return self::localized($this->data['title'] ?? null, $locale) ?: $this->name();
+        $resolved = ManifestLabel::resolve(
+            $this->data['title'] ?? null,
+            $this->langPaths(),
+            $locale,
+            $this->name(),
+            $this->fallbackLocale(),
+        );
+
+        return $resolved !== '' ? $resolved : $this->name();
     }
 
     public function description(?string $locale = null): string
     {
-        $value = self::localized($this->data['description'] ?? null, $locale);
+        return ManifestLabel::resolve(
+            $this->data['description'] ?? null,
+            $this->langPaths(),
+            $locale,
+            '',
+            $this->fallbackLocale(),
+        );
+    }
 
-        return is_string($value) ? $value : '';
+    /**
+     * @return array{title: array<string, string>, description: array<string, string>}
+     */
+    public function labels(): array
+    {
+        $paths = $this->langPaths();
+
+        return [
+            'title' => ManifestLabel::collect($this->data['title'] ?? null, $paths),
+            'description' => ManifestLabel::collect($this->data['description'] ?? null, $paths),
+        ];
     }
 
     public function developer(): string
@@ -215,8 +241,8 @@ final class ThemeManifest
             'version_name' => $this->versionName(),
             'version_code' => $this->versionCode(),
             'api' => $this->hasApiShell(),
-            'title' => $this->data['title'] ?? [],
-            'description' => $this->data['description'] ?? [],
+            'title' => $this->labels()['title'],
+            'description' => $this->labels()['description'],
             'path' => $this->themePath,
         ];
     }
@@ -226,6 +252,8 @@ final class ThemeManifest
      */
     public function toPinxThemeMeta(): array
     {
+        $labels = $this->labels();
+
         return [
             'name' => $this->name(),
             'app' => $this->hostPackage(),
@@ -233,8 +261,8 @@ final class ThemeManifest
             'copyright' => $this->copyright(),
             'version' => $this->versionName(),
             'app_version' => $this->versionCode(),
-            'title' => $this->data['title'] ?? ['en' => $this->name()],
-            'description' => $this->data['description'] ?? [],
+            'title' => $labels['title'] !== [] ? $labels['title'] : ['en' => $this->name()],
+            'description' => $labels['description'],
             'extends' => $this->extends(),
             'cover' => $this->cover(),
             'api' => $this->hasApiShell(),
@@ -304,34 +332,23 @@ final class ThemeManifest
         return $data;
     }
 
-    private static function localized(mixed $value, ?string $locale): string
+    /**
+     * @return list<string>
+     */
+    private function langPaths(): array
     {
-        if (is_string($value)) {
-            return $value;
+        $package = $this->hostPackage();
+
+        if ($package === '') {
+            return [rtrim(str_replace('\\', '/', $this->themePath), '/') . '/lang'];
         }
 
-        if (!is_array($value) || $value === []) {
-            return '';
-        }
-
-        $locale ??= self::currentLocale();
-
-        if ($locale !== '' && isset($value[$locale]) && is_string($value[$locale])) {
-            return $value[$locale];
-        }
-
-        $first = reset($value);
-
-        return is_string($first) ? $first : '';
+        return ManifestLangLoader::pathsForTheme($package, $this->themePath);
     }
 
-    private static function currentLocale(): string
+    private function fallbackLocale(): string
     {
-        try {
-            return (string) Lang::locale();
-        } catch (\Throwable) {
-            return 'en';
-        }
+        return ManifestLabel::fallbackLocaleForPackage($this->hostPackage());
     }
 
     /**

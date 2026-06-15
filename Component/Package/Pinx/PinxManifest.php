@@ -4,6 +4,7 @@ namespace Pinoox\Component\Package\Pinx;
 
 use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Package\AppDependency;
+use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Template\Theme\ThemeManifest;
 
 class PinxManifest
@@ -44,14 +45,20 @@ class PinxManifest
         }
 
         $depends = AppDependency::fromAppConfig($appConfig);
+        $packageLabel = AppManifest::displayName($package);
+        $packageDescription = AppManifest::description($package);
+        $packageLabels = AppManifest::labels($package);
 
         return new self([
             'format' => self::FORMAT,
             'format_version' => self::FORMAT_VERSION,
             'type' => $type,
             'package' => $type === self::TYPE_THEME ? $themeName : $package,
-            'name' => $themeManifest?->title() ?: (string) ($appConfig['name'] ?? $package),
-            'description' => $themeManifest?->description() ?: (string) ($appConfig['description'] ?? ''),
+            'name' => $themeManifest?->title() ?: $packageLabel,
+            'description' => $themeManifest?->description() ?: $packageDescription,
+            'labels' => $type === self::TYPE_THEME
+                ? $themeManifest?->labels()
+                : $packageLabels,
             'developer' => $themeManifest?->developer() ?: (string) ($appConfig['developer'] ?? ''),
             'version_name' => $themeManifest?->versionName() ?: (string) ($appConfig['version-name'] ?? '1.0'),
             'version_code' => $themeManifest?->versionCode() ?: (int) ($appConfig['version-code'] ?? 1),
