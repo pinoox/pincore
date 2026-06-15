@@ -36,7 +36,7 @@ class WizardInstallCommand extends Terminal
     protected function configure(): void
     {
         $this
-            ->addArgument('package', InputArgument::REQUIRED, 'Package file name or path (.pinx/.pin)')
+            ->addArgument('package', InputArgument::REQUIRED, 'Package file name or path (.pinx)')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Force install/update')
             ->addOption('migration', 'm', InputOption::VALUE_NONE, 'Deprecated alias; migrations run by default')
             ->addOption('skip-migrate', null, InputOption::VALUE_NONE, 'Skip database migrations');
@@ -78,17 +78,12 @@ class WizardInstallCommand extends Terminal
 
     private function resolvePackagePath(string $packageArg): string
     {
-        $base = str_replace(['.pinx', '.pin'], '', $packageArg);
+        $base = str_replace('.pinx', '', $packageArg);
 
-        foreach ([$packageArg, $base . '.pinx', $base . '.pin'] as $candidate) {
+        foreach ([$packageArg, $base . '.pinx'] as $candidate) {
             if (is_file($candidate)) {
                 return $candidate;
             }
-        }
-
-        $pin = Loader::getBasePath() . '/pins/' . basename($base) . '.pin';
-        if (is_file($pin)) {
-            return $pin;
         }
 
         $pinx = Loader::getBasePath() . '/pins/' . basename($base) . '.pinx';

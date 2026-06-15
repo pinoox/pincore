@@ -20,7 +20,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'pinx:install',
-    description: 'Install or update a .pinx/.pin package',
+    description: 'Install or update a .pinx package',
     aliases: ['pinx:i'],
 )]
 
@@ -41,7 +41,7 @@ Examples:
   php pinoox pinx:install com_my_shop.pinx --require-sign
 HELP
             )
-            ->addArgument('package', InputArgument::REQUIRED, 'Path or filename of .pinx/.pin package')
+            ->addArgument('package', InputArgument::REQUIRED, 'Path or filename of .pinx package')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Force install even when version is equal or lower')
             ->addOption('skip-migrate', null, InputOption::VALUE_NONE, 'Skip database migrations')
             ->addOption('skip-patch', null, InputOption::VALUE_NONE, 'Skip data patches')
@@ -149,14 +149,10 @@ HELP
 
     private function resolvePackagePath(string $packageArg): string
     {
-        $packageArg = str_replace(['.pinx', '.pin'], '', $packageArg);
+        $packageArg = str_replace('.pinx', '', $packageArg);
 
         if (is_file($packageArg . '.pinx')) {
             return $packageArg . '.pinx';
-        }
-
-        if (is_file($packageArg . '.pin')) {
-            return $packageArg . '.pin';
         }
 
         if (is_file($packageArg)) {
@@ -165,7 +161,6 @@ HELP
 
         $candidates = [
             Loader::getBasePath() . '/pins/' . basename($packageArg) . '.pinx',
-            Loader::getBasePath() . '/pins/' . basename($packageArg) . '.pin',
             Loader::getBasePath() . '/' . ltrim($packageArg, '/'),
         ];
 
