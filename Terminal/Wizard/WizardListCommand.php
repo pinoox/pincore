@@ -8,7 +8,6 @@
  *      *     *  *    **  ****  ****  *    *
  * @author   Pinoox
  * @link https://www.pinoox.com/
- * @link https://www.pinoox.com/
  * @license  https://opensource.org/licenses/MIT MIT License
  */
 
@@ -28,7 +27,7 @@ use Symfony\Component\Process\Process;
 
 #[AsCommand(
     name: 'wizard:list',
-    description: 'Show list of pin packages',
+    description: 'Show list of .pinx packages (delegates to pinx:install)',
 )]
 
 class WizardListCommand extends Terminal
@@ -45,34 +44,29 @@ class WizardListCommand extends Terminal
     {
         parent::execute($input, $output);
 
-        // Fetch all .pin files in the folder
-        $files = $this->fetchPinFiles();
-
-        // Select files to install
+        $files = $this->fetchPinxFiles();
         $selectedFiles = $this->selectFiles($files, $input, $output);
 
         if (count($selectedFiles) > 0) {
-            // Confirm installation
             $confirm = $this->confirm('Are you sure you want to install the selected files? (yes/no) ', $input, $output);
 
             if ($confirm) {
-                // Run installation command for selected files
                 $this->installFiles($selectedFiles);
             } else {
                 $this->warning('Installation canceled.');
             }
         } else {
-            $this->error('No .pin files selected for installation.');
+            $this->error('No .pinx files selected for installation.');
         }
 
         return Command::SUCCESS;
     }
 
-    private function fetchPinFiles(): array
+    private function fetchPinxFiles(): array
     {
         $finder = new Finder();
         $path = Loader::getBasePath() . self::PATH;
-        $finder->files()->in($path)->name('*.pin');
+        $finder->files()->in($path)->name('*.pinx');
 
         $files = [];
         foreach ($finder as $file) {
@@ -86,12 +80,11 @@ class WizardListCommand extends Terminal
     {
         $io = new SymfonyStyle($input, $output);
 
-        // Convert file paths to choices for the selection
         $choices = array_map(function ($file) {
             return pathinfo($file, PATHINFO_FILENAME);
         }, $files);
 
-        $question = new ChoiceQuestion('Select [number].pin file/files to install (comma-separated)', $choices);
+        $question = new ChoiceQuestion('Select [number].pinx file/files to install (comma-separated)', $choices);
         $question->setMultiselect(true);
 
         return $io->askQuestion($question);
@@ -99,11 +92,10 @@ class WizardListCommand extends Terminal
 
     private function installFiles(array $files): void
     {
-        $this->success('Installing selected pins...');
+        $this->success('Installing selected pinx packages...');
 
-        // Run installation command for each selected file
         foreach ($files as $app) {
-            $process = new Process(['php', 'pinoox', 'wizard', $app]);
+            $process = new Process(['php', 'pinoox', 'pinx:install', $app]);
             $process->run();
 
             if ($process->isSuccessful()) {

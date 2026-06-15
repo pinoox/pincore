@@ -17,7 +17,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'pinx:info',
-    description: 'Show metadata of a .pinx/.pin package',
+    description: 'Show metadata of a .pinx package',
 )]
 
 class PinxInfoCommand extends Terminal
@@ -25,7 +25,7 @@ class PinxInfoCommand extends Terminal
     protected function configure(): void
     {
         $this
-            ->addArgument('package', InputArgument::REQUIRED, 'Path to .pinx/.pin file')
+            ->addArgument('package', InputArgument::REQUIRED, 'Path to .pinx file')
             ->addOption('locale', 'l', InputOption::VALUE_REQUIRED, 'Locale for resolved title/description (e.g. en, fa)');
     }
 

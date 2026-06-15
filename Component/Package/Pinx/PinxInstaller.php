@@ -290,11 +290,6 @@ class PinxInstaller
             mkdir($destination, 0777, true);
         }
 
-        if ($manifest->isLegacy()) {
-            $zip->extractTo($destination)->deleteFromRegex('~^\..~');
-            return;
-        }
-
         $prefix = PinxManifest::PAYLOAD_PREFIX;
         $entries = [];
 
@@ -446,7 +441,7 @@ class PinxInstaller
     private function cleanupTemp(string $packagePath): void
     {
         $base = basename($packagePath);
-        $base = preg_replace('/\.(pinx|pin)$/i', '', $base) ?: $base;
+        $base = preg_replace('/\.pinx$/i', '', $base) ?: $base;
         $tmp = rtrim($this->tmpPath, '/\\') . '/' . $base;
 
         if (is_dir($tmp)) {

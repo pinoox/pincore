@@ -19,14 +19,6 @@ final class PinxVerifier
         string $manifestJson,
         array $options = [],
     ): ?array {
-        if ($manifest->isLegacy()) {
-            if (!empty($options['require_signature'])) {
-                throw new Exception('Legacy .pin packages cannot satisfy signature requirements.');
-            }
-
-            return null;
-        }
-
         $system = PinxSignConfig::system();
 
         if (!empty($options['skip_verify']) || !$system['verify']) {

@@ -35,7 +35,7 @@ class WizardExportCommand extends Terminal
     {
         $this
             ->addArgument('package', InputArgument::REQUIRED, 'Enter package name')
-            ->addOption('format', 'f', InputOption::VALUE_OPTIONAL, 'Export format (pinx, pin, zip)', 'pinx')
+            ->addOption('format', 'f', InputOption::VALUE_OPTIONAL, 'Export format (pinx)', 'pinx')
             ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip confirmation prompt');
     }
 
@@ -45,7 +45,7 @@ class WizardExportCommand extends Terminal
 
         $format = strtolower((string) $input->getOption('format'));
         if ($format !== 'pinx') {
-            $this->warning('Legacy formats pin/zip are deprecated. Building .pinx instead.');
+            $this->warning('Only pinx format is supported. Building .pinx instead.');
         }
 
         $package = $input->getArgument('package');

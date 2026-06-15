@@ -75,85 +75,6 @@ class PinxManifest
     }
 
     /**
-     * @param array<string, mixed> $legacyApp
-     * @param array{name?: string, description?: string, labels?: array<string, mixed>}|null $resolved
-     */
-    public static function fromLegacyApp(array $legacyApp, ?array $resolved = null): self
-    {
-        $name = (string) ($legacyApp['name'] ?? '');
-        $description = (string) ($legacyApp['description'] ?? '');
-
-        if ($resolved !== null) {
-            if (($resolved['name'] ?? '') !== '') {
-                $name = (string) $resolved['name'];
-            }
-
-            if (($resolved['description'] ?? '') !== '') {
-                $description = (string) $resolved['description'];
-            }
-        }
-
-        $data = [
-            'format' => 'pin',
-            'format_version' => 0,
-            'type' => self::TYPE_APP,
-            'package' => (string) ($legacyApp['package'] ?? ''),
-            'name' => $name,
-            'description' => $description,
-            'developer' => (string) ($legacyApp['developer'] ?? ''),
-            'version_name' => (string) ($legacyApp['version-name'] ?? '1.0'),
-            'version_code' => (int) ($legacyApp['version-code'] ?? 1),
-            'minpin' => (int) ($legacyApp['minpin'] ?? 0),
-            'target_app' => null,
-            'theme_name' => null,
-            'legacy' => true,
-        ];
-
-        if ($resolved !== null && is_array($resolved['labels'] ?? null) && $resolved['labels'] !== []) {
-            $data['labels'] = $resolved['labels'];
-        }
-
-        return new self($data);
-    }
-
-    /**
-     * @param array<string, mixed> $legacyMeta
-     * @param array{name?: string, description?: string, labels?: array<string, mixed>}|null $resolved
-     */
-    public static function fromLegacyTheme(array $legacyMeta, ?array $resolved = null): self
-    {
-        $title = $resolved !== null && ($resolved['name'] ?? '') !== ''
-            ? (string) $resolved['name']
-            : self::legacyThemeTitle($legacyMeta);
-        $description = $resolved !== null && ($resolved['description'] ?? '') !== ''
-            ? (string) $resolved['description']
-            : self::legacyThemeDescription($legacyMeta);
-
-        $data = [
-            'format' => 'pin',
-            'format_version' => 0,
-            'type' => self::TYPE_THEME,
-            'package' => (string) ($legacyMeta['name'] ?? ''),
-            'name' => (string) $title,
-            'description' => (string) $description,
-            'developer' => (string) ($legacyMeta['developer'] ?? ''),
-            'version_name' => (string) ($legacyMeta['version-name'] ?? $legacyMeta['version'] ?? '1.0'),
-            'version_code' => (int) ($legacyMeta['version-code'] ?? $legacyMeta['app_version'] ?? 1),
-            'minpin' => 0,
-            'target_app' => (string) ($legacyMeta['package'] ?? $legacyMeta['app'] ?? ''),
-            'theme_name' => (string) ($legacyMeta['name'] ?? ''),
-            'theme_meta' => $legacyMeta,
-            'legacy' => true,
-        ];
-
-        if ($resolved !== null && is_array($resolved['labels'] ?? null) && $resolved['labels'] !== []) {
-            $data['labels'] = $resolved['labels'];
-        }
-
-        return new self($data);
-    }
-
-    /**
      * @param array<string, mixed> $data
      */
     public static function fromArray(array $data): self
@@ -309,11 +230,6 @@ class PinxManifest
         return (string) ($this->data['theme_name'] ?? '');
     }
 
-    public function isLegacy(): bool
-    {
-        return (bool) ($this->data['legacy'] ?? false);
-    }
-
     public function isApp(): bool
     {
         return $this->type() === self::TYPE_APP;
@@ -335,44 +251,6 @@ class PinxManifest
     public function toJson(int $flags = JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES): string
     {
         return json_encode($this->data, $flags) ?: '{}';
-    }
-
-    /**
-     * @param array<string, mixed> $legacyMeta
-     */
-    private static function legacyThemeDescription(array $legacyMeta): string
-    {
-        $description = $legacyMeta['description'] ?? '';
-
-        if (is_string($description)) {
-            return $description;
-        }
-
-        if (is_array($description) && $description !== []) {
-            $first = reset($description);
-
-            return is_string($first) ? $first : '';
-        }
-
-        return '';
-    }
-
-    /**
-     * @param array<string, mixed> $legacyMeta
-     */
-    private static function legacyThemeTitle(array $legacyMeta): string
-    {
-        $title = $legacyMeta['title'] ?? null;
-
-        if (is_string($title)) {
-            return $title;
-        }
-
-        if (is_array($title) && $title !== []) {
-            return (string) reset($title);
-        }
-
-        return (string) ($legacyMeta['name'] ?? '');
     }
 
     /**
