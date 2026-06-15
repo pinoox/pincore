@@ -3,7 +3,7 @@
 /**
  * Theme manifest — metadata and inheritance for this theme folder.
  *
- * @see docs/pinoox-theme-manifest.md
+ * Labels resolve from theme/lang then app/lang via @manifest.* keys.
  */
 return [
     'name' => 'default',
@@ -15,12 +15,6 @@ return [
     'version-name' => '1.0',
     'version-code' => 1,
     'api' => false,
-    'title' => [
-        'en' => 'Default',
-        'fa' => 'پیش‌فرض',
-    ],
-    'description' => [
-        'en' => '{{description}}',
-        'fa' => '{{description}}',
-    ],
+    'title' => '@manifest.title',
+    'description' => '@manifest.description',
 ];

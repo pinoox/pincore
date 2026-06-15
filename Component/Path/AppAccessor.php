@@ -44,7 +44,7 @@ final class AppAccessor
     /** Display name from app.php. */
     public function name(): string
     {
-        return (string) ($this->manifest()['name'] ?? $this->package());
+        return AppManifest::displayName($this->resolvedPackage());
     }
 
     /** Twig: app().name */
