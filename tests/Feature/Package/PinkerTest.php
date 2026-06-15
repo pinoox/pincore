@@ -173,6 +173,41 @@ it('prefers source values for shared keys when source is newer than state', func
         ->not->toHaveKey('lang');
 });
 
+it('keeps state overrides for unchanged source keys when only part of the source changes', function () {
+    $basePath = pinkerTestPath(testProjectRoot());
+    $package = 'com_test_pinker';
+    $appDir = $basePath . '/apps/' . $package;
+
+    if (!is_dir($appDir)) {
+        mkdir($appDir, 0777, true);
+    }
+
+    file_put_contents($appDir . '/app.php', "<?php\n\nreturn ['package' => '{$package}', 'lang' => 'en', 'title' => 'Before'];\n");
+
+    $pinker = Pinker::folder($appDir, 'app.php')
+        ->dumping(true)
+        ->runtimeDefaults(['lang' => 'en']);
+
+    $pickup = $pinker->pickup();
+    $merged = array_replace_recursive(['lang' => 'en'], is_array($pickup) ? $pickup : []);
+    $merged['lang'] = 'fa';
+    $merged['open'] = 'runtime';
+
+    $pinker->data($merged)->bake();
+
+    sleep(1);
+    file_put_contents($appDir . '/app.php', "<?php\n\nreturn ['package' => '{$package}', 'lang' => 'en', 'title' => 'After'];\n");
+
+    expect($pinker->pickup())
+        ->toMatchArray(['lang' => 'fa', 'title' => 'After', 'open' => 'runtime']);
+
+    $override = include $pinker->getOverrideFile();
+
+    expect($override['data'])
+        ->toMatchArray(['lang' => 'fa', 'open' => 'runtime'])
+        ->not->toHaveKey('title');
+});
+
 it('keeps state overrides for shared keys when state is newer than source', function () {
     $basePath = pinkerTestPath(testProjectRoot());
     $package = 'com_test_pinker';
