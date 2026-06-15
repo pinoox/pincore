@@ -11,9 +11,9 @@
  */
 
 use App\com_pinoox_installer\Component\InstallerDatabase;
-use App\com_pinoox_manager\Controller\Api;
 use Pinoox\Component\Http\Request;
 use Pinoox\Component\Http\ResponseException;
+use Pinoox\Component\Kernel\Controller\ApiController;
 use Pinoox\Component\Validation\ValidationException;
 use Pinoox\Portal\Validation;
 
@@ -121,8 +121,8 @@ it('returns validated data from request validate helper', function () {
     ]);
 });
 
-it('maps manager validated helper failures to the standard error envelope', function () {
-    $controller = new class extends Api {
+it('maps validated helper failures to the standard error envelope', function () {
+    $controller = new class extends ApiController {
         public function probe(Request $request): never
         {
             $this->validated($request, ['email' => 'required|email']);

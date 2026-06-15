@@ -13,6 +13,7 @@ use Psr\Container\ContainerInterface;
 use Pinoox\Component\Http\RedirectResponse;
 use Pinoox\Component\Http\JsonResponse;
 use Pinoox\Component\Http\Response;
+use Pinoox\Component\Http\ResponseException;
 use Symfony\Component\DependencyInjection\Exception\BadMethodCallException;
 use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
@@ -166,6 +167,14 @@ abstract class Controller
     protected function response(?string $content = '', int $status = 200, array $headers = []): Response
     {
         return new Response($content, $status, $headers);
+    }
+
+    /**
+     * Abort the current request and return the given HTTP response.
+     */
+    protected function abortWith(Response $response): never
+    {
+        throw ResponseException::init($response);
     }
 }
 
