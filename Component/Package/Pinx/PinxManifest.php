@@ -5,6 +5,7 @@ namespace Pinoox\Component\Package\Pinx;
 use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Package\AppManifest;
+use Pinoox\Component\Package\ManifestLabel;
 use Pinoox\Component\Template\Theme\ThemeManifest;
 
 class PinxManifest
@@ -75,16 +76,30 @@ class PinxManifest
 
     /**
      * @param array<string, mixed> $legacyApp
+     * @param array{name?: string, description?: string, labels?: array<string, mixed>}|null $resolved
      */
-    public static function fromLegacyApp(array $legacyApp): self
+    public static function fromLegacyApp(array $legacyApp, ?array $resolved = null): self
     {
-        return new self([
+        $name = (string) ($legacyApp['name'] ?? '');
+        $description = (string) ($legacyApp['description'] ?? '');
+
+        if ($resolved !== null) {
+            if (($resolved['name'] ?? '') !== '') {
+                $name = (string) $resolved['name'];
+            }
+
+            if (($resolved['description'] ?? '') !== '') {
+                $description = (string) $resolved['description'];
+            }
+        }
+
+        $data = [
             'format' => 'pin',
             'format_version' => 0,
             'type' => self::TYPE_APP,
             'package' => (string) ($legacyApp['package'] ?? ''),
-            'name' => (string) ($legacyApp['name'] ?? ''),
-            'description' => (string) ($legacyApp['description'] ?? ''),
+            'name' => $name,
+            'description' => $description,
             'developer' => (string) ($legacyApp['developer'] ?? ''),
             'version_name' => (string) ($legacyApp['version-name'] ?? '1.0'),
             'version_code' => (int) ($legacyApp['version-code'] ?? 1),
@@ -92,23 +107,35 @@ class PinxManifest
             'target_app' => null,
             'theme_name' => null,
             'legacy' => true,
-        ]);
+        ];
+
+        if ($resolved !== null && is_array($resolved['labels'] ?? null) && $resolved['labels'] !== []) {
+            $data['labels'] = $resolved['labels'];
+        }
+
+        return new self($data);
     }
 
     /**
      * @param array<string, mixed> $legacyMeta
+     * @param array{name?: string, description?: string, labels?: array<string, mixed>}|null $resolved
      */
-    public static function fromLegacyTheme(array $legacyMeta): self
+    public static function fromLegacyTheme(array $legacyMeta, ?array $resolved = null): self
     {
-        $title = self::legacyThemeTitle($legacyMeta);
+        $title = $resolved !== null && ($resolved['name'] ?? '') !== ''
+            ? (string) $resolved['name']
+            : self::legacyThemeTitle($legacyMeta);
+        $description = $resolved !== null && ($resolved['description'] ?? '') !== ''
+            ? (string) $resolved['description']
+            : self::legacyThemeDescription($legacyMeta);
 
-        return new self([
+        $data = [
             'format' => 'pin',
             'format_version' => 0,
             'type' => self::TYPE_THEME,
             'package' => (string) ($legacyMeta['name'] ?? ''),
-            'name' => $title,
-            'description' => self::legacyThemeDescription($legacyMeta),
+            'name' => (string) $title,
+            'description' => (string) $description,
             'developer' => (string) ($legacyMeta['developer'] ?? ''),
             'version_name' => (string) ($legacyMeta['version-name'] ?? $legacyMeta['version'] ?? '1.0'),
             'version_code' => (int) ($legacyMeta['version-code'] ?? $legacyMeta['app_version'] ?? 1),
@@ -117,7 +144,13 @@ class PinxManifest
             'theme_name' => (string) ($legacyMeta['name'] ?? ''),
             'theme_meta' => $legacyMeta,
             'legacy' => true,
-        ]);
+        ];
+
+        if ($resolved !== null && is_array($resolved['labels'] ?? null) && $resolved['labels'] !== []) {
+            $data['labels'] = $resolved['labels'];
+        }
+
+        return new self($data);
     }
 
     /**
@@ -181,9 +214,51 @@ class PinxManifest
         return (string) ($this->data['name'] ?? $this->package());
     }
 
-    public function description(): string
+    public function title(?string $locale = null): string
     {
+        $labels = $this->labels();
+
+        if (($labels['title'] ?? []) !== []) {
+            $resolved = ManifestLabel::fromLocaleMap($labels['title'], $locale);
+
+            if ($resolved !== '') {
+                return $resolved;
+            }
+        }
+
+        return $this->name();
+    }
+
+    public function description(?string $locale = null): string
+    {
+        $labels = $this->labels();
+
+        if (($labels['description'] ?? []) !== []) {
+            $resolved = ManifestLabel::fromLocaleMap($labels['description'], $locale);
+
+            if ($resolved !== '') {
+                return $resolved;
+            }
+        }
+
         return (string) ($this->data['description'] ?? '');
+    }
+
+    /**
+     * @return array{title: array<string, string>, description: array<string, string>}
+     */
+    public function labels(): array
+    {
+        $labels = $this->data['labels'] ?? [];
+
+        if (!is_array($labels)) {
+            return ['title' => [], 'description' => []];
+        }
+
+        return [
+            'title' => is_array($labels['title'] ?? null) ? $labels['title'] : [],
+            'description' => is_array($labels['description'] ?? null) ? $labels['description'] : [],
+        ];
     }
 
     public function developer(): string

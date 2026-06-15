@@ -3,6 +3,7 @@
 namespace Pinoox\Terminal\Pinx;
 
 use Pinoox\Component\Package\AppDependency;
+use Pinoox\Component\Package\Pinx\PinxCliManifest;
 use Pinoox\Component\Package\Pinx\PinxReader;
 use Pinoox\Component\Package\Pinx\PinxSignKey;
 use Pinoox\Component\Terminal;
@@ -10,6 +11,7 @@ use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
+use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
@@ -23,7 +25,8 @@ class PinxInfoCommand extends Terminal
     protected function configure(): void
     {
         $this
-            ->addArgument('package', InputArgument::REQUIRED, 'Path to .pinx/.pin file');
+            ->addArgument('package', InputArgument::REQUIRED, 'Path to .pinx/.pin file')
+            ->addOption('locale', 'l', InputOption::VALUE_REQUIRED, 'Locale for resolved title/description (e.g. en, fa)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -32,6 +35,7 @@ class PinxInfoCommand extends Terminal
 
         $io = new SymfonyStyle($input, $output);
         $path = (string) $input->getArgument('package');
+        $locale = trim((string) $input->getOption('locale'));
 
         if (!is_file($path)) {
             $io->error('Package file not found: ' . $path);
@@ -47,13 +51,15 @@ class PinxInfoCommand extends Terminal
             $fileCount = count($zip->getListFiles());
             $reader->close();
 
+            $localeArg = $locale !== '' ? $locale : null;
+
             $rows = [
                 ['Format', (string) ($manifest->toArray()['format'] ?? 'pinx')],
                 ['Type', $manifest->type()],
                 ['Package', $manifest->package()],
-                ['Name', $manifest->name()],
+                ...PinxCliManifest::summaryRows($manifest, $localeArg),
                 ['Version', $manifest->versionName() . ' #' . $manifest->versionCode()],
-                ['Developer', $manifest->developer()],
+                ['Developer', $manifest->developer() ?: '—'],
                 ['Min Pinoox', (string) $manifest->minpin()],
                 ['Files in archive', (string) $fileCount],
             ];
@@ -61,6 +67,14 @@ class PinxInfoCommand extends Terminal
             if ($manifest->isTheme()) {
                 $rows[] = ['Target app', $manifest->targetApp()];
                 $rows[] = ['Theme name', $manifest->themeName()];
+            }
+
+            $labelRows = PinxCliManifest::labelRows($manifest);
+            if ($labelRows !== []) {
+                $rows[] = ['Labels', ''];
+                foreach ($labelRows as $labelRow) {
+                    $rows[] = $labelRow;
+                }
             }
 
             $depends = $manifest->depends();
@@ -102,4 +116,3 @@ class PinxInfoCommand extends Terminal
         }
     }
 }
-

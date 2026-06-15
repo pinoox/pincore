@@ -4,6 +4,7 @@ namespace Pinoox\Terminal\Pinx;
 
 use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Kernel\Loader;
+use Pinoox\Component\Package\Pinx\PinxCliManifest;
 use Pinoox\Component\Package\Pinx\PinxInstaller;
 use Pinoox\Component\Package\Pinx\PinxReader;
 use Pinoox\Component\Terminal;
@@ -46,7 +47,8 @@ HELP
             ->addOption('skip-patch', null, InputOption::VALUE_NONE, 'Skip data patches')
             ->addOption('skip-cache', null, InputOption::VALUE_NONE, 'Skip cache rebuild')
             ->addOption('skip-verify', null, InputOption::VALUE_NONE, 'Skip Ed25519 signature verification')
-            ->addOption('require-sign', null, InputOption::VALUE_NONE, 'Reject unsigned packages');
+            ->addOption('require-sign', null, InputOption::VALUE_NONE, 'Reject unsigned packages')
+            ->addOption('locale', 'l', InputOption::VALUE_REQUIRED, 'Locale for resolved title/description (e.g. en, fa)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -72,11 +74,16 @@ HELP
             return Command::FAILURE;
         }
 
+        $locale = trim((string) $input->getOption('locale'));
+        $localeArg = $locale !== '' ? $locale : null;
+
         $io->section('Pinx install');
         $io->definitionList(
             ['File' => $packagePath],
             ['Type' => $manifest->type()],
             ['Package' => $manifest->package()],
+            ['Name' => $manifest->title($localeArg)],
+            ['Description' => $manifest->description($localeArg) ?: '—'],
             ['Version' => $manifest->versionName() . ' #' . $manifest->versionCode()],
             ['Min Pinoox' => (string) $manifest->minpin()],
         );
