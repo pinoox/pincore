@@ -54,3 +54,47 @@ it('renders vite_tags helper without throwing', function () {
     @rmdir($themePath);
 });
 
+it('splits vite css and js tags for head and body placement', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-vite-split-' . uniqid();
+    mkdir($themePath . '/dist/.vite', 0777, true);
+    file_put_contents($themePath . '/dist/.vite/manifest.json', json_encode([
+        'src/main.js' => [
+            'file' => 'assets/main-abc123.js',
+            'css' => ['assets/main-def456.css'],
+            'isEntry' => true,
+        ],
+    ]));
+
+    $helper = new Pinoox\Component\Helpers\ViteHelper($themePath);
+
+    expect($helper->cssTags('src/main.js'))
+        ->toContain('<link rel="stylesheet"')
+        ->toContain('main-def456.css')
+        ->and($helper->jsTags('src/main.js'))
+        ->toContain('<script type="module"')
+        ->toContain('main-abc123.js')
+        ->and($helper->tags('src/main.js'))
+        ->toContain('<link rel="stylesheet"')
+        ->toContain('<script type="module"');
+
+    @unlink($themePath . '/dist/.vite/manifest.json');
+    @rmdir($themePath . '/dist/.vite');
+    @rmdir($themePath . '/dist');
+    @rmdir($themePath);
+});
+
+it('returns dev js tags only from vite_js_tags and empty css in dev mode', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-vite-dev-split-' . uniqid();
+    mkdir($themePath . '/dist', 0777, true);
+    file_put_contents($themePath . '/dist/hot', 'http://127.0.0.1:5173');
+
+    $helper = new Pinoox\Component\Helpers\ViteHelper($themePath);
+
+    expect($helper->cssTags('src/main.js'))->toBe('')
+        ->and($helper->jsTags('src/main.js'))->toContain('@vite/client');
+
+    @unlink($themePath . '/dist/hot');
+    @rmdir($themePath . '/dist');
+    @rmdir($themePath);
+});
+

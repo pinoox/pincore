@@ -179,8 +179,8 @@ class ViteHelper
     {
         $fileManifest = $fileManifest ?? $this->fileManifest;
 
-        if ($devUrl = $this->resolveDevServerUrl()) {
-            return implode("\n\t", $this->devTags($devUrl, ltrim($name, '/')));
+        if ($this->resolveDevServerUrl() !== null) {
+            return '';
         }
 
         $manifest = $this->loadManifest($fileManifest);
@@ -198,9 +198,48 @@ class ViteHelper
         return implode("\n\t", $tags);
     }
 
+    public function jsTags(string $name, ?string $fileManifest = null): string
+    {
+        $fileManifest = $fileManifest ?? $this->fileManifest;
+
+        if ($devUrl = $this->resolveDevServerUrl()) {
+            return implode("\n\t", $this->devTags($devUrl, ltrim($name, '/')));
+        }
+
+        $manifest = $this->loadManifest($fileManifest);
+        if (empty($manifest[$name])) {
+            return '';
+        }
+
+        $mainDirectory = $this->findMainDirectory($fileManifest);
+        $this->outputBuffer = [];
+        $this->processFile($manifest[$name], $manifest, $mainDirectory);
+
+        return implode("\n\t", $this->filterTagsByType($this->outputBuffer, 'js'));
+    }
+
+    /**
+     * @param list<string> $tags
+     * @return list<string>
+     */
+    protected function filterTagsByType(array $tags, string $type): array
+    {
+        $needle = $type === 'css' ? '<link' : '<script';
+
+        return array_values(array_filter(
+            $tags,
+            static fn (string $tag): bool => str_starts_with($tag, $needle),
+        ));
+    }
+
     public static function useCssTags(string $name, ?string $fileManifest = null): string
     {
         return self::forActiveTheme()->cssTags($name, $fileManifest);
+    }
+
+    public static function useJsTags(string $name, ?string $fileManifest = null): string
+    {
+        return self::forActiveTheme()->jsTags($name, $fileManifest);
     }
 }
 

@@ -105,6 +105,7 @@ class View implements ViewInterface
             'vite',
             'vite_tags',
             'vite_css_tags',
+            'vite_js_tags',
             'seo_tags',
             'share_seo',
             'jalali',
