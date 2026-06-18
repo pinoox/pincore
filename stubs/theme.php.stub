@@ -3,7 +3,8 @@
 /**
  * Theme manifest — metadata and inheritance for this theme folder.
  *
- * Labels resolve from theme/lang then app/lang via @manifest.* keys.
+ * Controllers that render Twig here must return View::render(...) (string),
+ * Response, or array — not echo/exit (Pinoox 3). See theme/default/README.md.
  */
 return [
     'name' => 'default',

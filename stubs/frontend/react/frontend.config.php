@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * Front theme stack config (React).
+ *
+ * Controllers must return Response, string, or array (Pinoox 3) — see README.md.
+ */
 return [
     'profile' => 'spa',
     'stack' => 'react',

@@ -273,6 +273,12 @@ namespace App\\{$name}\\Controller;
 use Pinoox\\Component\\Kernel\\Controller\\Controller;
 use Pinoox\\Portal\\View;
 
+/**
+ * Example front controller.
+ *
+ * Actions must return Response, string, or array (Pinoox 3).
+ * Do not use echo/exit — return View::render(...), \$this->json(...), etc.
+ */
 class MainController extends Controller
 {
     public function index()
@@ -315,6 +321,14 @@ PHP);
         $functionsStub = (string) file_get_contents($this->stubsPath . 'functions.php.stub');
         FileSystem::dumpFile("{$this->appDir}/theme/default/functions.php", $functionsStub);
         FileSystem::dumpFile("{$this->appDir}/theme/default/.env.example", AppEnvExample::themeFile());
+
+        $readmeStub = (string) file_get_contents($this->stubsPath . 'frontend/readme.stub');
+        $readmeContent = str_replace(
+            array_keys($stubVars),
+            array_values($stubVars),
+            $readmeStub,
+        );
+        FileSystem::dumpFile("{$this->appDir}/theme/default/README.md", $readmeContent);
     }
 
     private function applyFrontendStack(): void

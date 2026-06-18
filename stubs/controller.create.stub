@@ -4,8 +4,24 @@
 namespace App\{{package}}\Controller{{sub}};
 
 use Pinoox\Component\Kernel\Controller\Controller;
+use Pinoox\Portal\View;
 
+/**
+ * Front controller — actions must return a Response, string, or array (Pinoox 3).
+ *
+ * Do not use echo, exit, or bare output; the kernel sends only what you return.
+ *
+ * @see Controller::response()  HTML / plain body
+ * @see Controller::json()      JSON API
+ * @see Controller::redirect()  redirect
+ * @see View::render()          Twig page (returns string)
+ */
 class {{classname}} extends Controller
 {
-
+    // Example page action:
+    //
+    // public function index()
+    // {
+    //     return View::render('hello');
+    // }
 }

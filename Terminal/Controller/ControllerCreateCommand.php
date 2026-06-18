@@ -29,6 +29,9 @@ class ControllerCreateCommand extends Terminal
                 <<<'HELP'
 Creates a controller stub inside apps/{package}/Controller/.
 
+Front actions must return Response, string, or array (Pinoox 3).
+Do not use echo/exit — return View::render(...), $this->json(...), etc.
+
 Example:
 
   php pinoox controller:create ProductController com_my_shop

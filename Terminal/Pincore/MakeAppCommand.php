@@ -29,6 +29,9 @@ class MakeAppCommand extends Terminal
                 <<<'HELP'
 Creates a new HMVC app under apps/ with routes, theme, and optional Vite frontend.
 
+Controllers must return Response, string, or array (Pinoox 3) — not echo/exit.
+Generated MainController and theme/default/README.md show the pattern.
+
 Interactive wizard:
   php pinoox app:create
 

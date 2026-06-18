@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * Front theme stack config (Vite hybrid).
+ *
+ * Controllers must return Response, string, or array (Pinoox 3) — see README.md.
+ */
 return [
     'profile' => 'hybrid',
     'stack' => 'vite',

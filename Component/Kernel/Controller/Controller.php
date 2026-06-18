@@ -19,6 +19,12 @@ use Psr\Container\ContainerExceptionInterface;
 use Psr\Container\NotFoundExceptionInterface;
 use Closure;
 
+/**
+ * Base HTTP controller for app route actions.
+ *
+ * Action methods must return Response, string, or array (Pinoox 3).
+ * The kernel normalizes the return value to an HTTP response; echo/exit are not sufficient.
+ */
 abstract class Controller
 {
     /**
