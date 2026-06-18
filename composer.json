@@ -8,7 +8,7 @@
     "hmvc"
   ],
   "type": "library",
-  "version": "3.1.10",
+  "version": "3.1.18",
   "homepage": "https://www.pinoox.com/",
   "license": "MIT",
   "authors": [
@@ -77,6 +77,7 @@
   },
   "scripts": {
     "test": "pest --configuration=phpunit.xml",
+    "test:ci": "pest --configuration=phpunit.xml --exclude-group=non-isolated",
     "test:unit": "pest --configuration=phpunit.xml --testsuite=Unit",
     "pincore": "@php bin/pincore"
   },
