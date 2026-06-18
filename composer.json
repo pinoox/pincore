@@ -17,7 +17,7 @@
     }
   ],
   "require": {
-    "php": "^8.1",
+    "php": "^8.2",
     "pinoox/pinion": "^1.0",
     "doctrine/dbal": "^3.5",
     "firebase/php-jwt": "^7.0.5",
