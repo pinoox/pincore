@@ -57,6 +57,7 @@ test('FrontendConfig recommendations prefer vite_tags for vite stacks', function
     $hints = FrontendConfig::recommendations($config, 'com_acme_shop', 'panel');
 
     expect($hints['twig'])->toBe("{{ vite_tags('src/main.js')|raw }}")
+        ->and($hints['assets_hint'])->toContain('pinoox_bootstrap')
         ->and($hints['next_steps'])->toHaveCount(2)
         ->and($hints['next_steps'][0])->toContain('com_acme_shop')
         ->and($hints['next_steps'][0])->toContain('--theme=panel');

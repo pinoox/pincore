@@ -17,6 +17,8 @@ return View::render('pages/home', ['title' => 'Home']);
 | Server HTML only | `theme:create my-theme --stack=twig` | `assets('assets/app.css')` |
 | Vue / React / Vite (default) | `theme:create my-theme` or `--stack=vue` | `vite_tags('src/main.js')` in `partials/scripts.twig` |
 
+Include `{{ pinoox_bootstrap(bootstrap|default({}))|raw }}` before Vite tags so `window.__PINOOX__.url.APP` is available for theme AJAX (`fetch`, no jQuery). The vite stack ships `src/api.js` + `data-ajax` forms as an example.
+
 `frontend.config.php` only needs `stack` and `profile` — entry, manifest, and dev server settings are applied automatically.
 
 After scaffold: `php pinoox fe {{package}} install --theme=default` then `dev`.

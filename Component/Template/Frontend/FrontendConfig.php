@@ -301,7 +301,7 @@ class FrontendConfig
 
         return [
             'twig' => "{{ vite_tags('" . $entry . "')|raw }}",
-            'assets_hint' => 'Optional: vite_css_tags in head + vite_js_tags before </body> for stricter HTML.',
+            'assets_hint' => 'partials/scripts.twig must include pinoox_bootstrap() before vite_tags — AJAX uses __PINOOX__.url.APP.',
             'next_steps' => $next,
         ];
     }

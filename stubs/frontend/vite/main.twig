@@ -2,9 +2,23 @@
 <html lang="{{ bootstrap.locale|default(currentLang|default('en')) }}">
 <head>
     {% include 'partials/head.twig' %}
-    {% include 'partials/scripts.twig' %}
 </head>
 <body>
-<main id="app"></main>
+<main class="layout">
+    <h1>{{ title|default(appName|default('Pinoox App')) }}</h1>
+    <p>{{ message|default('Hybrid Twig + Vite — AJAX uses fetch and __PINOOX__.url.APP.') }}</p>
+
+    {# action is relative to url.APP from pinoox_bootstrap() #}
+    <form method="post" action="api/v1/example" data-ajax class="ajax-form">
+        <label>
+            Name
+            <input type="text" name="name" required autocomplete="name">
+        </label>
+        <button type="submit">Send</button>
+        <output data-ajax-status hidden aria-live="polite"></output>
+    </form>
+</main>
+<div id="app"></div>
+{% include 'partials/scripts.twig' %}
 </body>
 </html>
