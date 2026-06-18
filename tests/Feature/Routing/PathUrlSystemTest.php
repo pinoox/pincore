@@ -207,9 +207,10 @@ it('reads app manifest through app accessor', function () {
 
     $manifest = $url->appAccessor('com_pinoox_manager');
     $expectedLang = \Pinoox\Portal\App\AppEngine::config('com_pinoox_manager')->get('lang');
+    $expectedName = \Pinoox\Component\Package\AppManifest::displayName('com_pinoox_manager');
 
     expect($manifest->package())->toBe('com_pinoox_manager')
-        ->and($manifest->name())->toBe('manager')
+        ->and($manifest->name())->toBe($expectedName)
         ->and($manifest->config('lang'))->toBe($expectedLang)
         ->and($manifest->themeName())->toBe('spark')
         ->and($manifest->url())->toBe('http://localhost/pinoox/manager')
@@ -221,7 +222,7 @@ it('reads app manifest through app accessor', function () {
         ->toBe('http://localhost/pinoox/apps/com_pinoox_manager/resources/avatar.png')
         ->and($manifest->theme()->name())->toBe('spark')
         ->and($manifest->versionName())->toBe('2.2.0')
-        ->and(app('com_pinoox_manager')->name())->toBe('manager')
+        ->and(app('com_pinoox_manager')->name())->toBe($expectedName)
         ->and(app('com_pinoox_manager')->config('lang'))->toBe($expectedLang)
         ->and(app('com_pinoox_manager'))->toBeInstanceOf(\Pinoox\Component\Path\AppAccessor::class);
 });

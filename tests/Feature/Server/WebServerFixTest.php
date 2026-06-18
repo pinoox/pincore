@@ -3,6 +3,7 @@
 use Pinoox\Component\Package\App as PackageApp;
 use Pinoox\Component\Router\RouteName;
 use Pinoox\Component\Router\Router as RouterComponent;
+use Pinoox\Component\Server\DevelopmentServer;
 use Pinoox\Component\Server\FrontController;
 use Pinoox\Component\Server\WebServerFix;
 use Pinoox\Component\Server\WebServerFixCache;
@@ -83,7 +84,7 @@ it('normalizes php built-in server globals for front-controller paths', function
 });
 
 it('development server router script always routes front-controller paths through index.php', function () {
-    $routerScript = testProjectRoot() . '/launcher/server.php';
+    $routerScript = DevelopmentServer::defaultRouterScript();
     $contents = file_get_contents($routerScript);
 
     expect($contents)

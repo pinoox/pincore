@@ -7,12 +7,6 @@ use Pinoox\Component\Runtime\RuntimeMode;
 use Pinoox\Component\Test\AppTestKit;
 use Pinoox\Support\SystemConfig;
 
-/**
- * @group non-isolated
- * @group project-state
- *
- * Reads expectations from the local pinker/state overrides — not hard-coded values.
- */
 it('loads core database config through pinker overrides', function () {
     AppTestKit::boot();
 
@@ -48,7 +42,7 @@ it('loads core database config through pinker overrides', function () {
     putenv('APP_ENV');
     unset($_ENV['APP_ENV'], $_SERVER['APP_ENV']);
     SystemConfig::clearCache();
-});
+})->group('non-isolated', 'project-state');
 
 it('resolves app config from pinker with source.php defaults as fallback', function () {
     AppTestKit::boot();
@@ -85,7 +79,7 @@ it('resolves app config from pinker with source.php defaults as fallback', funct
     if (isset($source['lang']) && $sourceMtime > $overrideUpdatedAt) {
         expect($config->get('lang'))->toBe($source['lang']);
     }
-});
+})->group('non-isolated', 'project-state');
 
 it('resolves AppManifest through pinker with source.php defaults', function () {
     AppTestKit::boot();
@@ -116,7 +110,7 @@ it('resolves AppManifest through pinker with source.php defaults', function () {
     if (isset($source['lang']) && $sourceMtime > $overrideUpdatedAt) {
         expect($manifest['lang'] ?? null)->toBe($source['lang']);
     }
-});
+})->group('non-isolated', 'project-state');
 
 it('prefers defined DB_CONNECTION env over pinker default connection', function () {
     AppTestKit::boot();

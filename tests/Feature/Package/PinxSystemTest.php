@@ -162,7 +162,7 @@ it('evaluates minpin against pinoox version config', function () {
 it('builds composer install command without dev dependencies', function () {
     $command = AppComposerVendor::buildInstallCommand(pinxSystemAppDir('com_test_pinx'), testProjectRoot());
 
-    expect($command)->toContain('install')
+    expect($command)->toContain('update')
         ->and($command)->toContain('--no-dev')
         ->and($command)->toContain('--optimize-autoloader');
 });

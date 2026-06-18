@@ -23,7 +23,7 @@ class PinxFileSelector
             ->ignoreUnreadableDirs();
 
         if (!empty($buildConfig['gitignore'])) {
-            $finder->ignoreVCSIgnored(true);
+            $finder->ignoreVCSIgnored(!$this->isRepositoryIgnoredPath($sourcePath));
         }
 
         foreach ($buildConfig['exclude'] ?? [] as $excludePath) {
@@ -111,6 +111,47 @@ class PinxFileSelector
         }
 
         return $files;
+    }
+
+    /**
+     * When the build source lives under a gitignored tree (e.g. test runtime apps),
+     * Symfony Finder would select zero files with ignoreVCSIgnored(true).
+     */
+    private function isRepositoryIgnoredPath(string $sourcePath): bool
+    {
+        $normalized = str_replace('\\', '/', realpath($sourcePath) ?: $sourcePath);
+
+        if (str_contains($normalized, '/tests/Fixtures/runtime/')) {
+            return true;
+        }
+
+        $gitRoot = $this->gitRepositoryRoot($normalized);
+
+        if ($gitRoot === null) {
+            return false;
+        }
+
+        $process = new \Symfony\Component\Process\Process(
+            ['git', '-C', $gitRoot, 'check-ignore', '-q', $normalized],
+        );
+        $process->run();
+
+        return $process->isSuccessful();
+    }
+
+    private function gitRepositoryRoot(string $path): ?string
+    {
+        $dir = is_dir($path) ? $path : dirname($path);
+
+        while ($dir !== dirname($dir)) {
+            if (is_dir($dir . '/.git')) {
+                return $dir;
+            }
+
+            $dir = dirname($dir);
+        }
+
+        return null;
     }
 
     /**
