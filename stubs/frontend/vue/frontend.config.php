@@ -1,7 +1,13 @@
 <?php
 
 /**
- * Front theme stack config (Vue).
+ * Front theme stack config (Vue SPA / hybrid).
+ *
+ * stack=vue — same Vite manifest as vite stack; Vue app mounts on #app.
+ * manifest — dist/.vite/manifest.json (FrontController never reads webpack mix-manifest).
+ * entry — passed to vite_js_tags('src/main.js') in partials/scripts.twig.
+ * dev.url — Vite HMR server when VITE_DEV=true.
+ * pinoox — optional inline twig template for pinoox_script(); prefer pinoox_bootstrap() + vite tags.
  *
  * Controllers must return Response, string, or array (Pinoox 3) — see README.md.
  */

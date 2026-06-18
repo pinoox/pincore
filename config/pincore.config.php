@@ -22,9 +22,9 @@ return [
 
     */
 
-    'version_code' => 38,
+    'version_code' => 39,
 
-    'version_name' => '3.1.9',
+    'version_name' => '3.1.10',
 
 ];
 
