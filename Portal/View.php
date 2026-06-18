@@ -21,7 +21,9 @@ use Pinoox\Component\Template\Seo\SeoMeta;
 use Pinoox\Component\Template\Reference\TemplatePathReference as ObjectPortal2;
 use Pinoox\Component\Template\View as ObjectPortal1;
 use Pinoox\Component\Cache\AppCacheConfig;
+use Pinoox\Component\Template\TemplateHelper;
 use Pinoox\Component\Template\Theme\ThemeStack;
+use Pinoox\Component\Template\Twig\AppFunctionFiles;
 use Pinoox\Portal\App\App;
 
 /**
@@ -44,6 +46,11 @@ use Pinoox\Portal\App\App;
  * @method static string getContentReady()
  * @method static array themePaths()
  * @method static array themeStack()
+ * @method static void shareSeo(array|\Pinoox\Component\Template\Seo\SeoMeta $seo)
+ * @method static void appendHeadHtml(string $html)
+ * @method static void appendFooterHtml(string $html)
+ * @method static string headHtml()
+ * @method static string footerHtml()
  * @method static ObjectPortal2 path()
  * @method static ObjectPortal1 ___()
  *
@@ -96,8 +103,31 @@ class View extends Portal
     {
         $twig = App::get('twig');
         $options = !empty($twig) && is_array($twig) ? $twig : [];
+        $package = App::package();
 
-        return array_merge($options, AppCacheConfig::twigOptions(App::package()));
+        return array_merge($options, AppCacheConfig::twigOptions($package), [
+            'app_function_files' => AppFunctionFiles::resolve($package),
+        ]);
+    }
+
+    public static function appendHeadHtml(string $html): void
+    {
+        TemplateHelper::appendHead($html);
+    }
+
+    public static function appendFooterHtml(string $html): void
+    {
+        TemplateHelper::appendFooter($html);
+    }
+
+    public static function headHtml(): string
+    {
+        return TemplateHelper::headHtml();
+    }
+
+    public static function footerHtml(): string
+    {
+        return TemplateHelper::footerHtml();
     }
 
     public static function jsonResponse(string $name, array $parameters = [], ?string $charset = null): JsonResponse

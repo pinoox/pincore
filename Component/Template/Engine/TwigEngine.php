@@ -14,8 +14,7 @@
 namespace Pinoox\Component\Template\Engine;
 
 use Exception;
-use Pinoox\Component\Dir;
-use Pinoox\Component\File;
+use Pinoox\Component\Template\Twig\TwigFunctionLoader;
 use Symfony\Component\Templating\EngineInterface;
 use Symfony\Component\Templating\TemplateNameParserInterface;
 use Symfony\Component\Templating\TemplateReferenceInterface;
@@ -173,8 +172,12 @@ class TwigEngine implements EngineInterface
             }
         } else {
             try {
-                $names = !empty($namespace) ? $namespace . '\\' . $names : $names;
                 $funcName = empty($replace) ? $names : $replace;
+
+                if (!function_exists($funcName) || !is_callable($funcName)) {
+                    return;
+                }
+
                 $this->addFunction($names, function () use ($funcName) {
                     return call_user_func_array($funcName, func_get_args());
                 });
@@ -185,29 +188,34 @@ class TwigEngine implements EngineInterface
     }
 
     /**
-     * Add functions on PHP file
+     * Register a global PHP function in Twig.
+     */
+    public function addCallableFunction(string $name, callable $callback, array $options = []): void
+    {
+        $this->template->addFunction(new TwigFunction($name, $callback, $options));
+    }
+
+    /**
+     * Load a PHP functions file and register only callable globals that exist at runtime.
      *
      * @param string|array $files
-     * @param bool $isNamespace
      */
-    public function addFunctionsFile(string|array $files, bool $isNamespace = false): void
+    public function addFunctionsFile(string|array $files): void
     {
         if (is_array($files)) {
             foreach ($files as $file) {
                 $this->addFunctionsFile($file);
             }
-        } else {
-            if (is_file($files)) {
-                $regex = '/function[\s\n]+(\S+)[\s\n]*\(/';
-                $content = file_get_contents($files);
-                $functions = [];
-                preg_match_all($regex, $content, $functions);
-                if (count($functions) > 1) {
-                    $functions = $functions[1];
-                }
-                $namespace = $isNamespace ? File::extract_namespace(Path::get('~pincore/boot/routes.php')) : null;
-                $this->addInternalFunction($functions, $namespace);
-            }
+
+            return;
+        }
+
+        if (!is_file($files)) {
+            return;
+        }
+
+        foreach (TwigFunctionLoader::registerableNames($files) as $name) {
+            $this->addInternalFunction($name);
         }
     }
 

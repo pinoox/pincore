@@ -20,6 +20,7 @@ use Pinoox\Component\Template\Engine\TwigEngine;
 use Pinoox\Component\Template\Parser\TemplateNameParser;
 use Pinoox\Component\Template\Engine\DelegatingEngine;
 use Pinoox\Component\Template\Reference\TemplatePathReference;
+use Pinoox\Component\Template\TemplateHelper;
 use Pinoox\Component\Template\Theme\ThemeAssets;
 use Twig\Extension\DebugExtension;
 use Twig\Extension\StringLoaderExtension;
@@ -59,6 +60,8 @@ class View implements ViewInterface
      */
     public function setView(string|array $folders, string $pathTheme = ''): static
     {
+        TemplateHelper::reset();
+
         $this->folders = $folders;
         $this->pathTheme = $pathTheme;
         $this->themePaths = $this->resolveThemePaths($folders, $pathTheme);
@@ -115,7 +118,17 @@ class View implements ViewInterface
             'app_urls',
             'app_url',
             'rewrite_active',
+            'head_html',
+            'footer_html',
         ]));
+
+        if (function_exists('th')) {
+            $this->twigEngine->addCallableFunction('th', 'th', ['is_safe' => ['html']]);
+        }
+
+        foreach ($this->twigOption('app_function_files', []) as $functions) {
+            $this->twigEngine->addFunctionsFile($functions);
+        }
 
         // add custom functions from inherited themes (parents first, child last)
         foreach ($this->functionFiles() as $functions) {
