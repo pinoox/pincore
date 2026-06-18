@@ -52,6 +52,7 @@ require_once __DIR__ . '/Support/CliTestHelpers.php';
 
 require_once __DIR__ . '/Support/TestSandbox.php';
 require_once __DIR__ . '/Support/TestRuntime.php';
+require_once __DIR__ . '/TestCase.php';
 
 \Pinoox\Component\Helpers\EnvBootstrap::load(PINOOX_BASE_PATH);
 
