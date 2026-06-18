@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use App\com_pinoox_installer\Component\InstallerDatabase;
 use Pinoox\Component\Database\DatabaseManager;
 

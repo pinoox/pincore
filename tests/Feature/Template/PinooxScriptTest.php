@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\Path;
 

@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use Pinoox\Portal\Database\DB;
 
 it('allows generic CLI boot with an invalid DB_CONNECTION until DB is used', function () {

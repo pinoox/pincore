@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use Pinoox\Component\Package\Pinx\PinxVersion;
 
 it('prints platform and kernel versions via CLI', function () {

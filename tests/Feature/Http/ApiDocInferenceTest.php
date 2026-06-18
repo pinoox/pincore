@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use Pinoox\PinDoc\Api\Docs\ControllerDocInferrer;
 use App\com_pinoox_installer\Controller\ApiController;
 

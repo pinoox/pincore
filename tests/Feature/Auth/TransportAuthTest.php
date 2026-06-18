@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use Pinoox\Component\Transport\TransportConfig;
 use Pinoox\Component\Transport\TransportScenario;
 use Pinoox\Component\User\AuthConfig;

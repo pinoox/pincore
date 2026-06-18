@@ -135,7 +135,7 @@ final class TestRuntime
     private static function registryPackages(string $platformRoot): array
     {
         $platformRoot = rtrim(str_replace('\\', '/', $platformRoot), '/');
-        $packages = self::bundledSystemPackages();
+        $packages = [];
 
         $projectRegistry = $platformRoot . '/config/apps.config.php';
         if (is_file($projectRegistry)) {
@@ -149,30 +149,34 @@ final class TestRuntime
         }
 
         $projectApps = $platformRoot . '/apps';
-        if (!is_dir($projectApps)) {
-            return $packages;
+        if (is_dir($projectApps)) {
+            foreach (scandir($projectApps) ?: [] as $entry) {
+                if ($entry === '.' || $entry === '..') {
+                    continue;
+                }
+
+                if (!str_starts_with($entry, 'com_')) {
+                    continue;
+                }
+
+                if (str_starts_with($entry, 'com_test_') || str_starts_with($entry, 'com_boot_')) {
+                    continue;
+                }
+
+                $appFile = $projectApps . '/' . $entry . '/app.php';
+                if (!is_file($appFile)) {
+                    continue;
+                }
+
+                if (!isset($packages[$entry])) {
+                    $packages[$entry] = '~/apps/' . $entry;
+                }
+            }
         }
 
-        foreach (scandir($projectApps) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..') {
-                continue;
-            }
-
-            if (!str_starts_with($entry, 'com_')) {
-                continue;
-            }
-
-            if (str_starts_with($entry, 'com_test_') || str_starts_with($entry, 'com_boot_')) {
-                continue;
-            }
-
-            $appFile = $projectApps . '/' . $entry . '/app.php';
-            if (!is_file($appFile)) {
-                continue;
-            }
-
-            if (!isset($packages[$entry])) {
-                $packages[$entry] = '~/apps/' . $entry;
+        foreach (self::bundledSystemPackages() as $package => $path) {
+            if (!isset($packages[$package])) {
+                $packages[$package] = $path;
             }
         }
 
