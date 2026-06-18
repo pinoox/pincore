@@ -55,7 +55,8 @@ it('stores transient fake apps under tests/Fixtures/runtime/apps', function () {
         ->and(SystemConfig::path('apps'))->toBe(testRuntimeApps());
 
     if (AppEngine::exists('com_pinoox_welcome')) {
-        expect(AppEngine::path('com_pinoox_welcome'))->toContain('/apps/com_pinoox_welcome');
+        expect(AppEngine::path('com_pinoox_welcome'))->toEndWith('com_pinoox_welcome')
+            ->and(AppEngine::path('com_pinoox_welcome'))->toBeDirectory();
     }
 });
 

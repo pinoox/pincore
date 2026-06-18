@@ -5,6 +5,9 @@ namespace Feature;
 use PHPUnit\Framework\TestCase;
 use Pinoox\Component\Kernel\Debug\Support\ExceptionContext;
 
+/**
+ * @group non-isolated
+ */
 class ExceptionContextTest extends TestCase
 {
     public function test_pinoox_version_reads_from_project_config(): void

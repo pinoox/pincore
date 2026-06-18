@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use Pinoox\Component\Package\App as PackageApp;
 use Pinoox\Component\Router\RouteName;
 use Pinoox\Component\Router\Router as RouterComponent;

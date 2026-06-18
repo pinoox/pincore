@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use App\com_pinoox_installer\Resource\PingResource;
 use Pinoox\Component\Http\Api\ApiResponse;
 use Pinoox\Component\Http\Api\PayloadResource;

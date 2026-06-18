@@ -10,6 +10,8 @@
  * @license  https://opensource.org/licenses/MIT MIT License
  */
 
+uses()->group('non-isolated');
+
 use App\com_pinoox_installer\Component\InstallerDatabase;
 use Pinoox\Component\Http\Request;
 use Pinoox\Component\Kernel\Controller\ApiController;

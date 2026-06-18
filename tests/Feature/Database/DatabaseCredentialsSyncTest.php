@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use App\com_pinoox_installer\Component\DatabaseCredentialsSync;
 use Pinoox\Component\Database\DatabaseConfig;
 use Pinoox\Component\Runtime\RuntimeMode;

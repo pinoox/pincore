@@ -298,7 +298,7 @@ class AppTestKit
         }
 
         foreach (scandir($path) ?: [] as $entry) {
-            if ($entry === '.' || $entry === '..' || $entry === '.gitkeep' || $entry === 'runtime') {
+            if ($entry === '.' || $entry === '..' || $entry === '.gitkeep' || $entry === 'runtime' || $entry === 'system-apps') {
                 continue;
             }
 

@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use Pinoox\Component\Package\AppLayer;
 use Pinoox\Component\Transport\TransportContext;
 use Pinoox\Portal\App\App;

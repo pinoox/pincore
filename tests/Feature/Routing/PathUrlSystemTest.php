@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use Pinoox\Component\Http\Request;
 use Pinoox\Component\Kernel\Loader;
 use Pinoox\Component\Package\App;

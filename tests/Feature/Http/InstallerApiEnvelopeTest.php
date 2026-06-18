@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use App\com_pinoox_installer\Controller\ApiController;
 use Pinoox\Portal\App\App;
 

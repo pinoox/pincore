@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use App\com_pinoox_installer\Component\DatabaseCredentialsSync;
 use Pinoox\Component\Runtime\RuntimeMode;
 use Pinoox\Component\Store\Baker\EnvSensitiveConfig;

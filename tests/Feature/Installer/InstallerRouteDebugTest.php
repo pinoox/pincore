@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use Pinoox\Component\AppEvent\AppRouteRegistry;
 use Pinoox\Component\Http\Request;
 use Pinoox\Component\Router\Action\ActionRegistry;

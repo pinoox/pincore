@@ -10,6 +10,8 @@
  * @license  https://opensource.org/licenses/MIT MIT License
  */
 
+uses()->group('non-isolated');
+
 use App\com_pinoox_installer\Request\SetupRequest;
 use Pinoox\Component\Http\ApiFormRequest;
 use Pinoox\Component\Http\FormRequest;

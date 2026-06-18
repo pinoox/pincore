@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use Pinoox\Component\Server\DevelopmentServer;
 use Pinoox\Terminal\Serve\ServeCommand;
 

@@ -1,5 +1,7 @@
 <?php
 
+uses()->group('non-isolated');
+
 use App\com_pinoox_manager\Controller\Api;
 use Pinoox\Component\Http\Api\ApiResponse;
 use Pinoox\Component\Kernel\Controller\ApiController;
