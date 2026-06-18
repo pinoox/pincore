@@ -31,6 +31,7 @@ class Table
         return DB::sqlAlias($alias, $package);
     }
 
+    /** @return string e.g. p.post_id */
     public static function sqlCol(string $alias, string $column, ?string $package = 'platform'): string
     {
         return DB::sqlCol($alias, $column, $package);

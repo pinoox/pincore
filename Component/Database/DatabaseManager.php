@@ -152,36 +152,23 @@ class DatabaseManager extends Capsule
     }
 
     /**
-     * SQL alias as emitted by the query grammar when the connection has a table prefix.
-     *
-     * Example: from('post', 'p') with prefix paper_ → use paper_p in selectRaw/groupByRaw.
+     * SQL table alias unchanged — only physical table names are prefixed in Pinoox.
      */
     public function sqlAlias(string $alias, ?string $package = null): string
     {
-        $alias = trim($alias);
-
-        if ($alias === '') {
-            return $alias;
-        }
-
-        $prefix = $this->connectionTablePrefix($package);
-
-        if ($prefix === '' || str_starts_with($alias, $prefix)) {
-            return $alias;
-        }
-
-        return $prefix . $alias;
+        return trim($alias);
     }
 
     public function sqlCol(string $alias, string $column, ?string $package = null): string
     {
+        $alias = trim($alias);
         $column = trim($column);
 
         if ($column === '') {
-            return $this->sqlAlias($alias, $package);
+            return $alias;
         }
 
-        return $this->sqlAlias($alias, $package) . '.' . $column;
+        return $alias . '.' . $column;
     }
 
     public function tablePrefixForPackage(?string $package = null): string
