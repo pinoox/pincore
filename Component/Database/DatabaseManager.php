@@ -35,6 +35,13 @@ class DatabaseManager extends Capsule
 
     private array $packageConnections = [];
 
+    public function __construct($container)
+    {
+        PinooxConnectionFactory::register();
+
+        parent::__construct($container);
+    }
+
     public function registerCoreConnection(array $config): void
     {
         $this->addConnection($config, self::DEFAULT_CONNECTION);
