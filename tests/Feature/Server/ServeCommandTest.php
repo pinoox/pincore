@@ -29,7 +29,7 @@ it('builds php built-in server command with document root and router', function 
 });
 
 it('routes existing files through the development server router script', function () {
-    $router = PINOOX_BASE_PATH . '/launcher/server.php';
+    $router = DevelopmentServer::defaultRouterScript();
 
     expect(is_file($router))->toBeTrue();
 

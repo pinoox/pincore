@@ -12,7 +12,6 @@
 
 use App\com_pinoox_installer\Component\InstallerDatabase;
 use Pinoox\Component\Http\Request;
-use Pinoox\Component\Http\ResponseException;
 use Pinoox\Component\Kernel\Controller\ApiController;
 use Pinoox\Component\Validation\ValidationException;
 use Pinoox\Portal\Validation;
@@ -121,7 +120,7 @@ it('returns validated data from request validate helper', function () {
     ]);
 });
 
-it('maps validated helper failures to the standard error envelope', function () {
+it('maps validated helper failures to validation exception', function () {
     $controller = new class extends ApiController {
         public function probe(Request $request): never
         {
@@ -131,15 +130,7 @@ it('maps validated helper failures to the standard error envelope', function () 
 
     $request = requestWithValidation(appRequest('POST', '/profile', json: ['email' => 'invalid']));
 
-    try {
-        $controller->probe($request);
-        expect(false)->toBeTrue('Expected ResponseException');
-    } catch (ResponseException $exception) {
-        $payload = json_decode($exception->getResponse()->getContent(), true);
-
-        expect($payload['success'])->toBeFalse()
-            ->and($payload['error']['code'])->toBe('API_ERROR')
-            ->and($payload['error']['message'])->not->toBeEmpty();
-    }
+    expect(fn () => $controller->probe($request))
+        ->toThrow(ValidationException::class);
 });
 

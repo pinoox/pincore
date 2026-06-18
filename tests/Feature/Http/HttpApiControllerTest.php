@@ -1,8 +1,8 @@
 <?php
 
 use Pinoox\Component\Http\Request;
-use Pinoox\Component\Http\ResponseException;
 use Pinoox\Component\Kernel\Controller\ApiController;
+use Pinoox\Component\Validation\ValidationException;
 use Pinoox\Portal\Validation;
 
 final class HttpApiControllerStub extends ApiController
@@ -72,17 +72,14 @@ it('returns data-only envelope from ok()', function () {
         ]);
 });
 
-it('returns soft failure envelope from deny()', function () {
+it('returns access denied envelope from deny()', function () {
     $response = (new HttpApiControllerStub())->softDeny();
     $payload = json_decode($response->getContent(), true);
 
-    expect($payload)
-        ->toMatchArray([
-            'success' => true,
-            'data' => false,
-            'meta' => [],
-        ])
-        ->and($payload['message'])->not->toBe('OK');
+    expect($payload['success'])->toBeFalse()
+        ->and($payload['error']['code'])->toBe('ACCESS_DENIED')
+        ->and($payload['error']['message'])->not->toBeEmpty()
+        ->and($response->getStatusCode())->toBe(403);
 });
 
 it('returns http error envelope from error()', function () {
@@ -91,21 +88,13 @@ it('returns http error envelope from error()', function () {
 
     expect($payload['success'])->toBeFalse()
         ->and($payload['error']['code'])->toBe('API_ERROR')
-        ->and($response->getStatusCode())->toBe(422);
+        ->and($response->getStatusCode())->toBe(400);
 });
 
-it('aborts with validation error from validated()', function () {
+it('throws validation exception from validated()', function () {
     $request = appRequest('POST', '/profile', json: ['email' => '']);
     $request->setValidation(Validation::___());
 
-    try {
-        (new HttpApiControllerStub())->validateInput($request);
-        expect(false)->toBeTrue('Expected ResponseException');
-    } catch (ResponseException $e) {
-        $payload = json_decode($e->getResponse()->getContent(), true);
-
-        expect($payload['success'])->toBeFalse()
-            ->and($payload['error']['code'])->toBe('API_ERROR')
-            ->and($e->getResponse()->getStatusCode())->toBe(422);
-    }
+    expect(fn () => (new HttpApiControllerStub())->validateInput($request))
+        ->toThrow(ValidationException::class);
 });

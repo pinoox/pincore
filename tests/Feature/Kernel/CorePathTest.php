@@ -20,7 +20,7 @@ it('resolves the pincore path through the central core path constant', function 
 it('resolves the system app path through the system alias', function () {
     $basePath = corePathTestNormalize(testProjectRoot());
     $corePath = corePathTestNormalize(testCoreRoot());
-    $projectConfig = corePathTestNormalize(testProjectRoot() . '/config');
+    $projectConfig = corePathTestNormalize(\Pinoox\Support\SystemConfig::projectConfigPath());
     $path = new Path($basePath, new NameParser(), new CorePathTestEngine(), null);
 
     expect($path->get('~system'))->toBe($projectConfig)
