@@ -7,6 +7,7 @@ use Pinoox\Portal\App\App as AppPortal;
 use Pinoox\Portal\Lang;
 use Pinoox\Portal\Path;
 use Pinoox\Portal\View;
+use Pinoox\Support\StaticAssetRequest;
 use Pinoox\Support\SystemConfig;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Pinoox\Component\Http\Response;
@@ -23,6 +24,12 @@ class RouteEmptyListener implements EventSubscriberInterface
         $e = $event->getThrowable();
 
         if ($e instanceof NotFoundHttpException && ($e->getPrevious() instanceof NoConfigurationException || $e->getPrevious() instanceof ResourceNotFoundException)) {
+            if (StaticAssetRequest::shouldReturnPlainNotFound($event->getRequest())) {
+                $event->setResponse(StaticAssetRequest::notFoundResponse());
+
+                return;
+            }
+
             $event->setResponse($this->createWelcomeResponse($event->getRequest()));
         }
     }
