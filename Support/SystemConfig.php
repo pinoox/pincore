@@ -55,9 +55,37 @@ class SystemConfig
     public static function path(string $key, ?string $default = null): string
     {
         $key = self::PATH_KEY_ALIASES[$key] ?? $key;
+
+        foreach (self::runtimePathEnvOverrides() as $pathKey => $envKey) {
+            if ($key !== $pathKey) {
+                continue;
+            }
+
+            $override = self::env($envKey);
+            if (is_string($override) && $override !== '') {
+                return self::resolvePath($override);
+            }
+        }
+
         $value = self::get('paths', $key, $default ?? $key);
 
         return self::resolvePath((string)$value);
+    }
+
+    /**
+     * Path keys that must follow process env after config files were cached (test bootstrap).
+     *
+     * @return array<string, string> path key => env var
+     */
+    private static function runtimePathEnvOverrides(): array
+    {
+        return [
+            'apps' => 'PINOOX_APPS_PATH',
+            'project_registry' => 'PINOOX_PROJECT_REGISTRY_PATH',
+            'pinker' => 'PINOOX_PINKER_PATH',
+            'storage' => 'PINOOX_STORAGE_PATH',
+            'project_config' => 'PINOOX_PROJECT_CONFIG_PATH',
+        ];
     }
 
     /**
