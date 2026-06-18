@@ -35,7 +35,6 @@ use Illuminate\Pagination\CursorPaginator;
 use Illuminate\Pagination\Paginator;
 use PDO as ObjectPortal8;
 use Pinoox\Component\Database\DatabaseConfig;
-use Pinoox\Component\Database\DatabaseRawQueryGuard;
 use Pinoox\Component\Kernel\Container;
 use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Source\Portal;
@@ -255,7 +254,6 @@ class DB extends Portal
             self::setEventDispatcher(new Dispatcher(Container::Illuminate()));
             self::setAsGlobal();
             self::bootEloquent();
-            DatabaseRawQueryGuard::register();
             self::$coreRegistered = true;
         } finally {
             self::$registering = false;
@@ -280,7 +278,6 @@ class DB extends Portal
             self::setEventDispatcher(new Dispatcher(Container::Illuminate()));
             self::setAsGlobal();
             self::bootEloquent();
-            DatabaseRawQueryGuard::register();
 
             self::$coreRegistered = true;
         } finally {

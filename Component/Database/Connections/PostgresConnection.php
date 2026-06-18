@@ -15,11 +15,19 @@ namespace Pinoox\Component\Database\Connections;
 
 use Illuminate\Database\PostgresConnection as BaseConnection;
 use Pinoox\Component\Database\Query\Builder;
+use Pinoox\Component\Database\Query\Grammars\PostgresGrammar;
 
 class PostgresConnection extends BaseConnection
 {
     public function query()
     {
         return new Builder($this, $this->getQueryGrammar(), $this->getPostProcessor());
+    }
+
+    protected function getDefaultQueryGrammar()
+    {
+        ($grammar = new PostgresGrammar())->setConnection($this);
+
+        return $this->withTablePrefix($grammar);
     }
 }
