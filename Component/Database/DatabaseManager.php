@@ -135,6 +135,48 @@ class DatabaseManager extends Capsule
         return $alias ? $name . ' AS ' . $alias : $name;
     }
 
+    public function connectionTablePrefix(?string $package = null): string
+    {
+        if ($package === self::CORE_CONNECTION || $package === 'platform') {
+            return $this->connectionPrefix(self::CORE_CONNECTION);
+        }
+
+        return $this->connectionPrefix($this->connectionNameForPackage($package));
+    }
+
+    /**
+     * SQL alias as emitted by the query grammar when the connection has a table prefix.
+     *
+     * Example: from('post', 'p') with prefix paper_ → use paper_p in selectRaw/groupByRaw.
+     */
+    public function sqlAlias(string $alias, ?string $package = null): string
+    {
+        $alias = trim($alias);
+
+        if ($alias === '') {
+            return $alias;
+        }
+
+        $prefix = $this->connectionTablePrefix($package);
+
+        if ($prefix === '' || str_starts_with($alias, $prefix)) {
+            return $alias;
+        }
+
+        return $prefix . $alias;
+    }
+
+    public function sqlCol(string $alias, string $column, ?string $package = null): string
+    {
+        $column = trim($column);
+
+        if ($column === '') {
+            return $this->sqlAlias($alias, $package);
+        }
+
+        return $this->sqlAlias($alias, $package) . '.' . $column;
+    }
+
     public function tablePrefixForPackage(?string $package = null): string
     {
         if (empty($package) || $package === '~') {
