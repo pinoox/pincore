@@ -122,6 +122,10 @@ class View implements ViewInterface
             'footer_html',
         ]));
 
+        if (function_exists('t_html')) {
+            $this->twigEngine->addCallableFunction('t_html', 't_html', ['is_safe' => ['html']]);
+        }
+
         if (function_exists('th')) {
             $this->twigEngine->addCallableFunction('th', 'th', ['is_safe' => ['html']]);
         }
