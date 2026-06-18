@@ -106,6 +106,13 @@ if (!function_exists('vite_css_tags')) {
     }
 }
 
+if (!function_exists('vite_js_tags')) {
+    function vite_js_tags(string $name, ?string $fileManifest = null): string
+    {
+        return ViteHelper::useJsTags($name, $fileManifest);
+    }
+}
+
 if (!function_exists('theme_flow_aliases')) {
     /**
      * Build flow aliases for theme contexts (site, panel, kids, ...).
