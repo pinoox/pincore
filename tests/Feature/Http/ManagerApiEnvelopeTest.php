@@ -6,9 +6,13 @@ use Pinoox\Component\Kernel\Controller\ApiController;
 
 it('maps manager message with payload to the standard success envelope', function () {
     $controller = new class extends Api {
+        public function callMessage(mixed $messageOrData = null, mixed $data = null)
+        {
+            return $this->message($messageOrData, $data);
+        }
     };
 
-    $response = $controller->message(['fname' => 'Ada']);
+    $response = $controller->callMessage(['fname' => 'Ada']);
     $payload = json_decode($response->getContent(), true);
 
     expect($payload)
@@ -21,9 +25,13 @@ it('maps manager message with payload to the standard success envelope', functio
 
 it('maps manager message with result false to success data false', function () {
     $controller = new class extends Api {
+        public function callMessage(mixed $messageOrData = null, mixed $data = null)
+        {
+            return $this->message($messageOrData, $data);
+        }
     };
 
-    $response = $controller->message('manager.invalid_request', false);
+    $response = $controller->callMessage('manager.invalid_request', false);
     $payload = json_decode($response->getContent(), true);
 
     expect($payload['success'])->toBeTrue()
@@ -32,9 +40,13 @@ it('maps manager message with result false to success data false', function () {
 
 it('maps manager message with secondary result to data field', function () {
     $controller = new class extends Api {
+        public function callMessage(mixed $messageOrData = null, mixed $data = null)
+        {
+            return $this->message($messageOrData, $data);
+        }
     };
 
-    $response = $controller->message('user.logged_in_successfully', 'token-123');
+    $response = $controller->callMessage('user.logged_in_successfully', 'token-123');
     $payload = json_decode($response->getContent(), true);
 
     expect($payload['success'])->toBeTrue()
@@ -43,9 +55,13 @@ it('maps manager message with secondary result to data field', function () {
 
 it('maps manager error to the standard error envelope', function () {
     $controller = new class extends Api {
+        public function callError(string $message, int $status = 400)
+        {
+            return $this->error($message, $status);
+        }
     };
 
-    $response = $controller->error('manager.request_not_valid', 422);
+    $response = $controller->callError('manager.request_not_valid', 422);
     $payload = json_decode($response->getContent(), true);
 
     expect($payload['success'])->toBeFalse()
@@ -53,21 +69,21 @@ it('maps manager error to the standard error envelope', function () {
         ->and($payload['error']['details'])->toBe([]);
 });
 
-it('exposes ok and fail helpers on the base api controller', function () {
+it('exposes ok and deny helpers on the base api controller', function () {
     $controller = new class extends ApiController {
         public function probe(): \Pinoox\Component\Http\JsonResponse
         {
             return $this->ok(['ready' => true], 'OK', translate: false);
         }
 
-        public function deny(): \Pinoox\Component\Http\JsonResponse
+        public function probeDeny(): \Pinoox\Component\Http\JsonResponse
         {
-            return $this->fail('ACCESS_DENIED', 'Access denied!', status: 401, translate: false);
+            return $this->deny('Access denied!', 401);
         }
     };
 
     $ok = json_decode($controller->probe()->getContent(), true);
-    $fail = json_decode($controller->deny()->getContent(), true);
+    $fail = json_decode($controller->probeDeny()->getContent(), true);
 
     expect($ok['success'])->toBeTrue()
         ->and($ok['data'])->toBe(['ready' => true])
@@ -88,4 +104,3 @@ it('returns auth flow errors in the standard envelope', function () {
         ],
     ]);
 });
-

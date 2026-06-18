@@ -21,6 +21,7 @@ return [
             'routes/web.php',
             'routes/actions.php',
         ],
+        // 'type' => 'single', // optional: restrict URL mapping to one public address
     ],
     'domain' => true,
     'flow' => [],
