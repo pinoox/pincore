@@ -17,8 +17,7 @@ use Pinoox\Portal\Database\DB;
 use Pinoox\Portal\Mode;
 
 /**
- * Warn in debug mode when raw SQL uses short table aliases while the
- * connection applies a table prefix to aliases (e.g. p → paper_p).
+ * Warns in debug mode when short table aliases remain in compiled SQL.
  */
 final class DatabaseRawQueryGuard
 {
