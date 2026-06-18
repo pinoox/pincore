@@ -67,9 +67,9 @@ require_once __DIR__ . '/Support/TestSandbox.php';
 require_once __DIR__ . '/Support/TestRuntime.php';
 require_once __DIR__ . '/TestCase.php';
 
-\Pinoox\Component\Helpers\EnvBootstrap::load(PINOOX_BASE_PATH);
-
 Tests\Support\TestRuntime::bootstrap($platformRoot);
+
+\Pinoox\Component\Helpers\EnvBootstrap::load(PINOOX_BASE_PATH);
 \Pinoox\Support\SystemConfig::clearCache();
 
 // PHPUnit/Pest: test runtime overrides machine env (individual tests may override again).

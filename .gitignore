@@ -3,21 +3,14 @@
 # =============================================================================
 
 # Baker cache & build output (~pinker)
-/pinker/*
-!/pinker/.gitkeep
+pinker/
 
 # Writable storage (logs, cache, sessions)
-/storage/*
-!/storage/.gitkeep
-!/storage/.htaccess
-!/storage/web.config
-!/storage/nginx.conf
-!/storage/Caddyfile
-!/storage/**/.gitkeep
+storage/
+
 
 # App packages created at runtime (standalone dev / tests)
-/apps/*
-!/apps/.gitkeep
+apps/
 
 # Environment & local credentials
 .env
@@ -55,6 +48,8 @@ package-lock.json
 
 /tests/Fixtures/**/*
 !/tests/Fixtures/**/.gitkeep
+!/tests/Fixtures/system-apps/**/*
+!/tests/Fixtures/system-apps
 
 
 # =============================================================================

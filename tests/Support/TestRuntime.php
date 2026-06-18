@@ -103,15 +103,15 @@ final class TestRuntime
     private static function registryPackages(string $platformRoot): array
     {
         $platformRoot = rtrim(str_replace('\\', '/', $platformRoot), '/');
-        $packages = [];
+        $packages = self::bundledSystemPackages();
 
         $projectRegistry = $platformRoot . '/config/apps.config.php';
         if (is_file($projectRegistry)) {
             $config = require $projectRegistry;
             if (is_array($config)) {
-                $packages = $config['packages'] ?? $config['apps'] ?? [];
-                if (!is_array($packages)) {
-                    $packages = [];
+                $configured = $config['packages'] ?? $config['apps'] ?? [];
+                if (is_array($configured)) {
+                    $packages = array_merge($packages, $configured);
                 }
             }
         }
@@ -145,6 +145,45 @@ final class TestRuntime
         }
 
         return $packages;
+    }
+
+    /**
+     * Minimal com_pinoox_* stubs for standalone pincore CI (no monorepo apps/).
+     *
+     * @return array<string, string> package => ~pincore path alias
+     */
+    private static function bundledSystemPackages(): array
+    {
+        $root = self::systemAppsRoot();
+        if (!is_dir($root)) {
+            return [];
+        }
+
+        $packages = [];
+
+        foreach (scandir($root) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+
+            $appRoot = $root . '/' . $entry;
+            if (!is_dir($appRoot) || !is_file($appRoot . '/app.php')) {
+                continue;
+            }
+
+            $packages[$entry] = '~pincore/tests/Fixtures/system-apps/' . $entry;
+        }
+
+        return $packages;
+    }
+
+    private static function systemAppsRoot(): string
+    {
+        $corePath = defined('PINOOX_CORE_PATH')
+            ? rtrim(str_replace('\\', '/', \PINOOX_CORE_PATH), '/')
+            : dirname(__DIR__, 2);
+
+        return $corePath . '/tests/Fixtures/system-apps';
     }
 
     private static function setEnv(string $key, string $value): void

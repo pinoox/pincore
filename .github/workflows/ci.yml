@@ -46,13 +46,13 @@ jobs:
 
       - uses: actions/cache@v4
         with:
-          path: vendor
+          path: ~/.composer/cache
           key: ${{ runner.os }}-php-${{ matrix.php }}-composer-${{ hashFiles('composer.json') }}
           restore-keys: |
             ${{ runner.os }}-php-${{ matrix.php }}-composer-
 
       - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist
+        run: composer install --no-interaction --prefer-dist --no-progress
 
       - name: Pest (isolated suite)
         run: composer test:ci
