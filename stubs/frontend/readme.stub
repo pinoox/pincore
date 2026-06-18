@@ -36,4 +36,14 @@ See `Controller/MainController.php` in this app for the generated example.
 | `functions.php` | Twig helpers (optional) |
 | `*.twig` | Templates |
 
+## Template engine order
+
+When you call `View::render('pages/home')` without an extension, Pinoox resolves:
+
+1. `pages/home.twig.php` (PHP generates Twig source)
+2. `pages/home.twig`
+3. `pages/home.php` (legacy)
+
+During PHP → Twig migration, **delete** leftover `.php` templates once `.twig` exists — or update `render('file.php')` to `render('file')`. In debug mode, shadowed legacy files trigger a notice.
+
 Vite/Vue/React stacks: run `php pinoox fe {{package}} dev` for the asset dev server.
