@@ -15,10 +15,11 @@ afterEach(function () {
     deletePinkerTestApp('com_test_pinker');
 });
 
-it('stores app baked files in the project-level pinker directory', function () {
-    $basePath = pinkerTestPath(testProjectRoot());
+it('stores app baked files in the configured pinker directory', function () {
+    $appsRoot = pinkerTestAppsRoot();
+    $pinkerRoot = pinkerTestPinkerRoot();
     $package = 'com_test_pinker';
-    $appDir = $basePath . '/apps/' . $package;
+    $appDir = $appsRoot . '/' . $package;
 
     if (!is_dir($appDir)) {
         mkdir($appDir, 0777, true);
@@ -30,17 +31,17 @@ it('stores app baked files in the project-level pinker directory', function () {
     $data = $pinker->pickup();
     $status = $pinker->status();
 
-    expect($pinker->getBakedFile())->toBe($basePath . '/pinker/apps/' . $package . '/app.php')
+    expect($pinker->getBakedFile())->toBe($pinkerRoot . '/apps/' . $package . '/app.php')
         ->and($data['package'])->toBe($package)
         ->and($status['source_size'])->toBe(filesize($appDir . '/app.php'))
-        ->and(is_file($basePath . '/pinker/apps/' . $package . '/app.php'))->toBeTrue()
+        ->and(is_file($pinkerRoot . '/apps/' . $package . '/app.php'))->toBeTrue()
         ->and(is_dir($appDir . '/pinker'))->toBeFalse();
 });
 
 it('refreshes the cache when the source file changes', function () {
-    $basePath = pinkerTestPath(testProjectRoot());
+    $appsRoot = pinkerTestAppsRoot();
     $package = 'com_test_pinker';
-    $appDir = $basePath . '/apps/' . $package;
+    $appDir = $appsRoot . '/' . $package;
 
     if (!is_dir($appDir)) {
         mkdir($appDir, 0777, true);
@@ -59,9 +60,9 @@ it('refreshes the cache when the source file changes', function () {
 });
 
 it('keeps env sensitive source files out of the cache', function () {
-    $basePath = pinkerTestPath(testProjectRoot());
+    $appsRoot = pinkerTestAppsRoot();
     $package = 'com_test_pinker';
-    $appDir = $basePath . '/apps/' . $package;
+    $appDir = $appsRoot . '/' . $package;
 
     if (!is_dir($appDir)) {
         mkdir($appDir, 0777, true);
@@ -76,9 +77,9 @@ it('keeps env sensitive source files out of the cache', function () {
 });
 
 it('does not persist runtime defaults absent from source on bake', function () {
-    $basePath = pinkerTestPath(testProjectRoot());
+    $appsRoot = pinkerTestAppsRoot();
     $package = 'com_test_pinker';
-    $appDir = $basePath . '/apps/' . $package;
+    $appDir = $appsRoot . '/' . $package;
 
     if (!is_dir($appDir)) {
         mkdir($appDir, 0777, true);
@@ -105,9 +106,9 @@ it('does not persist runtime defaults absent from source on bake', function () {
 });
 
 it('persists only user changes when saving merged runtime defaults', function () {
-    $basePath = pinkerTestPath(testProjectRoot());
+    $appsRoot = pinkerTestAppsRoot();
     $package = 'com_test_pinker';
-    $appDir = $basePath . '/apps/' . $package;
+    $appDir = $appsRoot . '/' . $package;
 
     if (!is_dir($appDir)) {
         mkdir($appDir, 0777, true);
@@ -139,9 +140,9 @@ it('persists only user changes when saving merged runtime defaults', function ()
 });
 
 it('prefers source values for shared keys when source is newer than state', function () {
-    $basePath = pinkerTestPath(testProjectRoot());
+    $appsRoot = pinkerTestAppsRoot();
     $package = 'com_test_pinker';
-    $appDir = $basePath . '/apps/' . $package;
+    $appDir = $appsRoot . '/' . $package;
 
     if (!is_dir($appDir)) {
         mkdir($appDir, 0777, true);
@@ -174,9 +175,9 @@ it('prefers source values for shared keys when source is newer than state', func
 });
 
 it('keeps state overrides for unchanged source keys when only part of the source changes', function () {
-    $basePath = pinkerTestPath(testProjectRoot());
+    $appsRoot = pinkerTestAppsRoot();
     $package = 'com_test_pinker';
-    $appDir = $basePath . '/apps/' . $package;
+    $appDir = $appsRoot . '/' . $package;
 
     if (!is_dir($appDir)) {
         mkdir($appDir, 0777, true);
@@ -209,9 +210,9 @@ it('keeps state overrides for unchanged source keys when only part of the source
 });
 
 it('keeps state overrides for shared keys when state is newer than source', function () {
-    $basePath = pinkerTestPath(testProjectRoot());
+    $appsRoot = pinkerTestAppsRoot();
     $package = 'com_test_pinker';
-    $appDir = $basePath . '/apps/' . $package;
+    $appDir = $appsRoot . '/' . $package;
 
     if (!is_dir($appDir)) {
         mkdir($appDir, 0777, true);
@@ -235,9 +236,9 @@ it('keeps state overrides for shared keys when state is newer than source', func
 });
 
 it('stores runtime config changes as state overrides', function () {
-    $basePath = pinkerTestPath(testProjectRoot());
+    $appsRoot = pinkerTestAppsRoot();
     $package = 'com_test_pinker';
-    $appDir = $basePath . '/apps/' . $package;
+    $appDir = $appsRoot . '/' . $package;
 
     if (!is_dir($appDir)) {
         mkdir($appDir, 0777, true);
@@ -254,15 +255,15 @@ it('stores runtime config changes as state overrides', function () {
 
     expect($pinker->pickup())
         ->toMatchArray(['name' => 'Runtime', 'nested' => ['keep' => true]])
-        ->and($pinker->getBakedFile())->toBe($basePath . '/pinker/apps/' . $package . '/app.php')
-        ->and($pinker->getOverrideFile())->toBe($basePath . '/pinker/state/apps/' . $package . '/app.php')
+        ->and($pinker->getBakedFile())->toBe(pinkerTestPinkerRoot() . '/apps/' . $package . '/app.php')
+        ->and($pinker->getOverrideFile())->toBe(pinkerTestPinkerRoot() . '/state/apps/' . $package . '/app.php')
         ->and(is_file($pinker->getOverrideFile()))->toBeTrue();
 });
 
 it('bakes closures in app config files', function () {
-    $basePath = pinkerTestPath(testProjectRoot());
+    $appsRoot = pinkerTestAppsRoot();
     $package = 'com_test_pinker';
-    $appDir = $basePath . '/apps/' . $package;
+    $appDir = $appsRoot . '/' . $package;
 
     if (!is_dir($appDir)) {
         mkdir($appDir, 0777, true);
@@ -293,9 +294,9 @@ PHP);
 });
 
 it('recovers when the baked cache file is corrupted', function () {
-    $basePath = pinkerTestPath(testProjectRoot());
+    $appsRoot = pinkerTestAppsRoot();
     $package = 'com_test_pinker';
-    $appDir = $basePath . '/apps/' . $package;
+    $appDir = $appsRoot . '/' . $package;
 
     if (!is_dir($appDir)) {
         mkdir($appDir, 0777, true);
@@ -318,12 +319,11 @@ it('recovers when the baked cache file is corrupted', function () {
 });
 
 it('maps pincore config source files to pinker/platform', function () {
-    $basePath = pinkerTestPath(testProjectRoot());
     $corePath = pinkerTestPath(testCoreRoot()) . '/';
     $sourceFile = pinkerTestPath($corePath . 'config/app/source.config.php');
 
     expect(Pinker::bakedFileFromSource($sourceFile))
-        ->toBe($basePath . '/pinker/platform/app/source.config.php');
+        ->toBe(pinkerTestPinkerRoot() . '/platform/app/source.config.php');
 });
 
 function deletePinkerTestApp(string $package): void
@@ -334,6 +334,16 @@ function deletePinkerTestApp(string $package): void
 function pinkerTestPath(string $path): string
 {
     return str_replace('\\', '/', $path);
+}
+
+function pinkerTestAppsRoot(): string
+{
+    return pinkerTestPath(\Pinoox\Support\SystemConfig::path('apps'));
+}
+
+function pinkerTestPinkerRoot(): string
+{
+    return pinkerTestPath(\Pinoox\Support\SystemConfig::path('pinker'));
 }
 
 function deletePinkerTestDirectory(string $dir): void
