@@ -7,16 +7,22 @@
 $coreTestsDir = rtrim(str_replace('\\', '/', __DIR__), '/');
 $platformRoot = null;
 
-foreach ([2, 4] as $depth) {
+foreach ([4, 3, 2, 1] as $depth) {
     $candidate = dirname($coreTestsDir, $depth);
 
-    foreach ([
-        '/platform/launcher/core-path.php',
-        '/launcher/core-path.php',
-    ] as $launcherCorePath) {
-        if (is_file($candidate . $launcherCorePath)) {
+    if (is_file($candidate . '/platform/launcher/core-path.php')) {
+        $platformRoot = $candidate;
+        break;
+    }
+}
+
+if ($platformRoot === null) {
+    foreach ([1, 2, 3, 4] as $depth) {
+        $candidate = dirname($coreTestsDir, $depth);
+
+        if (is_file($candidate . '/launcher/core-path.php')) {
             $platformRoot = $candidate;
-            break 2;
+            break;
         }
     }
 }

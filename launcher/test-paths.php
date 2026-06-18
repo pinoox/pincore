@@ -10,7 +10,15 @@ function pinoox_platform_root_from_core_tests(string $coreTestsDir): string
 {
     $coreTestsDir = rtrim(str_replace('\\', '/', $coreTestsDir), '/');
 
-    foreach ([2, 4] as $depth) {
+    foreach ([4, 3, 2, 1] as $depth) {
+        $candidate = dirname($coreTestsDir, $depth);
+
+        if (is_file($candidate . '/platform/launcher/core-path.php')) {
+            return $candidate;
+        }
+    }
+
+    foreach ([1, 2, 3, 4] as $depth) {
         $candidate = dirname($coreTestsDir, $depth);
 
         if (is_file($candidate . '/launcher/core-path.php')) {
