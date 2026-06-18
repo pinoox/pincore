@@ -23,6 +23,7 @@ use Pinoox\Component\Path\Manager\PathManager;
 use Pinoox\Component\Path\Manager\UrlManager;
 use Pinoox\Component\Router\QueryRouteResolver;
 use Pinoox\Component\Router\RouteNaming;
+use Pinoox\Support\AppPublicPath;
 
 class Url implements UrlInterface
 {
@@ -276,7 +277,7 @@ class Url implements UrlInterface
     }
 
     /**
-     * Public asset URL under apps/{package}/ (direct filesystem exposure, not app route).
+     * Public asset URL under the app public path (direct filesystem exposure, not app route).
      */
     public function asset(string $path = '', ?string $package = null): string
     {
@@ -288,7 +289,7 @@ class Url implements UrlInterface
     }
 
     /**
-     * Path-only public asset URL under apps/{package}/.
+     * Path-only public asset URL under the app public path.
      */
     public function assetPath(string $path = '', ?string $package = null): string
     {
@@ -305,7 +306,7 @@ class Url implements UrlInterface
     }
 
     /**
-     * Normalize app-relative public paths to apps/{package}/… segments.
+     * Normalize app-relative public paths using AppEngine layout (apps/{package}/ or in-tree root).
      */
     public function normalizeAppPublicPath(string $path, ?string $package = null): string
     {
@@ -313,45 +314,52 @@ class Url implements UrlInterface
         $path = str_replace('\\', '/', trim($path));
         $projectRoot = rtrim(str_replace('\\', '/', $this->basePath), '/');
 
-        if ($projectRoot !== '' && str_starts_with($path, $projectRoot)) {
-            $path = ltrim(substr($path, $projectRoot), '/');
+        if ($projectRoot !== '' && str_starts_with($path, $projectRoot . '/')) {
+            $path = ltrim(substr($path, strlen($projectRoot)), '/');
         }
 
         if (str_starts_with($path, '~/')) {
-            $path = ltrim($this->path->get($path, $package), '/');
+            $resolved = str_replace('\\', '/', $this->path->get($path, $package));
+
+            if ($projectRoot !== '' && str_starts_with($resolved, $projectRoot . '/')) {
+                $path = ltrim(substr($resolved, strlen($projectRoot)), '/');
+            } else {
+                $path = ltrim($resolved, '/');
+            }
         }
 
+        $path = ltrim($path, '/');
         $appsPrefix = $this->appsPublicPrefix();
 
         if (preg_match('#^' . preg_quote($appsPrefix, '#') . '/([^/]+)(?:/(.*))?$#', $path, $matches)) {
+            $pathPackage = $matches[1];
             $relative = ltrim((string) ($matches[2] ?? ''), '/');
+            $prefix = $this->path->appPublicPrefix($pathPackage);
 
-            return $relative === ''
-                ? $appsPrefix . '/' . $matches[1]
-                : $appsPrefix . '/' . $matches[1] . '/' . $relative;
+            if ($relative === '') {
+                return $prefix;
+            }
+
+            return $prefix === '' ? $relative : $prefix . '/' . $relative;
         }
 
         if ($package === '') {
-            return ltrim($path, '/');
+            return $path;
         }
 
-        $relative = ltrim($path, '/');
+        $prefix = $this->path->appPublicPrefix($package);
+        $relative = $path;
 
-        return $relative === ''
-            ? $appsPrefix . '/' . $package
-            : $appsPrefix . '/' . $package . '/' . $relative;
+        if ($relative === '') {
+            return $prefix;
+        }
+
+        return $prefix === '' ? $relative : $prefix . '/' . $relative;
     }
 
     private function appsPublicPrefix(): string
     {
-        $appsRoot = rtrim(str_replace('\\', '/', $this->path->get('~apps')), '/');
-        $projectRoot = rtrim(str_replace('\\', '/', $this->basePath), '/');
-
-        if ($projectRoot !== '' && str_starts_with($appsRoot, $projectRoot)) {
-            return ltrim(substr($appsRoot, strlen($projectRoot)), '/');
-        }
-
-        return 'apps';
+        return AppPublicPath::appsDirectoryPrefix($this->basePath);
     }
 
     /**
@@ -382,8 +390,8 @@ class Url implements UrlInterface
         $reference = $this->path->reference($ref);
         $filesystemPath = $this->path->get($reference, $package);
 
-        if ($resolvedPackage = $this->packageFromFilesystemPath($filesystemPath)) {
-            $appRoot = rtrim($this->path->app($resolvedPackage), '/');
+        if ($resolvedPackage = $this->path->packageFromFilesystemPath($filesystemPath)) {
+            $appRoot = rtrim(str_replace('\\', '/', (string) $this->path->app($resolvedPackage)), '/');
             $relative = ltrim(substr($filesystemPath, strlen($appRoot)), '/');
 
             return $this->asset($relative, $resolvedPackage);
@@ -626,17 +634,7 @@ class Url implements UrlInterface
 
     private function packageFromFilesystemPath(string $filesystemPath): ?string
     {
-        $filesystemPath = str_replace('\\', '/', $filesystemPath);
-        $appsRoot = rtrim(str_replace('\\', '/', $this->path->get('~apps')), '/');
-
-        if (!str_starts_with($filesystemPath, $appsRoot . '/')) {
-            return null;
-        }
-
-        $remainder = substr($filesystemPath, strlen($appsRoot) + 1);
-        $segment = strtok($remainder, '/');
-
-        return is_string($segment) && $segment !== '' ? $segment : null;
+        return $this->path->packageFromFilesystemPath($filesystemPath);
     }
 
     private function stripFrontController(string $value): string
