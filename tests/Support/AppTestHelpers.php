@@ -131,6 +131,16 @@ function testRuntimeApps(): string
     return \Tests\Support\TestRuntime::appsRoot();
 }
 
+function testRuntimePinker(): string
+{
+    return \Tests\Support\TestRuntime::pinkerRoot();
+}
+
+function testRuntimeStorage(): string
+{
+    return \Tests\Support\TestRuntime::storageRoot();
+}
+
 function testProjectRoot(): string
 {
     return str_replace('\\', '/', AppTestKit::projectRoot());

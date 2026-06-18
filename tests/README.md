@@ -37,10 +37,10 @@ composer test:apps
 
 ## Isolation
 
-Most tests are **isolated** — they never touch production apps or project assets:
+Most tests are **isolated** — they never touch production apps or project runtime assets:
 
 - Writable test apps live under `pincore/tests/Fixtures/runtime/apps/` (not project `apps/`).
-- Project `pinker/` is still used so pinker/state integration tests can run locally.
+- Pinker and storage redirect to `pincore/tests/Fixtures/runtime/pinker/` and `.../storage/` (not project `pinker/` or `storage/`).
 - Real project apps (`com_pinoox_*`, your apps) stay registered via an auto-generated test registry so integration tests can still resolve them.
 - Use `com_test_*` package names via `testPackage('suffix')` or `TestSandbox::packageName()`.
 - Other writable files go under `pincore/tests/Fixtures/sandbox/` via `testSandbox('path/to/file')`.
@@ -75,6 +75,8 @@ PINOOX_INSTALLER_INTEGRATION=1 php pinoox test platform --suite=Installer
 | `testSandbox('docroot/assets/x.js')` | Isolated file path |
 | `testPackage('webfix')` | → `com_test_webfix` |
 | `testRuntimeApps()` | Isolated apps root (`tests/Fixtures/runtime/apps`) |
+| `testRuntimePinker()` | Isolated pinker root (`tests/Fixtures/runtime/pinker`) |
+| `testRuntimeStorage()` | Isolated storage root (`tests/Fixtures/runtime/storage`) |
 | `fakeApp($package, $files)` | Temporary app under test runtime apps (cleaned automatically) |
 | `cleanupTestArtifacts()` | Reset filesystem + registries |
 | `writeTestApp()` / `deleteTestApp()` | Database feature helpers (`tests/Support/DatabaseTestHelpers.php`) |

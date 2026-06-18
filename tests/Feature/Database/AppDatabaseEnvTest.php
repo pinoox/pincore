@@ -453,7 +453,7 @@ it('loads app database overrides from pinker state when present', function () {
 
 
 
-    $stateDir = testProjectRoot() . '/pinker/state/apps/' . $package;
+    $stateDir = testRuntimePinker() . '/state/apps/' . $package;
 
     $stateFile = $stateDir . '/app.php';
 

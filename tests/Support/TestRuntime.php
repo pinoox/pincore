@@ -3,13 +3,17 @@
 namespace Tests\Support;
 
 /**
- * Isolated apps/pinker workspace for framework tests — never writes to project apps/.
+ * Isolated apps/pinker/storage workspace for framework tests — never writes to project runtime dirs.
  */
 final class TestRuntime
 {
     private const ENV_USE_PROJECT_PATHS = 'PINOOX_TEST_USE_PROJECT_PATHS';
 
     private const ENV_APPS_PATH = 'PINOOX_APPS_PATH';
+
+    private const ENV_PINKER_PATH = 'PINOOX_PINKER_PATH';
+
+    private const ENV_STORAGE_PATH = 'PINOOX_STORAGE_PATH';
 
     private const ENV_PROJECT_REGISTRY = 'PINOOX_PROJECT_REGISTRY_PATH';
 
@@ -52,6 +56,35 @@ final class TestRuntime
         return self::root() . '/pinker';
     }
 
+    public static function storageRoot(): string
+    {
+        return self::root() . '/storage';
+    }
+
+    /**
+     * Writable runtime directories created under {@see root()}.
+     *
+     * @return list<string>
+     */
+    public static function runtimeDirectories(): array
+    {
+        $pinker = self::pinkerRoot();
+        $storage = self::storageRoot();
+
+        return [
+            self::root(),
+            self::appsRoot(),
+            $pinker,
+            $pinker . '/apps',
+            $pinker . '/platform',
+            $pinker . '/state',
+            $pinker . '/state/platform',
+            $pinker . '/wizard_tmp',
+            $storage,
+            $storage . '/pinion',
+        ];
+    }
+
     public static function projectRelative(string $absolutePath): string
     {
         $root = defined('PINOOX_BASE_PATH')
@@ -69,10 +102,7 @@ final class TestRuntime
 
     public static function ensureDirectories(): void
     {
-        foreach ([
-            self::root(),
-            self::appsRoot(),
-        ] as $dir) {
+        foreach (self::runtimeDirectories() as $dir) {
             if (!is_dir($dir)) {
                 mkdir($dir, 0777, true);
             }
@@ -82,6 +112,8 @@ final class TestRuntime
     private static function applyPathEnv(): void
     {
         self::setEnv(self::ENV_APPS_PATH, self::projectRelative(self::appsRoot()));
+        self::setEnv(self::ENV_PINKER_PATH, self::projectRelative(self::pinkerRoot()));
+        self::setEnv(self::ENV_STORAGE_PATH, self::projectRelative(self::storageRoot()));
     }
 
     private static function writeProjectAppsRegistry(string $platformRoot): void

@@ -59,6 +59,19 @@ it('stores transient fake apps under tests/Fixtures/runtime/apps', function () {
     }
 });
 
+it('stores pinker and storage under tests/Fixtures/runtime', function () {
+    if (\Tests\Support\TestRuntime::usesProjectPaths()) {
+        test()->markTestSkipped('Runtime path override disabled.');
+    }
+
+    expect(SystemConfig::path('pinker'))->toBe(testRuntimePinker())
+        ->and(SystemConfig::path('storage'))->toBe(testRuntimeStorage())
+        ->and(SystemConfig::path('wizard_tmp'))->toBe(testRuntimePinker() . '/wizard_tmp')
+        ->and(SystemConfig::path('pinion_uploads'))->toBe(testRuntimeStorage() . '/pinion')
+        ->and(is_dir(testRuntimePinker() . '/apps'))->toBeTrue()
+        ->and(is_dir(testRuntimeStorage() . '/pinion'))->toBeTrue();
+});
+
 it('detects package from custom apps folder path', function () {
     $customApps = testFixtures('system_config/custom_apps/com_test_custom/tests/Feature/DemoTest.php');
     $appsPath = testFixturesProjectRelative('system_config/custom_apps');
