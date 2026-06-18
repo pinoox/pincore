@@ -13,6 +13,7 @@
 
 use Pinoox\Component\Helpers\PinooxScriptHelper;
 use Pinoox\Component\Helpers\ViteHelper;
+use Pinoox\Component\Template\TemplateHelper;
 use Pinoox\Component\Template\Theme\ThemeContext as ThemeContextManager;
 use Pinoox\Flow\ThemeContextFlow;
 use Pinoox\Portal\View;
@@ -146,6 +147,34 @@ if (!function_exists('within_theme')) {
     function within_theme(string $context, callable $callback, ?string $package = null): mixed
     {
         return ThemeContextManager::using($context, $callback, $package);
+    }
+}
+
+if (!function_exists('head_html')) {
+    /**
+     * Append HTML to the layout head buffer, or return accumulated head HTML.
+     */
+    function head_html(?string $html = null): string
+    {
+        if ($html !== null && $html !== '') {
+            TemplateHelper::appendHead($html);
+        }
+
+        return TemplateHelper::headHtml();
+    }
+}
+
+if (!function_exists('footer_html')) {
+    /**
+     * Append HTML to the layout footer buffer, or return accumulated footer HTML.
+     */
+    function footer_html(?string $html = null): string
+    {
+        if ($html !== null && $html !== '') {
+            TemplateHelper::appendFooter($html);
+        }
+
+        return TemplateHelper::footerHtml();
     }
 }
 

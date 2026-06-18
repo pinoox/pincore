@@ -29,3 +29,15 @@ if (!function_exists('t')) {
     }
 }
 
+if (!function_exists('th')) {
+    /**
+     * Translation helper for strings that contain HTML (Twig registers th as html-safe).
+     */
+    function th($key, array $replace = [], $locale = NULL, $fallback = true): string
+    {
+        $line = Lang::get($key, $replace, $locale, $fallback);
+
+        return is_string($line) ? $line : (string) json_encode($line);
+    }
+}
+
