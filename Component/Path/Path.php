@@ -19,6 +19,7 @@ use Pinoox\Component\Package\Parser\ParserInterface;
 use Pinoox\Component\Package\Reference\NameReference;
 use Pinoox\Component\Package\Reference\ReferenceInterface;
 use Pinoox\Component\Path\Manager\PathManager;
+use Pinoox\Support\AppPublicPath;
 use Pinoox\Support\SystemApp;
 use Pinoox\Support\SystemConfig;
 
@@ -89,6 +90,21 @@ class Path implements PathInterface
         }
 
         return null;
+    }
+
+    /**
+     * Web-visible path prefix for an app root (relative to project root).
+     */
+    public function appPublicPrefix(?string $package = null): string
+    {
+        $package = ($package !== null && $package !== '') ? $package : ($this->package ?? '');
+
+        return AppPublicPath::prefix($this->appEngine, $package, $this->basePath);
+    }
+
+    public function packageFromFilesystemPath(string $filesystemPath): ?string
+    {
+        return AppPublicPath::packageForPath($this->appEngine, $filesystemPath, $this->basePath);
     }
 
     /**

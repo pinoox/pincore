@@ -37,6 +37,8 @@ use Pinoox\Portal\App\AppEngine;
  * @method static string prefix(\Pinoox\Component\Package\Reference\ReferenceInterface|string $path, string $prefix)
  * @method static ReferenceInterface prefixReference(\Pinoox\Component\Package\Reference\ReferenceInterface|string $path, string $prefix)
  * @method static ReferenceInterface reference(\Pinoox\Component\Package\Reference\ReferenceInterface|string $path)
+ * @method static string appPublicPrefix(?string $package = NULL)
+ * @method static string|null packageFromFilesystemPath(string $filesystemPath)
  * @method static \Pinoox\Component\Path\Path ___()
  *
  * @see \Pinoox\Component\Path\Path

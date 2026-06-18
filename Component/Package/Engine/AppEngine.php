@@ -266,6 +266,35 @@ class AppEngine implements EngineInterface
     }
 
     /**
+     * @return array<string, string> package => absolute app root path
+     */
+    public function packagePaths(): array
+    {
+        $paths = [];
+
+        foreach ($this->arrayLoader->getPackages() as $package => $path) {
+            if ($this->arrayLoader->exists($package)) {
+                $paths[$package] = $path;
+            }
+        }
+
+        try {
+            $files = (new Finder())->in($this->pathApp)->depth(1)->files()->name($this->appFile);
+
+            foreach ($files as $file) {
+                $package = $file->getRelativePath();
+
+                if (!isset($paths[$package]) && $this->checkName($package)) {
+                    $paths[$package] = $this->packageLoader->path($package);
+                }
+            }
+        } catch (DirectoryNotFoundException) {
+        }
+
+        return $paths;
+    }
+
+    /**
      * Get path app.
      *
      * @param ReferenceInterface|string $packageName

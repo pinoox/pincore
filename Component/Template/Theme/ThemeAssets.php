@@ -2,9 +2,13 @@
 
 namespace Pinoox\Component\Template\Theme;
 
+use Pinoox\Component\Kernel\Loader;
 use Pinoox\Component\Path\Url;
+use Pinoox\Component\Template\Theme\ThemeStack;
 use Pinoox\Portal\App\App;
+use Pinoox\Portal\App\AppEngine as AppEnginePortal;
 use Pinoox\Portal\Url as UrlPortal;
+use Pinoox\Support\AppPublicPath;
 
 final class ThemeAssets
 {
@@ -232,6 +236,22 @@ final class ThemeAssets
     private static function referenceFromThemePath(string $themePath, string $defaultPackage): ThemeReference
     {
         $themePath = rtrim(str_replace('\\', '/', $themePath), '/');
+
+        try {
+            $engine = AppEnginePortal::___();
+            $projectRoot = rtrim(str_replace('\\', '/', Loader::getBasePath()), '/');
+            $package = AppPublicPath::packageForPath($engine, $themePath, $projectRoot);
+
+            if ($package !== null) {
+                $pathTheme = ThemeStack::pathTheme($package);
+                $themesRoot = rtrim(str_replace('\\', '/', AppEnginePortal::path($package, $pathTheme)), '/');
+
+                if (str_starts_with($themePath, $themesRoot . '/') || $themePath === $themesRoot) {
+                    return new ThemeReference($package, basename($themePath));
+                }
+            }
+        } catch (\Throwable) {
+        }
 
         if (preg_match('#/apps/([^/]+)/([^/]+)/([^/]+)$#', $themePath, $matches) === 1) {
             return new ThemeReference($matches[1], $matches[3]);
