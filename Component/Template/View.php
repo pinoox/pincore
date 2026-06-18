@@ -74,11 +74,11 @@ class View implements ViewInterface
         $this->twigEngine = new TwigEngine($this->parser, $this->themePaths, $this->twigEnvironmentOptions()); // .twig engine
         $this->phpTwigEngine = new PhpTwigEngine($this->parser, $this->phpEngine, $this->twigEngine); // .twig.php engine
 
-        // set main template engine
+        // set main template engine (order matches TemplateNameParser::ENGINES)
         $this->template = new DelegatingEngine([
-            $this->phpEngine,
+            $this->phpTwigEngine,
             $this->twigEngine,
-            $this->phpTwigEngine
+            $this->phpEngine,
         ]);
 
         // add twig extensions
@@ -283,17 +283,7 @@ class View implements ViewInterface
      */
     public function exists(string $name): bool
     {
-        if ($this->existsFile($name))
-            return true;
-
-        $engines = $this->engines();
-        foreach ($engines as $engine) {
-            $filename = $name . '.' . $engine;
-            if ($this->existsFile($filename)) {
-                return true;
-            }
-        }
-        return false;
+        return TemplateEngineResolver::exists($name, fn (string $filename): bool => $this->existsFile($filename));
     }
 
     /**
@@ -400,15 +390,19 @@ class View implements ViewInterface
             return $result;
         }
 
-        if ($this->existsFile($name))
-            return $this->renderFile($name, $parameters);
+        $resolved = TemplateEngineResolver::resolve(
+            $name,
+            fn (string $filename): bool => $this->existsFile($filename),
+        );
 
-        $engines = $this->engines();
-        foreach ($engines as $engine) {
-            $filename = $name . '.' . $engine;
-            if ($this->existsFile($filename)) {
-                return $this->renderFile($filename, $parameters);
-            }
+        if ($resolved !== null) {
+            TemplateEngineResolver::warnShadows(
+                $name,
+                $resolved,
+                fn (string $filename): bool => $this->existsFile($filename),
+            );
+
+            return $this->renderFile($resolved, $parameters);
         }
 
         if ($exist) {

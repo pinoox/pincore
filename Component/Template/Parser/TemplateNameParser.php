@@ -24,6 +24,7 @@ class TemplateNameParser implements TemplateNameParserInterface
     const PHP = 'php';
     const TWIG_PHP = 'twig.php';
 
+    /** @var list<string> Resolution priority for extensionless template names */
     const ENGINES = [
         self::TWIG_PHP,
         self::TWIG,
