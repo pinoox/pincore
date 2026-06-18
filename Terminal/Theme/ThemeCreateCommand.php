@@ -4,6 +4,7 @@ namespace Pinoox\Terminal\Theme;
 
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Package\Engine\AppEngine;
+use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
 use Pinoox\Component\Terminal;
 use Pinoox\Terminal\Concerns\SelectsPackage;
@@ -35,28 +36,19 @@ class ThemeCreateCommand extends Terminal
                 <<<'HELP'
 Create apps/{package}/theme/{name}/ with theme.php and frontend stack files.
 
-Stacks:
-  twig   Twig-only — no manifest/entry/dev (assets via assets())
-  vite   Vite hybrid — manifest dist/.vite/manifest.json, vite_*_tags() in Twig
-  vue    Vue SPA/hybrid — same Vite manifest; entry src/main.js
-  react  React SPA/hybrid — entry src/main.jsx
+Default stack: vue (Vite + vite_tags in Twig). Use --stack=twig for HTML-only themes.
 
-frontend.config.php fields (Vite stacks):
-  entry     Vite input — same path as vite_js_tags('…')
-  manifest  dist/.vite/manifest.json (not webpack mix-manifest)
-  dev.url   VITE_DEV_SERVER when VITE_DEV=true
+frontend.config.php only needs stack + profile — entry, manifest, and dev.* are auto-filled.
 
 Examples:
-  php pinoox theme:create panel --stack=vue
-  php pinoox theme:create admin com_my_shop --stack=vite
-  pinx theme:create storefront --stack=twig
-
-Legacy webpack (mix-manifest) is deprecated — use vite/vue/react stacks with vite_tags().
+  php pinoox theme:create panel
+  php pinoox theme:create admin com_my_shop --stack=twig
+  pinx theme:create storefront --stack=vite
 HELP
             )
             ->addArgument('theme', InputArgument::REQUIRED, 'Theme folder name (e.g. panel, admin)')
             ->addArgument('package', InputArgument::OPTIONAL, 'App package (defaults to interactive pick)')
-            ->addOption('stack', null, InputOption::VALUE_REQUIRED, 'Stack: twig, vite, vue, react (default: twig)');
+            ->addOption('stack', null, InputOption::VALUE_REQUIRED, 'Stack: twig, vite, vue, react (default: vue)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -72,7 +64,7 @@ HELP
             return Command::FAILURE;
         }
 
-        $stack = strtolower(trim((string) ($input->getOption('stack') ?: 'twig')));
+        $stack = strtolower(trim((string) ($input->getOption('stack') ?: FrontendConfig::defaultStackForNewTheme())));
 
         if (!in_array($stack, self::STACKS, true)) {
             $io->error('Unknown stack "' . $stack . '". Use twig, vite, vue, or react.');
@@ -105,17 +97,20 @@ HELP
         $this->writeThemeManifest($package, $themeName, $themePath);
         ThemeFrontend::forPackageAndTheme($package, $themeName)->scaffold($stack);
 
+        $config = FrontendConfig::forThemePath($themePath);
+        $hints = FrontendConfig::recommendations($config, $package, $themeName);
+
         $io->success("Theme '{$themeName}' created for {$package} (stack: {$stack})");
         $io->definitionList(
             ['Path' => $themePath],
             ['Stack' => $stack],
-            ['Manifest' => $stack === 'twig' ? '(none — twig-only)' : 'dist/.vite/manifest.json'],
-            ['Entry' => $stack === 'react' ? 'src/main.jsx' : ($stack === 'twig' ? '(none)' : 'src/main.js')],
+            ['Twig assets' => $hints['twig']],
         );
 
         if ($stack !== 'twig') {
-            $io->writeln('Next: php pinoox fe ' . $package . ' install --theme=' . $themeName);
-            $io->writeln('Then: php pinoox fe ' . $package . ' dev --theme=' . $themeName);
+            foreach ($hints['next_steps'] as $step) {
+                $io->writeln($step);
+            }
         }
 
         return Command::SUCCESS;

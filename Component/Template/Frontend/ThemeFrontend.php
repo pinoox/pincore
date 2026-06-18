@@ -268,16 +268,23 @@ class ThemeFrontend
      */
     public function info(): array
     {
+        $stack = (string) ($this->config['stack'] ?? 'twig');
+        $themeName = basename($this->themePath);
+        $hints = FrontendConfig::recommendations($this->config, $this->package, $themeName);
+
         return [
             'package' => $this->package,
             'theme_path' => $this->themePath,
-            'stack' => $this->config['stack'] ?? 'twig',
+            'stack' => $stack,
             'profile' => $this->config['profile'] ?? null,
             'entry' => $this->config['entry'] ?? null,
             'manifest' => $this->manifestPath(),
             'manifest_relative' => FrontendConfig::manifestRelativePath($this->config),
             'manifest_exists' => $this->manifestExists(),
             'uses_vite_assets' => FrontendConfig::usesViteAssets($this->config),
+            'recommended_twig' => $hints['twig'],
+            'assets_hint' => $hints['assets_hint'],
+            'next_steps' => $hints['next_steps'],
             'package_json' => $this->hasPackageJson(),
             'dev_enabled' => FrontendConfig::isDevEnabled($this->config),
             'dev_url' => $this->config['dev']['url'] ?? null,

@@ -4,6 +4,7 @@ namespace Pinoox\Terminal\Theme;
 
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Server\DevelopmentServer;
+use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
 use Pinoox\Component\Terminal;
 use Pinoox\Portal\App\AppEngine;
@@ -41,20 +42,16 @@ class ThemeFrontendCommand extends Terminal
 Manage frontend assets inside apps/{package}/theme/{theme}/.
 
 Actions:
-  info      Show detected stack, manifest, npm scripts, and dev-server status
+  info      Stack, recommended Twig line (vite_tags), npm scripts
   install   Install npm dependencies (skips when up to date; use --install to force)
   build     Run npm run build
   dev       Run npm run dev (Vite HMR, live output)
   run       Run any npm script from package.json (--script=name)
-  scaffold  Copy starter files for vue, react, vite, or twig-only themes
+  scaffold  Copy starter files (default stack: vue; auto-detect from package.json when possible)
 
-Stacks (see theme/default/README.md):
-  twig   no npm — static assets via assets()
-  vite   Vite hybrid — manifest dist/.vite/manifest.json, vite_*_tags() in Twig
-  vue    Vue + Vite — same manifest; entry src/main.js
-  react  React + Vite — entry src/main.jsx
+Recommended assets in Twig: {{ vite_tags('src/main.js')|raw }} — entry/manifest/dev are auto-configured.
 
-Create a new theme folder: php pinoox theme:create {name} --stack=vue
+Create a new theme: php pinoox theme:create {name}
 
 Examples:
   php pinoox fe info
@@ -89,7 +86,7 @@ HELP
             )
             ->addArgument('target', InputArgument::OPTIONAL, 'App package (com_my_shop) or theme folder (spark). Leave empty to pick interactively.')
             ->addArgument('action', InputArgument::OPTIONAL, 'Action: info, install, build, dev, run, scaffold')
-            ->addOption('stack', null, InputOption::VALUE_REQUIRED, 'Frontend stack for scaffold: vue, react, twig')
+            ->addOption('stack', null, InputOption::VALUE_REQUIRED, 'Frontend stack for scaffold: twig, vite, vue, react (default: auto or vue)')
             ->addOption('theme', null, InputOption::VALUE_REQUIRED, 'Theme folder name (defaults to app.php theme or interactive pick)')
             ->addOption('script', null, InputOption::VALUE_REQUIRED, 'npm script name for the run action')
             ->addOption('install', null, InputOption::VALUE_NONE, 'Run npm install alongside the command (or force reinstall with the install action)')
@@ -348,18 +345,17 @@ HELP
             ['Package' => $info['package']],
             ['Theme path' => $info['theme_path']],
             ['Stack' => $info['stack']],
-            ['Profile' => (string) ($info['profile'] ?? '-')],
-            ['Entry' => (string) ($info['entry'] ?? '-')],
-            ['Manifest' => (string) ($info['manifest_relative'] ?? '-')],
-            ['Manifest path' => $info['manifest']],
-            ['Manifest exists' => $info['manifest_exists'] ? 'yes' : 'no'],
-            ['Uses Vite assets' => !empty($info['uses_vite_assets']) ? 'yes (vite_tags)' : 'no'],
-            ['package.json' => $info['package_json'] ? 'yes' : 'no'],
-            ['node_modules' => $info['node_modules'] ? 'yes' : 'no'],
-            ['Needs npm install' => $info['needs_npm_install'] ? 'yes' : 'no'],
-            ['Dev enabled' => $info['dev_enabled'] ? 'yes' : 'no'],
-            ['Dev URL' => (string) ($info['dev_url'] ?? '-')],
+            ['Recommended Twig' => (string) ($info['recommended_twig'] ?? '-')],
+            ['Manifest' => ($info['manifest_exists'] ?? false) ? 'built' : 'missing — run fe build'],
+            ['Dev' => !empty($info['dev_enabled']) ? (string) ($info['dev_url'] ?? 'on') : 'off'],
+            ['npm' => ($info['package_json'] ?? false)
+                ? (($info['needs_npm_install'] ?? false) ? 'install needed' : 'ready')
+                : 'none'],
         );
+
+        if (!empty($info['assets_hint'])) {
+            $io->note((string) $info['assets_hint']);
+        }
 
         $scripts = $info['npm_scripts'];
         if ($scripts !== []) {
@@ -568,9 +564,11 @@ HELP
     {
         $stack = strtolower(trim($stack));
         if ($stack === '') {
-            $io->error('Option --stack is required for scaffold (twig, vite, vue, react).');
-
-            return Command::FAILURE;
+            $detected = FrontendConfig::detectStack($frontend->themePath());
+            $stack = $detected !== FrontendConfig::STACK_TWIG
+                ? $detected
+                : FrontendConfig::defaultStackForNewTheme();
+            $io->note('Stack auto-selected: ' . $stack);
         }
 
         if (!in_array($stack, ['twig', 'vite', 'vue', 'react'], true)) {
@@ -580,16 +578,15 @@ HELP
         }
 
         $frontend->scaffold($stack);
+        $config = FrontendConfig::forThemePath($frontend->themePath());
+        $themeName = basename($frontend->themePath());
+        $hints = FrontendConfig::recommendations($config, $frontend->package(), $themeName);
+
         $io->success('Scaffolded ' . $stack . ' frontend into ' . $frontend->themePath());
+        $io->writeln('Twig: ' . $hints['twig']);
 
-        if ($stack !== 'twig') {
-            $io->note('Vite stack: manifest dist/.vite/manifest.json — use vite_css_tags / vite_js_tags in Twig (not webpack mix-manifest).');
-        }
-
-        if (in_array($stack, ['vue', 'react', 'vite'], true)) {
-            $theme = basename($frontend->themePath());
-            $io->writeln('Next: php pinoox fe ' . $theme . ' install');
-            $io->writeln('Then: php pinoox fe ' . $theme . ' dev');
+        foreach ($hints['next_steps'] as $step) {
+            $io->writeln($step);
         }
 
         return Command::SUCCESS;

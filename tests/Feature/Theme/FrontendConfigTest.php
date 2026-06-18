@@ -51,6 +51,21 @@ test('FrontendConfig loadViteManifest ignores webpack mix-manifest files', funct
     @rmdir($themePath);
 });
 
+test('FrontendConfig recommendations prefer vite_tags for vite stacks', function () {
+    $config = FrontendConfig::normalize(['stack' => 'vue'], '/tmp/theme');
+
+    $hints = FrontendConfig::recommendations($config, 'com_acme_shop', 'panel');
+
+    expect($hints['twig'])->toBe("{{ vite_tags('src/main.js')|raw }}")
+        ->and($hints['next_steps'])->toHaveCount(2)
+        ->and($hints['next_steps'][0])->toContain('com_acme_shop')
+        ->and($hints['next_steps'][0])->toContain('--theme=panel');
+});
+
+test('FrontendConfig defaultStackForNewTheme is vue', function () {
+    expect(FrontendConfig::defaultStackForNewTheme())->toBe('vue');
+});
+
 test('FrontendWebServerFixSync registers vite chunk paths and skips twig themes', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-fe-sync-' . uniqid();
     mkdir($themePath . '/dist/.vite', 0777, true);
