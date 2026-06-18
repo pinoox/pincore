@@ -29,12 +29,35 @@ See `Controller/MainController.php` in this app for the generated example.
 
 ## Stacks
 
+| stack | npm | manifest | Twig assets | Notes |
+|-------|-----|----------|-------------|-------|
+| `twig` | no | — | `assets()` CSS | Server-rendered HTML only |
+| `vite` | yes | `dist/.vite/manifest.json` | `vite_css_tags` / `vite_js_tags` | Hybrid Twig + Vite widgets |
+| `vue` | yes | `dist/.vite/manifest.json` | same | SPA or hybrid Vue 3 |
+| `react` | yes | `dist/.vite/manifest.json` | same | SPA or hybrid React |
+| `webpack` (legacy) | yes | `dist/mix-manifest.json` | `pinoox_script()` | Deprecated — use Vite stacks |
+
+### frontend.config.php fields
+
+| Field | Used when | Meaning |
+|-------|-----------|---------|
+| `stack` | always | `twig`, `vite`, `vue`, `react`, or legacy `webpack` |
+| `profile` | always | `twig`, `hybrid`, or `spa` layout pattern |
+| `entry` | Vite stacks | Vite input path (e.g. `src/main.js`) — same string as in `vite_js_tags()` |
+| `manifest` | Vite stacks | **Vite** manifest path; not webpack `mix-manifest.json` |
+| `dev.url` | Vite stacks | Dev server base URL (`VITE_DEV_SERVER`) when `VITE_DEV=true` |
+| `mount` | SPA | DOM selector for Vue/React (`#app`) |
+
+Vite/vue/react themes must **not** rely on legacy `/dist/pinoox.js` webpack routes. Use `vite_tags()` or split head/body tags.
+
 | File | Role |
 |------|------|
 | `theme.php` | Theme manifest |
 | `frontend.config.php` | Stack profile (twig / vite / vue / react) |
 | `functions.php` | Twig helpers (optional) |
 | `*.twig` | Templates |
+
+Scaffold stacks: `php pinoox theme:create my-theme --stack=vue` or `php pinoox fe {{package}} scaffold --stack=vue --theme=default`.
 
 ## Template engine order
 

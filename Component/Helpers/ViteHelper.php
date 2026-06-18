@@ -16,7 +16,7 @@ class ViteHelper
     {
         $this->themePath = rtrim(str_replace('\\', '/', $themePath), '/');
         $config = FrontendConfig::forThemePath($this->themePath);
-        $this->fileManifest = $fileManifest ?? (string) ($config['manifest'] ?? 'dist/.vite/manifest.json');
+        $this->fileManifest = $fileManifest ?? FrontendConfig::manifestRelativePath($config) ?? FrontendConfig::VITE_MANIFEST;
         $this->mainDirectory = $this->findMainDirectory($this->fileManifest);
     }
 

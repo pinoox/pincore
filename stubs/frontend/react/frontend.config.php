@@ -1,7 +1,12 @@
 <?php
 
 /**
- * Front theme stack config (React).
+ * Front theme stack config (React SPA / hybrid).
+ *
+ * stack=react — Vite + React; entry is usually src/main.jsx.
+ * manifest — dist/.vite/manifest.json (not legacy dist/mix-manifest.json).
+ * entry — must match vite_js_tags('src/main.jsx') in Twig partials.
+ * dev.url — Vite dev server URL from VITE_DEV_SERVER.
  *
  * Controllers must return Response, string, or array (Pinoox 3) — see README.md.
  */

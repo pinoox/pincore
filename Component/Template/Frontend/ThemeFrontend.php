@@ -162,7 +162,8 @@ class ThemeFrontend
 
     public function manifestPath(): string
     {
-        return $this->themePath . '/' . ltrim((string) ($this->config['manifest'] ?? 'dist/.vite/manifest.json'), '/');
+        return FrontendConfig::manifestAbsolutePath($this->themePath, $this->config)
+            ?? $this->themePath . '/' . FrontendConfig::VITE_MANIFEST;
     }
 
     public function manifestExists(): bool
@@ -201,7 +202,13 @@ class ThemeFrontend
         $this->assertFrontendProject();
         $this->ensureDependencies($installMode);
 
-        return $this->runNpm(['run', 'build']);
+        $code = $this->runNpm(['run', 'build']);
+
+        if ($code === 0) {
+            FrontendWebServerFixSync::syncFromThemeConfig($this->package, $this->themePath, $this->config);
+        }
+
+        return $code;
     }
 
     public function dev(string $installMode = self::INSTALL_SKIP): int
@@ -265,9 +272,12 @@ class ThemeFrontend
             'package' => $this->package,
             'theme_path' => $this->themePath,
             'stack' => $this->config['stack'] ?? 'twig',
+            'profile' => $this->config['profile'] ?? null,
             'entry' => $this->config['entry'] ?? null,
             'manifest' => $this->manifestPath(),
+            'manifest_relative' => FrontendConfig::manifestRelativePath($this->config),
             'manifest_exists' => $this->manifestExists(),
+            'uses_vite_assets' => FrontendConfig::usesViteAssets($this->config),
             'package_json' => $this->hasPackageJson(),
             'dev_enabled' => FrontendConfig::isDevEnabled($this->config),
             'dev_url' => $this->config['dev']['url'] ?? null,

@@ -46,7 +46,15 @@ Actions:
   build     Run npm run build
   dev       Run npm run dev (Vite HMR, live output)
   run       Run any npm script from package.json (--script=name)
-  scaffold  Copy starter files for vue, react, or twig-only themes
+  scaffold  Copy starter files for vue, react, vite, or twig-only themes
+
+Stacks (see theme/default/README.md):
+  twig   no npm — static assets via assets()
+  vite   Vite hybrid — manifest dist/.vite/manifest.json, vite_*_tags() in Twig
+  vue    Vue + Vite — same manifest; entry src/main.js
+  react  React + Vite — entry src/main.jsx
+
+Create a new theme folder: php pinoox theme:create {name} --stack=vue
 
 Examples:
   php pinoox fe info
@@ -340,9 +348,12 @@ HELP
             ['Package' => $info['package']],
             ['Theme path' => $info['theme_path']],
             ['Stack' => $info['stack']],
+            ['Profile' => (string) ($info['profile'] ?? '-')],
             ['Entry' => (string) ($info['entry'] ?? '-')],
-            ['Manifest' => $info['manifest']],
+            ['Manifest' => (string) ($info['manifest_relative'] ?? '-')],
+            ['Manifest path' => $info['manifest']],
             ['Manifest exists' => $info['manifest_exists'] ? 'yes' : 'no'],
+            ['Uses Vite assets' => !empty($info['uses_vite_assets']) ? 'yes (vite_tags)' : 'no'],
             ['package.json' => $info['package_json'] ? 'yes' : 'no'],
             ['node_modules' => $info['node_modules'] ? 'yes' : 'no'],
             ['Needs npm install' => $info['needs_npm_install'] ? 'yes' : 'no'],
@@ -557,13 +568,23 @@ HELP
     {
         $stack = strtolower(trim($stack));
         if ($stack === '') {
-            $io->error('Option --stack is required for scaffold (vue, react, twig).');
+            $io->error('Option --stack is required for scaffold (twig, vite, vue, react).');
+
+            return Command::FAILURE;
+        }
+
+        if (!in_array($stack, ['twig', 'vite', 'vue', 'react'], true)) {
+            $io->error('Unknown stack "' . $stack . '". Use twig, vite, vue, or react.');
 
             return Command::FAILURE;
         }
 
         $frontend->scaffold($stack);
         $io->success('Scaffolded ' . $stack . ' frontend into ' . $frontend->themePath());
+
+        if ($stack !== 'twig') {
+            $io->note('Vite stack: manifest dist/.vite/manifest.json — use vite_css_tags / vite_js_tags in Twig (not webpack mix-manifest).');
+        }
 
         if (in_array($stack, ['vue', 'react', 'vite'], true)) {
             $theme = basename($frontend->themePath());

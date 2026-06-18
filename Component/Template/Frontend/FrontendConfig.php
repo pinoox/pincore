@@ -6,6 +6,21 @@ use Pinoox\Portal\App\App;
 
 class FrontendConfig
 {
+    public const STACK_TWIG = 'twig';
+
+    public const STACK_VITE = 'vite';
+
+    public const STACK_VUE = 'vue';
+
+    public const STACK_REACT = 'react';
+
+    /** @deprecated Legacy webpack/mix builds — use vite/vue/react + vite_tags() instead. */
+    public const STACK_WEBPACK = 'webpack';
+
+    public const VITE_MANIFEST = 'dist/.vite/manifest.json';
+
+    public const WEBPACK_MANIFEST = 'dist/mix-manifest.json';
+
     /**
      * @return array<string, mixed>
      */
@@ -33,14 +48,6 @@ class FrontendConfig
 
         $config = array_replace_recursive([
             'stack' => $detected,
-            'entry' => self::defaultEntry($detected),
-            'manifest' => 'dist/.vite/manifest.json',
-            'pinoox' => 'pinoox',
-            'mount' => '#app',
-            'dev' => [
-                'enabled' => (bool) _env('VITE_DEV', false),
-                'url' => rtrim((string) _env('VITE_DEV_SERVER', 'http://127.0.0.1:5173'), '/'),
-            ],
             'ssr' => [
                 'enabled' => false,
                 'mode' => 'hybrid',
@@ -71,8 +78,112 @@ class FrontendConfig
             $config['stack'] = $detected;
         }
 
-        if (empty($config['entry'])) {
-            $config['entry'] = self::defaultEntry((string) $config['stack']);
+        return self::applyStackDefaults($config, $themePath);
+    }
+
+    /**
+     * Vite-powered stacks render assets with vite_tags() / vite_js_tags() — not webpack mix-manifest.
+     *
+     * @param array<string, mixed> $config
+     */
+    public static function usesViteAssets(array $config): bool
+    {
+        return in_array(strtolower((string) ($config['stack'] ?? self::STACK_TWIG)), [
+            self::STACK_VITE,
+            self::STACK_VUE,
+            self::STACK_REACT,
+            'nuxt',
+            'next',
+        ], true);
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    public static function usesLegacyWebpack(array $config): bool
+    {
+        return strtolower((string) ($config['stack'] ?? '')) === self::STACK_WEBPACK;
+    }
+
+    /**
+     * Relative path to the build manifest from the theme root, or null for twig-only themes.
+     *
+     * @param array<string, mixed> $config
+     */
+    public static function manifestRelativePath(array $config): ?string
+    {
+        if (self::usesViteAssets($config)) {
+            $manifest = $config['manifest'] ?? null;
+
+            return is_string($manifest) && $manifest !== '' ? $manifest : self::VITE_MANIFEST;
+        }
+
+        if (self::usesLegacyWebpack($config)) {
+            $manifest = $config['manifest'] ?? null;
+
+            return is_string($manifest) && $manifest !== '' ? $manifest : self::WEBPACK_MANIFEST;
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    public static function manifestAbsolutePath(string $themePath, array $config): ?string
+    {
+        $relative = self::manifestRelativePath($config);
+
+        if ($relative === null) {
+            return null;
+        }
+
+        return rtrim(str_replace('\\', '/', $themePath), '/') . '/' . ltrim($relative, '/');
+    }
+
+    /**
+     * Load the Vite manifest only (never webpack mix-manifest).
+     *
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    public static function loadViteManifest(string $themePath, array $config): array
+    {
+        if (!self::usesViteAssets($config)) {
+            return [];
+        }
+
+        $path = self::manifestAbsolutePath($themePath, $config);
+
+        if ($path === null || !is_file($path)) {
+            return [];
+        }
+
+        $data = json_decode((string) file_get_contents($path), true);
+
+        return is_array($data) ? $data : [];
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    private static function applyStackDefaults(array $config, string $themePath): array
+    {
+        $stack = (string) ($config['stack'] ?? self::detectStack($themePath));
+
+        if (self::usesViteAssets(['stack' => $stack])) {
+            $config['entry'] ??= self::defaultEntry($stack);
+            $config['manifest'] ??= self::VITE_MANIFEST;
+            $config['mount'] ??= '#app';
+            $config['pinoox'] ??= 'pinoox';
+            $config['dev'] = array_replace([
+                'enabled' => (bool) _env('VITE_DEV', false),
+                'url' => rtrim((string) _env('VITE_DEV_SERVER', 'http://127.0.0.1:5173'), '/'),
+            ], is_array($config['dev'] ?? null) ? $config['dev'] : []);
+        } elseif (self::usesLegacyWebpack(['stack' => $stack])) {
+            $config['manifest'] ??= self::WEBPACK_MANIFEST;
+            $config['entry'] ??= 'dist/pinoox.js';
         }
 
         return $config;
