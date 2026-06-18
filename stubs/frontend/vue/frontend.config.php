@@ -1,5 +1,10 @@
 <?php
 
+/**
+ * Front theme stack config (Vue).
+ *
+ * Controllers must return Response, string, or array (Pinoox 3) — see README.md.
+ */
 return [
     'profile' => 'spa',
     'stack' => 'vue',

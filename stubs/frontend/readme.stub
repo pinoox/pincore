@@ -1,0 +1,39 @@
+# Front theme — {{package}}
+
+Twig templates in this folder are rendered by controllers under `Controller/`.
+
+## Controllers (Pinoox 3)
+
+Route actions must **return** a value. `echo`, `exit`, and bare output are not enough — the HTTP response is built from the return value only.
+
+| Return | Typical use |
+|--------|-------------|
+| `string` | Twig HTML — `return View::render('pages/home', $data);` |
+| `array` | JSON API (auto-wrapped as `JsonResponse`) |
+| `Response` | `$this->response(...)`, `$this->json(...)`, `$this->redirect(...)` |
+
+### Example
+
+```php
+use Pinoox\Portal\View;
+
+public function index()
+{
+    return View::render('pages/home', [
+        'title' => 'Home',
+    ]);
+}
+```
+
+See `Controller/MainController.php` in this app for the generated example.
+
+## Stacks
+
+| File | Role |
+|------|------|
+| `theme.php` | Theme manifest |
+| `frontend.config.php` | Stack profile (twig / vite / vue / react) |
+| `functions.php` | Twig helpers (optional) |
+| `*.twig` | Templates |
+
+Vite/Vue/React stacks: run `php pinoox fe {{package}} dev` for the asset dev server.
