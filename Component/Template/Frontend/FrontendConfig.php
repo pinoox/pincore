@@ -267,6 +267,45 @@ class FrontendConfig
         };
     }
 
+    /**
+     * Default stack when creating a new theme (npm + vite_tags scaffold).
+     */
+    public static function defaultStackForNewTheme(): string
+    {
+        return self::STACK_VUE;
+    }
+
+    /**
+     * Simple Twig / CLI hints for the active stack (prefer vite_tags for Vite stacks).
+     *
+     * @param array<string, mixed> $config
+     * @return array{twig: string, assets_hint: string|null, next_steps: list<string>}
+     */
+    public static function recommendations(array $config, string $package = '', string $themeName = 'default'): array
+    {
+        if (!self::usesViteAssets($config)) {
+            return [
+                'twig' => "{{ assets('assets/app.css') }}",
+                'assets_hint' => null,
+                'next_steps' => [],
+            ];
+        }
+
+        $entry = (string) ($config['entry'] ?? self::defaultEntry((string) ($config['stack'] ?? self::STACK_VITE)));
+
+        $next = [];
+        if ($package !== '') {
+            $next[] = 'php pinoox fe ' . $package . ' install --theme=' . $themeName;
+            $next[] = 'php pinoox fe ' . $package . ' dev --theme=' . $themeName;
+        }
+
+        return [
+            'twig' => "{{ vite_tags('" . $entry . "')|raw }}",
+            'assets_hint' => 'Optional: vite_css_tags in head + vite_js_tags before </body> for stricter HTML.',
+            'next_steps' => $next,
+        ];
+    }
+
     public static function isDevEnabled(array $config): bool
     {
         return !empty($config['dev']['enabled']);
