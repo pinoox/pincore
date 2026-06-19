@@ -16,6 +16,7 @@ namespace Pinoox\Component\Package;
 use Exception;
 use Pinoox\Component\Http\Request;
 use Pinoox\Component\Package\Engine\EngineInterface;
+use Pinoox\Component\Package\Routing\AppResolution;
 use Pinoox\Component\Package\Routing\AppRouteMatcher;
 use Pinoox\Component\Package\Routing\Domain;
 use Pinoox\Component\Package\Routing\DomainMatch;
@@ -48,7 +49,7 @@ class AppRouter
      * 2. Longest path prefix from {project}/config/app-router.config.php
      * 3. Default route "/"
      * 4. Wildcard route "*"
-     * 5. Fallback welcome app
+     * 5. Unresolved app (help page: not configured / missing / disabled)
      *
      * Any host that is not listed in domain.config.php is treated as the
      * default domain and follows path routing. Configure `default` for the
@@ -116,9 +117,13 @@ class AppRouter
             ]));
         }
 
-        return $this->resolved = new AppLayer('/', 'com_pinoox_welcome', array_merge($domainContext, [
-            'matched_by' => 'fallback',
-        ]));
+        return $this->resolved = $this->resolveUnresolved(
+            $pathInfo,
+            $routes,
+            $domainMatch,
+            $normalizedPath,
+            $domainContext,
+        );
     }
 
     public function resolved(): ?AppLayer
@@ -283,6 +288,130 @@ class AppRouter
         }
 
         return $context;
+    }
+
+    /**
+     * @param array<string, string> $routes
+     */
+    private function resolveUnresolved(
+        string $pathInfo,
+        array $routes,
+        ?DomainMatch $domainMatch,
+        string $normalizedPath,
+        array $domainContext,
+    ): AppLayer {
+        $binding = $this->findConfiguredBinding($pathInfo, $routes, $domainMatch);
+
+        if ($binding === null) {
+            return $this->makeUnresolvedLayer(
+                path: $normalizedPath,
+                package: null,
+                reason: AppResolution::NOT_CONFIGURED,
+                domainContext: $domainContext,
+                extras: [
+                    'matched_by' => 'none',
+                    'request_path' => $normalizedPath,
+                ],
+            );
+        }
+
+        $package = $binding['package'];
+        $reason = AppResolution::NOT_CONFIGURED;
+
+        if ($package !== '') {
+            if (!$this->appEngine->exists($package)) {
+                $reason = AppResolution::APP_MISSING;
+            } elseif (!$this->stable($package)) {
+                $reason = AppResolution::APP_DISABLED;
+            }
+        }
+
+        $extras = [
+            'matched_by' => $binding['matched_by'] ?? 'none',
+            'request_path' => $normalizedPath,
+        ];
+
+        if (isset($binding['subdomain'])) {
+            $extras['subdomain'] = $binding['subdomain'];
+        }
+
+        if (isset($binding['domain_pattern'])) {
+            $extras['domain_pattern'] = $binding['domain_pattern'];
+        }
+
+        return $this->makeUnresolvedLayer(
+            path: $binding['path'],
+            package: $package !== '' ? $package : null,
+            reason: $reason,
+            domainContext: $domainContext,
+            extras: $extras,
+        );
+    }
+
+    /**
+     * @param array<string, string> $routes
+     * @return array{path: string, package: string, matched_by: string, subdomain?: string, domain_pattern?: string}|null
+     */
+    private function findConfiguredBinding(
+        string $pathInfo,
+        array $routes,
+        ?DomainMatch $domainMatch,
+    ): ?array {
+        if ($domainMatch !== null) {
+            return [
+                'path' => $domainMatch->path,
+                'package' => $domainMatch->package,
+                'matched_by' => 'domain',
+                'subdomain' => $domainMatch->subdomain,
+                'domain_pattern' => $domainMatch->pattern,
+            ];
+        }
+
+        $pathMatch = AppRouteMatcher::match($pathInfo, $routes);
+
+        if ($pathMatch !== null) {
+            return [
+                'path' => $pathMatch['path'],
+                'package' => $pathMatch['package'],
+                'matched_by' => Domain::isDefaultHost($this->host()) ? 'default_domain' : 'path',
+            ];
+        }
+
+        if (isset($routes['*'])) {
+            return [
+                'path' => '/',
+                'package' => $routes['*'],
+                'matched_by' => Domain::isDefaultHost($this->host()) ? 'default_domain' : 'wildcard',
+            ];
+        }
+
+        if (isset($routes['/'])) {
+            return [
+                'path' => '/',
+                'package' => $routes['/'],
+                'matched_by' => Domain::isDefaultHost($this->host()) ? 'default_domain' : 'default',
+            ];
+        }
+
+        return null;
+    }
+
+    /**
+     * @param array<string, mixed> $domainContext
+     * @param array<string, mixed> $extras
+     */
+    private function makeUnresolvedLayer(
+        string $path,
+        ?string $package,
+        string $reason,
+        array $domainContext,
+        array $extras = [],
+    ): AppLayer {
+        return new AppLayer($path, null, array_merge($domainContext, $extras, [
+            'resolution' => $reason,
+            'configured_package' => $package,
+            'configured_path' => $path,
+        ]));
     }
 }
 

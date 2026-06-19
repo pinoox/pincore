@@ -41,6 +41,7 @@ class Event extends Portal
             ->addMethodCall('addSubscriber', [Listener::__ref('request')])
             ->addMethodCall('addSubscriber', [Listener::__ref('queryRouteCanonical')])
             ->addMethodCall('addSubscriber', [Listener::__ref('queryRoute')])
+            ->addMethodCall('addSubscriber', [Listener::__ref('noApp')])
             ->addMethodCall('addSubscriber', [Listener::__ref('router')])
             ->addMethodCall('addSubscriber', [Listener::__ref('appCoreEvents')])
             ->addMethodCall('addSubscriber', [Listener::__ref('routeEmpty')])

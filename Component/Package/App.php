@@ -79,6 +79,11 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
         return $this->appLayer;
     }
 
+    public function isUnresolved(): bool
+    {
+        return $this->appLayer->isUnresolved();
+    }
+
     /**
      * Set App stake
      *
@@ -247,6 +252,10 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
 
     public function router(): Router
     {
+        if ($this->isUnresolved()) {
+            return \Pinoox\Portal\Router::build($this->pathRoute() ?? '/', []);
+        }
+
         return $this->appEngine->router($this->package(), $this->pathRoute());
     }
 

@@ -88,5 +88,31 @@ class AppLayer
     {
         return (bool) $this->context('is_canonical_default', false);
     }
+
+    public function isUnresolved(): bool
+    {
+        return is_string($this->context('resolution'));
+    }
+
+    public function resolution(): ?string
+    {
+        $value = $this->context('resolution');
+
+        return is_string($value) ? $value : null;
+    }
+
+    public function configuredPackage(): ?string
+    {
+        $value = $this->context('configured_package');
+
+        return is_string($value) && $value !== '' ? $value : null;
+    }
+
+    public function configuredPath(): ?string
+    {
+        $value = $this->context('configured_path');
+
+        return is_string($value) && $value !== '' ? $value : null;
+    }
 }
 
