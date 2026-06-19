@@ -32,14 +32,14 @@
 
             <div class="title">
                 <span>{{ t('no-app.page.welcome_prefix') }}</span>
-                <h2>Pinoox</h2>
+                <h2>{{ t('no-app.page.brand_name') }}</h2>
                 {% if t('no-app.page.welcome_suffix') %}
                     <span>{{ t('no-app.page.welcome_suffix') }}</span>
                 {% endif %}
             </div>
 
             <div class="text">
-                <div class="path" dir="ltr">{{ routePath|default('/') }}</div>
+                <div class="path" dir="ltr">{{ requestUrl }}</div>
                 <p class="description">{{ t('no-app.page.descriptions.' ~ resolution) }}</p>
 
                 {% if routePackage %}
@@ -60,10 +60,11 @@
                         })|raw }}</li>
                     </ol>
 
-                    {% if cliExample %}
-                        <p class="route-mapping__label">{{ t('no-app.page.labels.cli_title') }}</p>
+                    {% if cliExamples %}
+                        <p class="route-mapping__label">{{ t('no-app.page.cli_hints.' ~ resolution) }}</p>
                         <div class="code-box" dir="ltr">
-                            <pre><code>{{ cliExample }}</code></pre>
+                            <pre><code>{% for line in cliExamples %}{{ line }}
+{% endfor %}</code></pre>
                         </div>
                     {% endif %}
 

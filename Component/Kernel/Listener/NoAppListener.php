@@ -65,7 +65,7 @@ class NoAppListener implements EventSubscriberInterface
         View::changeTheme(Path::get('~pincore/resource/views/no-app/'));
 
         return new Response(View::render('home', array_merge(
-            $this->viewContext($layer, $resolution),
+            $this->viewContext($layer, $resolution, $request),
             [
                 'locale' => $locale,
                 'dir' => (string) Lang::get('no-app.meta.dir', [], $locale, false),
@@ -77,7 +77,7 @@ class NoAppListener implements EventSubscriberInterface
     /**
      * @return array<string, mixed>
      */
-    private function viewContext(AppLayer $layer, string $resolution): array
+    private function viewContext(AppLayer $layer, string $resolution, Request $request): array
     {
         $routePath = $this->normalizeRoutePath(
             $layer->configuredPath() ?? (string) ($layer->context('request_path') ?? '/'),
@@ -86,12 +86,25 @@ class NoAppListener implements EventSubscriberInterface
 
         return [
             'resolution' => $resolution,
+            'requestUrl' => $this->requestUrl($request),
             'routePath' => $routePath,
             'routePackage' => $routePackage,
-            'cliExample' => $this->cliExample($resolution, $routePath, $routePackage),
-            'managerRoutesUrl' => $this->managerControlUrl('/control/routes'),
-            'managerAppsUrl' => $this->managerControlUrl('/control/apps'),
+            'cliExamples' => $this->cliExamples($resolution, $routePath, $routePackage),
+            'managerRoutesUrl' => $this->managerControlUrl($request, '/control/routes'),
+            'managerAppsUrl' => $this->managerControlUrl($request, '/control/apps'),
         ];
+    }
+
+    private function requestUrl(Request $request): string
+    {
+        $uri = $request->getUri();
+        $query = $request->getQueryString();
+
+        if (is_string($query) && $query !== '') {
+            $uri = str_replace('?' . $query, '', $uri);
+        }
+
+        return $uri;
     }
 
     private function normalizeRoutePath(string $path): string
@@ -105,16 +118,25 @@ class NoAppListener implements EventSubscriberInterface
         return '/' . trim($path, '/');
     }
 
-    private function cliExample(string $resolution, string $routePath, ?string $routePackage): string
+    /**
+     * @return list<string>
+     */
+    private function cliExamples(string $resolution, string $routePath, ?string $routePackage): array
     {
         $path = $this->cliPath($routePath);
 
         return match ($resolution) {
-            AppResolution::APP_MISSING => $routePackage !== null
-                ? 'php pinoox app:router set ' . $path . ' ' . $routePackage
-                : 'php pinoox app:router',
-            AppResolution::APP_DISABLED => 'php pinoox app:router remove ' . $path,
-            default => 'php pinoox app:router set ' . $path . ' com_vendor_myapp',
+            AppResolution::APP_MISSING => [
+                'php pinoox app:router',
+                'php pinoox app:router set ' . $path . ' com_vendor_myapp',
+            ],
+            AppResolution::APP_DISABLED => [
+                'php pinoox app:router',
+            ],
+            default => [
+                'php pinoox app:router',
+                'php pinoox app:router set ' . $path . ' com_vendor_myapp',
+            ],
         };
     }
 
@@ -123,7 +145,7 @@ class NoAppListener implements EventSubscriberInterface
         return $routePath === '/' ? '/' : $routePath;
     }
 
-    private function managerControlUrl(string $suffix): ?string
+    private function managerControlUrl(Request $request, string $suffix): ?string
     {
         if (!AppEngine::exists(self::MANAGER_PACKAGE) || !AppEngine::stable(self::MANAGER_PACKAGE)) {
             return null;
@@ -135,7 +157,9 @@ class NoAppListener implements EventSubscriberInterface
             return null;
         }
 
-        return rtrim($mount, '/') . $suffix;
+        $path = rtrim($mount, '/') . $suffix;
+
+        return $request->getUriForPath($path);
     }
 
     private function managerMountPath(): ?string
