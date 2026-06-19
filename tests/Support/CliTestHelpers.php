@@ -20,8 +20,8 @@ function cliTraitProbe(array $traits): Terminal
             $traits,
         ));
 
-        eval('class ' . $className . ' extends \\Pinoox\\Component\\Terminal {
-            protected static $defaultName = \'cli:trait-probe\';
+        eval('#[\\Symfony\\Component\\Console\\Attribute\\AsCommand(name: \'cli:trait-probe\')]
+        class ' . $className . ' extends \\Pinoox\\Component\\Terminal {
             ' . $useStatements . '
         }');
     }
@@ -46,7 +46,7 @@ function cliApplication(array $commands): Application
     $application->setAutoExit(false);
 
     foreach ($commands as $command) {
-        $application->add($command);
+        $application->addCommand($command);
     }
 
     return $application;

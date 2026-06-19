@@ -118,6 +118,19 @@ it('uses the core connection prefix without duplicating it in resolved table nam
         ->and($manager->tableName('user as u', 'platform'))->toBe('user AS u');
 });
 
+it('applies the core connection prefix when compiling query SQL', function () {
+    $manager = new DatabaseManager(new Illuminate\Container\Container());
+    $manager->registerCoreConnection([
+        'driver' => 'sqlite',
+        'database' => ':memory:',
+        'prefix' => 'pinx_',
+    ]);
+
+    $sql = $manager->core()->table('token')->where('token_key', 'abc')->toSql();
+
+    expect($sql)->toContain('pinx_token');
+});
+
 it('derives an app connection from core when only the table prefix is customized', function () {
     $manager = new DatabaseManager(new Illuminate\Container\Container());
     $manager->registerCoreConnection([

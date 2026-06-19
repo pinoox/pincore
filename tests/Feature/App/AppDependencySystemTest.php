@@ -171,24 +171,7 @@ function appDepDeleteTestApp(string $package): void
 
 function appDepDeleteDirectory(string $dir): void
 {
-    if (!is_dir($dir)) {
-        return;
-    }
-
-    $items = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::CHILD_FIRST
-    );
-
-    foreach ($items as $item) {
-        if ($item->isDir()) {
-            @rmdir($item->getPathname());
-        } else {
-            @unlink($item->getPathname());
-        }
-    }
-
-    @rmdir($dir);
+    testRemoveDirectory($dir);
 }
 
 function appDepAppDir(string $package): string
@@ -204,9 +187,7 @@ function appDepCleanupArtifacts(): void
     }
 
     foreach (glob($dir . '/*') ?: [] as $file) {
-        if (is_file($file)) {
-            @unlink($file);
-        }
+        testRemoveFile($file);
     }
 }
 

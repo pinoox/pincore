@@ -2,64 +2,99 @@
 
 namespace Pinoox\Component\Template\Engine;
 
-use Symfony\Component\Templating\Helper\SlotsHelper;
-use Symfony\Component\Templating\TemplateNameParserInterface;
-use Symfony\Component\Templating\Loader\FilesystemLoader;
-use Symfony\Component\Templating\TemplateReferenceInterface;
-use Symfony\Component\Templating\PhpEngine as PhpEngineSymfony;
+use Pinoox\Component\Template\Parser\TemplateNameParserInterface;
+use Pinoox\Component\Template\Parser\TemplateReferenceInterface;
 
 class PhpEngine implements EngineInterface
 {
-    private FilesystemLoader $loader;
+    /** @var list<string> */
+    private array $paths;
+
     private TemplateNameParserInterface $parser;
-    private PhpEngineSymfony $template;
 
     /**
      * @param string|list<string> $paths Absolute theme directories (child first)
      */
     public function __construct(TemplateNameParserInterface $parser, string|array $paths)
     {
-        $this->loader = new FilesystemLoader($this->buildLoaderPaths($paths));
         $this->parser = $parser;
-        $this->template = new PhpEngineSymfony($this->parser, $this->loader, [new SlotsHelper()]);
-    }
-
-    /**
-     * @param string|list<string> $paths
-     * @return list<string>
-     */
-    private function buildLoaderPaths(string|array $paths): array
-    {
-        $paths = is_array($paths) ? $paths : [$paths];
-        $loaderPaths = [];
-
-        foreach ($paths as $path) {
-            $path = rtrim(str_replace('\\', '/', (string) $path), '/');
-            if ($path === '') {
-                continue;
-            }
-
-            $loaderPaths[] = $path . '/%name%';
-        }
-
-        return $loaderPaths;
+        $this->paths = $this->normalizePaths($paths);
     }
 
     public function render(TemplateReferenceInterface|string $name, array $parameters = []): string
     {
-        return $this->template->render($name, $parameters);
+        $file = $this->resolvePath($name);
+
+        if ($file === null) {
+            throw new \RuntimeException(sprintf('The template "%s" cannot be rendered.', $this->parser->parse($name)));
+        }
+
+        extract($parameters, EXTR_SKIP);
+
+        ob_start();
+
+        try {
+            include $file;
+        } finally {
+            $content = ob_get_clean();
+        }
+
+        return $content === false ? '' : $content;
     }
 
     public function exists(TemplateReferenceInterface|string $name): bool
     {
-        return $this->template->exists($name);
+        return $this->resolvePath($name) !== null;
     }
 
     public function supports(TemplateReferenceInterface|string $name): bool
     {
         $reference = $this->parser->parse($name);
 
-        return 'php' === $reference->get('engine');
+        return $reference->get('engine') === 'php';
+    }
+
+    private function resolvePath(TemplateReferenceInterface|string $name): ?string
+    {
+        $reference = $this->parser->parse($name);
+        $logical = $reference->getLogicalName();
+
+        if ($logical === '') {
+            return null;
+        }
+
+        if (!str_ends_with($logical, '.php')) {
+            $logical .= '.php';
+        }
+
+        foreach ($this->paths as $path) {
+            $file = $path . '/' . $logical;
+
+            if (is_file($file)) {
+                return $file;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * @param string|list<string> $paths
+     * @return list<string>
+     */
+    private function normalizePaths(string|array $paths): array
+    {
+        $paths = is_array($paths) ? $paths : [$paths];
+        $normalized = [];
+
+        foreach ($paths as $path) {
+            $path = rtrim(str_replace('\\', '/', (string) $path), '/');
+
+            if ($path !== '') {
+                $normalized[] = $path;
+            }
+        }
+
+        return $normalized;
     }
 }
-

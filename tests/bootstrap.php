@@ -62,6 +62,7 @@ require_once __DIR__ . '/Support/ApiSystemHelpers.php';
 require_once __DIR__ . '/Support/InstallerTestHelpers.php';
 require_once __DIR__ . '/Support/DatabaseTestHelpers.php';
 require_once __DIR__ . '/Support/CliTestHelpers.php';
+require_once __DIR__ . '/Support/FilesystemTestHelpers.php';
 
 require_once __DIR__ . '/Support/TestSandbox.php';
 require_once __DIR__ . '/Support/TestRuntime.php';
@@ -83,7 +84,23 @@ $_SERVER['DB_CONNECTION'] = 'sqlite';
 putenv('APP_DEBUG=false');
 $_ENV['APP_DEBUG'] = 'false';
 $_SERVER['APP_DEBUG'] = 'false';
+// PinooxDebug wraps Composer autoload and breaks PHPUnit/Pest class discovery.
+putenv('PINOOX_EXCEPTION=false');
+$_ENV['PINOOX_EXCEPTION'] = 'false';
+$_SERVER['PINOOX_EXCEPTION'] = 'false';
 \Pinoox\Support\SystemConfig::clearCache();
+
+$testClassLoader = $loader;
+foreach (Composer\Autoload\ClassLoader::getRegisteredLoaders() as $registeredLoader) {
+    if ($registeredLoader->findFile('PHPUnit\\TextUI\\Configuration\\TestSuiteBuilder') !== false) {
+        $testClassLoader = $registeredLoader;
+        break;
+    }
+}
+
+if ($testClassLoader instanceof Composer\Autoload\ClassLoader) {
+    \Pinoox\Component\Kernel\Loader::set($testClassLoader, PINOOX_BASE_PATH);
+}
 
 Pinoox\Component\Test\AppTestKit::boot();
 

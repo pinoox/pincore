@@ -331,10 +331,15 @@ class Session
         // make sure that PHP only uses cookies for sessions and disallow session ID passing as a GET parameter
         ini_set('session.use_only_cookies', 1);
         if (!empty(self::$lifeTime)) {
-            session_set_cookie_params(self::$lifeTime);
-            // make sure session cookies never expire
-            ini_set('session.cookie_lifetime', self::$lifeTime);
-            ini_set('session.gc_maxlifetime', self::$lifeTime);
+            session_set_cookie_params([
+                'lifetime' => self::$lifeTime,
+                'path' => '/',
+                'httponly' => true,
+                'secure' => false,
+                'samesite' => 'Lax',
+            ]);
+            ini_set('session.cookie_lifetime', (string) self::$lifeTime);
+            ini_set('session.gc_maxlifetime', (string) self::$lifeTime);
         }
         if (!is_null(self::$gc_probability))
             ini_set('session.gc_probability', self::$gc_probability);

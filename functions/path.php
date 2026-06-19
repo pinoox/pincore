@@ -112,6 +112,24 @@ if (!function_exists('path')) {
     }
 }
 
+if (!function_exists('base_path')) {
+    /**
+     * Laravel-compatible project root (PINOOX_BASE_PATH).
+     */
+    function base_path(string $path = ''): string
+    {
+        $base = defined('PINOOX_BASE_PATH')
+            ? rtrim(str_replace('\\', '/', PINOOX_BASE_PATH), '/')
+            : rtrim(str_replace('\\', '/', (string) getcwd()), '/');
+
+        if ($path === '') {
+            return $base;
+        }
+
+        return $base . '/' . ltrim(str_replace('\\', '/', $path), '/');
+    }
+}
+
 if (!function_exists('database_path')) {
     /**
      * Absolute path to the project database directory or a file inside it.

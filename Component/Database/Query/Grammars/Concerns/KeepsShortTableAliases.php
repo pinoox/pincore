@@ -18,11 +18,20 @@ namespace Pinoox\Component\Database\Query\Grammars\Concerns;
  */
 trait KeepsShortTableAliases
 {
+    protected function wrapAliasedTable($value, $prefix = null)
+    {
+        $segments = preg_split('/\s+as\s+/i', $value);
+
+        $prefix ??= $this->connection->getTablePrefix();
+
+        return $this->wrapTable($segments[0], $prefix) . ' as ' . $this->wrapValue($segments[1]);
+    }
+
     protected function wrapAliasedValue($value, $prefixAlias = false)
     {
         $segments = preg_split('/\s+as\s+/i', $value);
 
-        return $this->wrap($segments[0], $prefixAlias) . ' as ' . $this->wrapValue($segments[1]);
+        return $this->wrap($segments[0]) . ' as ' . $this->wrapValue($segments[1]);
     }
 
     protected function wrapSegments($segments)

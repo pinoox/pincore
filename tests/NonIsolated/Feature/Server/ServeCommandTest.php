@@ -50,7 +50,7 @@ it('allows a project-level server.php override', function () {
 
 it('is listed in pinoox command registry', function () {
     $application = new Symfony\Component\Console\Application();
-    $application->add(new ServeCommand());
+    $application->addCommand(new ServeCommand());
 
     expect($application->has('serve'))->toBeTrue();
 });

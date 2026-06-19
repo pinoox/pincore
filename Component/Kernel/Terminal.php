@@ -44,9 +44,20 @@ class Terminal
         }
     }
 
-    public function addCommand()
+    public function addCommand(object $command): void
     {
+        $this->registerApplicationCommand($command);
+    }
 
+    private function registerApplicationCommand(object $command): void
+    {
+        if (method_exists($this->application, 'addCommand')) {
+            $this->application->addCommand($command);
+
+            return;
+        }
+
+        $this->application->add($command);
     }
 
     private function finds(): void
@@ -102,7 +113,7 @@ class Terminal
         //register commands
         foreach ($this->commands as $c) {
             $command = $c['namespace'] . $c['className'];
-            $this->application->add(new $command());
+            $this->registerApplicationCommand(new $command());
         }
 
     }
