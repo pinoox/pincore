@@ -58,7 +58,7 @@ class NoAppListener implements EventSubscriberInterface
 
         Lang::setLocale($locale);
 
-        View::changeTheme('no-app', Path::get('~pincore/resource/views/no-app/'));
+        View::changeTheme(Path::get('~pincore/resource/views/no-app/'));
 
         return new Response(View::render('home', [
             'resolution' => $resolution,

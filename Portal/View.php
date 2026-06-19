@@ -165,7 +165,7 @@ class View extends Portal
 
     public static function __app(): string
     {
-        return App::package();
+        return (string) (App::package() ?? '');
     }
 
     /**
