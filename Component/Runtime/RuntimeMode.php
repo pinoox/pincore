@@ -120,13 +120,13 @@ final class RuntimeMode
     }
 
     /**
-     * Default APP_DEBUG when not set in .env: false for production, true for all other modes.
+     * Default APP_DEBUG when not set in .env: false for production and test, true for other modes.
      */
     public static function defaultDebugForMode(?string $mode = null): bool
     {
-        $mode ??= self::fromEnv();
+        $mode = self::normalize($mode ?? self::fromEnv());
 
-        return self::normalize($mode) !== self::PRODUCTION;
+        return !in_array($mode, [self::PRODUCTION, self::TEST], true);
     }
 
     /**

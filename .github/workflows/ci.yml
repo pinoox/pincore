@@ -54,6 +54,17 @@ jobs:
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
 
+      - name: Verify PHP extensions
+        run: |
+          php -r "
+          foreach (['pdo_sqlite', 'fileinfo', 'mbstring', 'tokenizer'] as \$ext) {
+              if (!extension_loaded(\$ext)) {
+                  fwrite(STDERR, \"Missing required PHP extension: {\$ext}\n\");
+                  exit(1);
+              }
+          }
+          "
+
       - name: Verify CI fixtures
         run: |
           test -f tests/Fixtures/system-apps/com_pinoox_welcome/app.php
@@ -61,10 +72,20 @@ jobs:
           test -f tests/Fixtures/system-apps/com_pinoox_manager/app.php
           php -r "require 'tests/bootstrap.php';"
 
+      - name: Verify isolated suite boundary
+        run: |
+          if php vendor/bin/pest --configuration=phpunit.ci.xml --list-tests | grep -q VersionCommandTest; then
+            echo 'Monorepo-only tests must not appear in phpunit.ci.xml'
+            exit 1
+          fi
+
+      - name: Configure git for test helpers
+        run: git config --global --add safe.directory "${{ github.workspace }}"
+
       - name: Pest (isolated suite)
         run: |
           mkdir -p build
-          composer test:ci -- --log-junit=build/junit.xml
+          php vendor/bin/pest --configuration=phpunit.ci.xml --log-junit=build/junit.xml 2>&1 | tee build/pest.log
         env:
           APP_ENV: test
           DB_CONNECTION: sqlite
@@ -72,6 +93,7 @@ jobs:
       - name: Print test failures
         if: failure()
         run: |
+          grep -E 'FAIL |⨯|failed|Exception|Error:' build/pest.log | head -50 || true
           if [ -f build/junit.xml ]; then
             grep -E '<(failure|error)' build/junit.xml | head -40 || true
           fi

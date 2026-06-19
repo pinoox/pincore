@@ -49,7 +49,7 @@ Most tests are **isolated** — they never touch production apps or project runt
 
 ### Non-isolated tests
 
-Some tests depend on **local project state** or external services. They are tagged:
+Some tests depend on **local project state** or external services. They live under `tests/NonIsolated/` (not in CI).
 
 | Group | Meaning |
 |-------|---------|
@@ -59,11 +59,18 @@ Some tests depend on **local project state** or external services. They are tagg
 Run only isolated tests (CI-friendly):
 
 ```bash
-php pinoox test platform --exclude-group=non-isolated
 composer test:ci
+php pinoox test platform --exclude-group=non-isolated
 ```
 
-CI uses `phpunit.ci.xml`, which excludes the `non-isolated` group at the PHPUnit config level.
+CI uses `phpunit.ci.xml`, which runs only `tests/Unit` and `tests/Feature` (excludes `tests/NonIsolated/`).
+
+Monorepo / full suite including monorepo-only tests:
+
+```bash
+php vendor/bin/pest --configuration=phpunit.xml --testsuite=NonIsolated
+composer test
+```
 
 Installer DB integration (optional):
 

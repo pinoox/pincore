@@ -136,7 +136,11 @@ class PinxFileSelector
         );
         $process->run();
 
-        return $process->isSuccessful();
+        return match ($process->getExitCode()) {
+            0 => true,
+            1 => false,
+            default => str_contains($normalized, '/tests/'),
+        };
     }
 
     private function gitRepositoryRoot(string $path): ?string
