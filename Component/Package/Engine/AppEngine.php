@@ -15,6 +15,7 @@ namespace Pinoox\Component\Package\Engine;
 
 use Pinoox\Component\AppEvent\AppBootstrap;
 use Pinoox\Component\Cache\AppCacheConfig;
+use Pinoox\Component\Date\AppDateConfig;
 use Pinoox\Component\Cache\Store\RouteCacheStore;
 use Pinoox\Component\Router\Action\ActionRegistry;
 use Pinoox\Component\Package\AppManager;
@@ -225,10 +226,10 @@ class AppEngine implements EngineInterface
             $config = new Config($fileStrategy);
 
             $pickup = $pinker->pickup();
-            $resolved = array_replace_recursive(
+            $resolved = AppDateConfig::normalizeManifest(array_replace_recursive(
                 $this->defaultData,
                 is_array($pickup) ? $pickup : [],
-            );
+            ));
 
             $config->setData($resolved);
             $config->set('package', $packageName);

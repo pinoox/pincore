@@ -97,9 +97,10 @@ return [
         'prefix' => null,
     ],
     'date' => [
-        // jalali | gregorian — null uses locale_calendar hint, then platform default
+        // shorthand in app.php: 'date' => 'jalali' | 'gregorian'
+        // or root: 'calendar' => 'jalali', 'timezone' => 'Asia/Tehran'
+        // null uses lang locale_calendar, then platform default
         'calendar' => null,
-        // null uses platform DATE_TIMEZONE / date.config.php
         'timezone' => null,
     ],
     'container' => [

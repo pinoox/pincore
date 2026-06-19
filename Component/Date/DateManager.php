@@ -8,6 +8,7 @@ use DatePeriod;
 use DateTime;
 use DateTimeZone;
 use Illuminate\Support\DateFactory;
+use Pinoox\Component\Date\AppDateConfig;
 use Pinoox\Component\Date\Contract\CalendarDateInterface;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\Config;
@@ -40,8 +41,8 @@ class DateManager
     public function timezone(): string
     {
         try {
-            $appTimezone = App::get('date.timezone');
-            if (is_string($appTimezone) && $appTimezone !== '') {
+            $appTimezone = AppDateConfig::timezoneFromApp();
+            if ($appTimezone !== null) {
                 return $appTimezone;
             }
         } catch (\Throwable) {
@@ -58,7 +59,7 @@ class DateManager
     public function usingCalendar(string $calendar): self
     {
         $instance = clone $this;
-        $instance->calendarOverride = $this->normalizeCalendar($calendar);
+        $instance->calendarOverride = AppDateConfig::normalizeCalendar($calendar);
 
         return $instance;
     }
@@ -70,9 +71,9 @@ class DateManager
         }
 
         try {
-            $appCalendar = App::get('date.calendar');
-            if (is_string($appCalendar) && $appCalendar !== '') {
-                return $this->normalizeCalendar($appCalendar);
+            $appCalendar = AppDateConfig::calendarFromApp();
+            if ($appCalendar !== null) {
+                return $appCalendar;
             }
         } catch (\Throwable) {
         }
@@ -81,21 +82,12 @@ class DateManager
             $locale = (string) App::get('lang');
             $localeCalendar = $this->config['locale_calendar'][$locale] ?? null;
             if (is_string($localeCalendar) && $localeCalendar !== '') {
-                return $this->normalizeCalendar($localeCalendar);
+                return AppDateConfig::normalizeCalendar($localeCalendar);
             }
         } catch (\Throwable) {
         }
 
-        return $this->normalizeCalendar((string) ($this->config['calendar'] ?? 'gregorian'));
-    }
-
-    private function normalizeCalendar(string $calendar): string
-    {
-        return match (strtolower(trim($calendar))) {
-            'jalali', 'jalaali', 'shamsi' => 'jalali',
-            'gregorian', 'gregory', 'miladi', 'g' => 'gregorian',
-            default => 'gregorian',
-        };
+        return AppDateConfig::normalizeCalendar((string) ($this->config['calendar'] ?? 'gregorian'));
     }
 
     public function isJalali(): bool
