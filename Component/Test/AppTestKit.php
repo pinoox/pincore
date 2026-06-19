@@ -36,6 +36,7 @@ class AppTestKit
         // Warm portals (Env, DB, …) without AppProvider::boot() — that runs Terminal in CLI.
         AppProvider::___();
         Config::name('~pinoox')->set('mode', 'test');
+        Config::name('~pinoox')->set('debug', false);
 
         $request = App::getRequest();
         if ($request->getHost() === '' || $request->getHost() === null) {

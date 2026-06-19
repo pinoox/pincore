@@ -62,7 +62,16 @@ jobs:
           php -r "require 'tests/bootstrap.php';"
 
       - name: Pest (isolated suite)
-        run: composer test:ci
+        run: |
+          mkdir -p build
+          composer test:ci -- --log-junit=build/junit.xml
         env:
           APP_ENV: test
           DB_CONNECTION: sqlite
+
+      - name: Print test failures
+        if: failure()
+        run: |
+          if [ -f build/junit.xml ]; then
+            grep -E '<(failure|error)' build/junit.xml | head -40 || true
+          fi
