@@ -6,6 +6,7 @@
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>{{ t('no-app.page.title') }}</title>
     <link rel="stylesheet" href="{{ url('~pincore/resource/views/no-route/css/style.css') }}">
+    <link rel="stylesheet" href="{{ url('~pincore/resource/views/no-app/css/extras.css') }}">
     {% if locale == 'fa' %}
         <link rel="stylesheet" href="{{ url('~pincore/resource/views/no-route/css/fonts-kalameh.css') }}">
     {% endif %}
@@ -38,43 +39,49 @@
             </div>
 
             <div class="text">
-                <div class="path" dir="ltr">{{ requestPath|default('/') }}</div>
+                <div class="path" dir="ltr">{{ routePath|default('/') }}</div>
                 <p class="description">{{ t('no-app.page.descriptions.' ~ resolution) }}</p>
 
-                <dl class="quick-start">
-                    <dt>{{ t('no-app.page.labels.host') }}</dt>
-                    <dd dir="ltr">{{ host }}</dd>
-
-                    <dt>{{ t('no-app.page.labels.request_path') }}</dt>
-                    <dd dir="ltr">{{ requestPath|default('/') }}</dd>
-
-                    {% if configuredPath %}
-                        <dt>{{ t('no-app.page.labels.configured_path') }}</dt>
-                        <dd dir="ltr">{{ configuredPath }}</dd>
-                    {% endif %}
-
-                    {% if configuredPackage %}
-                        <dt>{{ t('no-app.page.labels.configured_package') }}</dt>
-                        <dd dir="ltr">{{ configuredPackage }}</dd>
-                    {% endif %}
-                </dl>
+                {% if routePackage %}
+                    <div class="route-mapping" dir="ltr">
+                        <span class="route-mapping__label">{{ t('no-app.page.labels.route_mapping') }}</span>
+                        <code>{{ routePath }} → {{ routePackage }}</code>
+                    </div>
+                {% endif %}
 
                 <div class="quick-start">
                     <h3>{{ t('no-app.page.quick_start_title') }}</h3>
                     <ol class="quick-start__steps">
                         <li>{{ t('no-app.page.steps.' ~ resolution ~ '.step1', {
-                            router_file: routerConfigFile|default('config/app-router.config.php'),
-                            package: configuredPackage|default('com_vendor_myapp')
+                            package: routePackage|default('com_vendor_myapp')
                         })|raw }}</li>
                         <li>{{ t('no-app.page.steps.' ~ resolution ~ '.step2', {
-                            router_file: routerConfigFile|default('config/app-router.config.php'),
-                            package: configuredPackage|default('com_vendor_myapp')
+                            package: routePackage|default('com_vendor_myapp')
                         })|raw }}</li>
                     </ol>
 
-                    <a class="docs-btn" href="https://pinoox.com/docs" target="_blank" rel="noopener">
-                        {{ t('no-app.page.docs_link') }}
-                    </a>
+                    {% if cliExample %}
+                        <p class="route-mapping__label">{{ t('no-app.page.labels.cli_title') }}</p>
+                        <div class="code-box" dir="ltr">
+                            <pre><code>{{ cliExample }}</code></pre>
+                        </div>
+                    {% endif %}
+
+                    <div class="action-links">
+                        {% if managerRoutesUrl %}
+                            <a class="docs-btn docs-btn--secondary" href="{{ managerRoutesUrl }}">
+                                {{ t('no-app.page.labels.manager_routes') }}
+                            </a>
+                        {% endif %}
+                        {% if managerAppsUrl and resolution == 'app_disabled' %}
+                            <a class="docs-btn docs-btn--secondary" href="{{ managerAppsUrl }}">
+                                {{ t('no-app.page.labels.manager_apps') }}
+                            </a>
+                        {% endif %}
+                        <a class="docs-btn" href="https://pinoox.com/docs" target="_blank" rel="noopener">
+                            {{ t('no-app.page.docs_link') }}
+                        </a>
+                    </div>
                 </div>
             </div>
         </section>
