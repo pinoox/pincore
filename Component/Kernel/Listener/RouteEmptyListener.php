@@ -58,7 +58,7 @@ class RouteEmptyListener implements EventSubscriberInterface
 
         Lang::setLocale($locale);
 
-        View::changeTheme('no-route', Path::get('~pincore/resource/views/no-route/'));
+        View::changeTheme(Path::get('~pincore/resource/views/no-route/'));
 
         return new Response(View::render('home', [
             'package' => $package,

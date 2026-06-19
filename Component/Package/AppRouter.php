@@ -407,7 +407,7 @@ class AppRouter
         array $domainContext,
         array $extras = [],
     ): AppLayer {
-        return new AppLayer($path, null, array_merge($domainContext, $extras, [
+        return new AppLayer($path, AppResolution::BOOTSTRAP_PACKAGE, array_merge($domainContext, $extras, [
             'resolution' => $reason,
             'configured_package' => $package,
             'configured_path' => $path,

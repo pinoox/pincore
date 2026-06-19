@@ -252,10 +252,6 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
 
     public function router(): Router
     {
-        if ($this->isUnresolved()) {
-            return \Pinoox\Portal\Router::build($this->pathRoute() ?? '/', []);
-        }
-
         return $this->appEngine->router($this->package(), $this->pathRoute());
     }
 
