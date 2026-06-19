@@ -1,5 +1,6 @@
 <?php
 
+use Pinoox\Component\Helpers\ConsoleApplication as ConsoleApplicationHelper;
 use Pinoox\Component\Test\AppTestKit;
 use Pinoox\Cron\CronExpression;
 use Pinoox\Cron\ScheduleRegistry;
@@ -126,7 +127,7 @@ PHP);
     AppEngine::__rebuild();
 
     $application = new Application();
-    $application->addCommand(new ScheduleRunCommand());
+    ConsoleApplicationHelper::addCommand($application, new ScheduleRunCommand());
     $command = $application->find('schedule:run');
     $tester = new CommandTester($command);
     $tester->execute([

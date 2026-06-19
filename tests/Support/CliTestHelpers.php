@@ -1,5 +1,6 @@
 <?php
 
+use Pinoox\Component\Helpers\ConsoleApplication as ConsoleApplicationHelper;
 use Pinoox\Component\Terminal;
 use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Command\Command;
@@ -46,7 +47,7 @@ function cliApplication(array $commands): Application
     $application->setAutoExit(false);
 
     foreach ($commands as $command) {
-        $application->addCommand($command);
+        ConsoleApplicationHelper::addCommand($application, $command);
     }
 
     return $application;
