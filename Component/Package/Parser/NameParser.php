@@ -25,6 +25,12 @@ class NameParser implements ParserInterface
             return $name;
         }
 
+        $normalized = str_replace('\\', '/', $name);
+        if (str_starts_with($normalized, '/')
+            || preg_match('/^[A-Za-z]:\//', $normalized) === 1) {
+            return new NameReference(null, $normalized);
+        }
+
         $parts = explode(':', $name);
         if (count($parts) > 1) {
             $app = $parts[0];

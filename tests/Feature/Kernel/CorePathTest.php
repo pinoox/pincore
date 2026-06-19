@@ -17,6 +17,18 @@ it('resolves the pincore path through the central core path constant', function 
         ->toBe($corePath . '/config/app/source.config.php');
 });
 
+it('passes through absolute filesystem paths without treating drive letters as package names', function () {
+    $basePath = corePathTestNormalize(testProjectRoot());
+    $path = new Path($basePath, new NameParser(), new CorePathTestEngine(), 'com_demo');
+
+    expect($path->get('C:/Users/test/AppData/Local/Temp/pinion-test'))
+        ->toBe('C:/Users/test/AppData/Local/Temp/pinion-test');
+
+    if (DIRECTORY_SEPARATOR === '/') {
+        expect($path->get('/tmp/pinoox-abs-test'))->toBe('/tmp/pinoox-abs-test');
+    }
+});
+
 it('resolves the system app path through the system alias', function () {
     $basePath = corePathTestNormalize(testProjectRoot());
     $corePath = corePathTestNormalize(testCoreRoot());
