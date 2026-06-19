@@ -166,3 +166,23 @@ it('defaults debug true when MODE alias resolves to a non-production mode', func
     expect(SystemConfig::env('APP_ENV'))->toBe('development')
         ->and(SystemConfig::env('APP_DEBUG'))->toBeTrue();
 });
+
+it('defaults debug false for test mode when APP_DEBUG is not in .env', function () {
+    $dir = testFixtures('env_bootstrap_test_no_debug');
+    if (!is_dir($dir)) {
+        mkdir($dir, 0777, true);
+    }
+    file_put_contents($dir . '/.env', "APP_ENV=test\n");
+
+    foreach (['APP_ENV', 'APP_DEBUG', 'PINOOX_EXCEPTION', 'MODE'] as $key) {
+        putenv($key);
+        unset($_ENV[$key], $_SERVER[$key]);
+    }
+
+    EnvBootstrap::reset();
+    EnvBootstrap::load($dir);
+    SystemConfig::clearCache();
+
+    expect(SystemConfig::env('APP_ENV'))->toBe('test')
+        ->and(SystemConfig::env('APP_DEBUG'))->toBeFalse();
+});

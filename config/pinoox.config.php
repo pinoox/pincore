@@ -67,7 +67,7 @@ return [
 
     | Application debug: route action validation, Twig debug, etc.
 
-    | Default: false in production, true in other modes (see EnvBootstrap).
+    | Default: false in production and test, true in other modes (see EnvBootstrap).
 
     |
 
