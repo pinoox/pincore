@@ -14,9 +14,6 @@
 namespace Pinoox\Component\Template\Parser;
 
 use Pinoox\Component\Helpers\Str;
-use Symfony\Component\Templating\TemplateNameParserInterface;
-use Symfony\Component\Templating\TemplateReference;
-use Symfony\Component\Templating\TemplateReferenceInterface;
 
 class TemplateNameParser implements TemplateNameParserInterface
 {

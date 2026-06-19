@@ -75,7 +75,7 @@ it('lets CLI commands select a package interactively by number', function () {
     };
 
     $application = new Application();
-    $application->add($command);
+    $application->addCommand($command);
 
     $tester = new CommandTester($application->find('test:package-select'));
     $tester->setInputs(['0']);

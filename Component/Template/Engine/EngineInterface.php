@@ -1,21 +1,14 @@
 <?php
 
-/**
- *      ****  *  *     *  ****  ****  *    *
- *      *  *  *  * *   *  *  *  *  *   *  *
- *      ****  *  *  *  *  *  *  *  *    *
- *      *     *  *   * *  *  *  *  *   *  *
- *      *     *  *    **  ****  ****  *    *
- * @author   Pinoox
- * @link https://www.pinoox.com/
- * @license  https://opensource.org/licenses/MIT MIT License
- */
-
 namespace Pinoox\Component\Template\Engine;
 
-use Symfony\Component\Templating\EngineInterface as EngineInterfaceSymfony;
+use Pinoox\Component\Template\Parser\TemplateReferenceInterface;
 
-interface EngineInterface extends EngineInterfaceSymfony
+interface EngineInterface
 {
+    public function render(TemplateReferenceInterface|string $name, array $parameters = []): string;
 
+    public function exists(TemplateReferenceInterface|string $name): bool;
+
+    public function supports(TemplateReferenceInterface|string $name): bool;
 }

@@ -24,7 +24,6 @@ use Symfony\Component\HttpFoundation\FileBag;
 use Symfony\Component\HttpFoundation\InputBag;
 use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Request as RequestSymfony;
-use Symfony\Component\HttpFoundation\Session\SessionInterface;
 use Symfony\Component\Routing\RequestContext;
 use Illuminate\Validation\Validator;
 
@@ -33,11 +32,6 @@ class Request extends RequestSymfony
     public InputBag $json;
     public ParameterBag $parameters;
     public bool $isContentJson = false;
-
-    /**
-     * @var Closure|SessionInterface|null
-     */
-    public $session;
 
     public function initialize(array $query = [], $request = [], array $attributes = [], array $cookies = [], array $files = [], array $server = [], $content = null): void
     {
@@ -321,6 +315,13 @@ class Request extends RequestSymfony
     public function resetRoutingContext(): void
     {
         unset($this->context);
+    }
+
+    public function clearSession(): static
+    {
+        $this->session = null;
+
+        return $this;
     }
 
     public function setRoutingPathInfo(string $pathInfo): void

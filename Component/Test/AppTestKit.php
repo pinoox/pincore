@@ -5,6 +5,7 @@ namespace Pinoox\Component\Test;
 use Closure;
 use Pinoox\Component\AppEvent\AppBootstrap;
 use Pinoox\Component\AppEvent\AppRouteRegistry;
+use Pinoox\Component\Helpers\Filesystem;
 use Pinoox\Component\Package\AppEnv\AppEnvBridge;
 use Pinoox\Component\Http\Request;
 use Pinoox\Component\Router\Action\ActionRegistry;
@@ -233,8 +234,11 @@ class AppTestKit
 
         self::cleanFixtureTree(self::fixturesRoot());
         self::cleanFixtureTree(self::fixturesRoot() . '/sandbox');
-        @unlink(self::fixturesRoot() . '/schedule-marker.txt');
-        @unlink(self::fixturesRoot() . '/app_registry.config.php');
+        $marker = self::fixturesRoot() . '/schedule-marker.txt';
+        Filesystem::removeFile($marker);
+
+        $registry = self::fixturesRoot() . '/app_registry.config.php';
+        Filesystem::removeFile($registry);
 
         self::cleanupWebServerFixCaches($pinkerApps);
 
@@ -289,7 +293,7 @@ class AppTestKit
     private static function cleanFixtureTree(string $path): void
     {
         if (is_file($path)) {
-            @unlink($path);
+            Filesystem::removeFile($path);
 
             return;
         }
@@ -305,9 +309,9 @@ class AppTestKit
 
             $target = $path . '/' . $entry;
             if (is_dir($target)) {
-                self::deleteDirectory($target);
+                Filesystem::removeDirectory($target);
             } else {
-                @unlink($target);
+                Filesystem::removeFile($target);
             }
         }
     }
@@ -321,9 +325,7 @@ class AppTestKit
 
         foreach ($patterns as $pattern) {
             foreach (glob($pattern) ?: [] as $file) {
-                if (is_file($file)) {
-                    @unlink($file);
-                }
+                Filesystem::removeFile($file);
             }
         }
     }
@@ -458,24 +460,7 @@ class AppTestKit
 
     private static function deleteDirectory(string $dir): void
     {
-        if (!is_dir($dir)) {
-            return;
-        }
-
-        $items = new \RecursiveIteratorIterator(
-            new \RecursiveDirectoryIterator($dir, \FilesystemIterator::SKIP_DOTS),
-            \RecursiveIteratorIterator::CHILD_FIRST,
-        );
-
-        foreach ($items as $item) {
-            if ($item->isDir()) {
-                @rmdir($item->getPathname());
-            } else {
-                @unlink($item->getPathname());
-            }
-        }
-
-        @rmdir($dir);
+        Filesystem::removeDirectory($dir);
     }
 }
 

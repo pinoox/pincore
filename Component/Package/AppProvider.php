@@ -110,7 +110,7 @@ class AppProvider
         return $this->app->meeting($package, function () use ($request, $attributes) {
             $request = !empty($request) ? $request : $this->getRequest();
             $subRequest = $request->duplicate();
-            $subRequest->session = null;
+            $subRequest->clearSession();
             $subRequest->attributes = new ParameterBag();
 
             if ($attributes === []) {

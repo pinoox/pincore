@@ -239,20 +239,6 @@ function themeManifestTempFile(string $name): string
 }
 function themeManifestDeleteDirectory(string $dir): void
 {
-    if (!is_dir($dir)) {
-        return;
-    }
-    $items = new RecursiveIteratorIterator(
-        new RecursiveDirectoryIterator($dir, FilesystemIterator::SKIP_DOTS),
-        RecursiveIteratorIterator::CHILD_FIRST,
-    );
-    foreach ($items as $item) {
-        if ($item->isDir()) {
-            @rmdir($item->getPathname());
-        } else {
-            @unlink($item->getPathname());
-        }
-    }
-    @rmdir($dir);
+    testRemoveDirectory($dir);
 }
 

@@ -12,13 +12,19 @@ use Symfony\Component\Console\Tester\CommandTester;
 
 beforeEach(function () {
     scheduleSystemDeleteTestApp('com_test_schedule');
-    @unlink(scheduleSystemMarkerFile());
+    $marker = scheduleSystemMarkerFile();
+    if (is_file($marker)) {
+        unlink($marker);
+    }
     AppEngine::__rebuild();
 });
 
 afterEach(function () {
     scheduleSystemDeleteTestApp('com_test_schedule');
-    @unlink(scheduleSystemMarkerFile());
+    $marker = scheduleSystemMarkerFile();
+    if (is_file($marker)) {
+        unlink($marker);
+    }
     AppEngine::__rebuild();
 });
 
@@ -120,7 +126,7 @@ PHP);
     AppEngine::__rebuild();
 
     $application = new Application();
-    $application->add(new ScheduleRunCommand());
+    $application->addCommand(new ScheduleRunCommand());
     $command = $application->find('schedule:run');
     $tester = new CommandTester($command);
     $tester->execute([

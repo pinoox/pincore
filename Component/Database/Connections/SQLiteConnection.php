@@ -14,20 +14,21 @@
 namespace Pinoox\Component\Database\Connections;
 
 use Illuminate\Database\SQLiteConnection as BaseConnection;
+use Pinoox\Component\Database\Connections\Concerns\CreatesQueryGrammar;
 use Pinoox\Component\Database\Query\Builder;
 use Pinoox\Component\Database\Query\Grammars\SQLiteGrammar;
 
 class SQLiteConnection extends BaseConnection
 {
+    use CreatesQueryGrammar;
+
     public function query()
     {
         return new Builder($this, $this->getQueryGrammar(), $this->getPostProcessor());
     }
 
-    protected function getDefaultQueryGrammar()
+    protected function queryGrammarClass(): string
     {
-        ($grammar = new SQLiteGrammar())->setConnection($this);
-
-        return $this->withTablePrefix($grammar);
+        return SQLiteGrammar::class;
     }
 }

@@ -228,10 +228,10 @@ class Pinker
     {
         $data = $this->getData();
         $info = $this->getInfo();
-        $lifetime = @$info['lifetime'];
+        $lifetime = $info['lifetime'] ?? null;
 
         if (!empty($lifetime) && is_numeric($lifetime)) {
-            $lifetime = @$info['time'] + $lifetime;
+            $lifetime = (int) ($info['time'] ?? 0) + (int) $lifetime;
 
             if ($lifetime < time()) {
                 $this->remove();
@@ -239,7 +239,7 @@ class Pinker
             }
         }
 
-        return @$data;
+        return $data;
     }
 
     public function remove(): void

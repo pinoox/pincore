@@ -13,8 +13,8 @@
 
 namespace Pinoox\Component\Template\Engine;
 
-use Symfony\Component\Templating\TemplateNameParserInterface;
-use Symfony\Component\Templating\TemplateReferenceInterface;
+use Pinoox\Component\Template\Parser\TemplateNameParserInterface;
+use Pinoox\Component\Template\Parser\TemplateReferenceInterface;
 use Twig\Loader\ArrayLoader;
 use Twig\Loader\ChainLoader;
 

@@ -14,10 +14,9 @@
 namespace Pinoox\Component\Template\Engine;
 
 use Exception;
+use Pinoox\Component\Template\Parser\TemplateNameParserInterface;
+use Pinoox\Component\Template\Parser\TemplateReferenceInterface;
 use Pinoox\Component\Template\Twig\TwigFunctionLoader;
-use Symfony\Component\Templating\EngineInterface;
-use Symfony\Component\Templating\TemplateNameParserInterface;
-use Symfony\Component\Templating\TemplateReferenceInterface;
 use Twig\Environment;
 use Twig\Error\LoaderError;
 use Twig\Extension\ExtensionInterface;
