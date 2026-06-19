@@ -1,0 +1,42 @@
+.route-mapping {
+    margin: 0.75rem auto 0;
+    max-width: 36rem;
+    padding: 0.65rem 0.85rem;
+    border-radius: 0.55rem;
+    background: #f4f8fc;
+    border: 1px solid #dbe8f5;
+    font-size: 0.92rem;
+    color: #2f5f8f;
+    text-align: center;
+}
+
+.route-mapping__label {
+    display: block;
+    margin-bottom: 0.35rem;
+    font-size: 0.78rem;
+    color: #5a7fa3;
+}
+
+.route-mapping code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 0.88rem;
+    color: #1f4f7a;
+}
+
+.action-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    justify-content: center;
+    margin-top: 0.85rem;
+}
+
+.docs-btn--secondary {
+    background: #eef4fb;
+    color: #2f6fad;
+    border: 1px solid #c9ddf0;
+}
+
+.docs-btn--secondary:hover {
+    background: #e2edf9;
+}
