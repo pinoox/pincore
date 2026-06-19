@@ -117,6 +117,13 @@ class Path implements PathInterface
      */
     public function get(string|ReferenceInterface $path = '', ?string $package = ''): string
     {
+        if (is_string($path) && $path !== '') {
+            $absolute = self::normalizeAbsoluteFilesystemPath($path);
+            if ($absolute !== null) {
+                return $absolute;
+            }
+        }
+
         $parser = $this->reference($path);
         $package = $package !== '' && $package !== null ? $package : $parser->getPackageName();
         $value = $parser->getValue() ?? '';
@@ -243,6 +250,21 @@ class Path implements PathInterface
         }
 
         return SystemApp::path($value);
+    }
+
+    private static function normalizeAbsoluteFilesystemPath(string $path): ?string
+    {
+        $normalized = str_replace('\\', '/', $path);
+
+        if (str_starts_with($normalized, '/')) {
+            return $normalized;
+        }
+
+        if (preg_match('/^[A-Za-z]:\//', $normalized) === 1) {
+            return $normalized;
+        }
+
+        return null;
     }
 
     private function getManager(?string $packageName = null): PathManager

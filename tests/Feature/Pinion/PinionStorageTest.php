@@ -7,6 +7,7 @@ use Pinoox\Component\Pinion\StorageContext;
 use Pinoox\Pinion\Config;
 use Pinoox\Pinion\Store;
 use Pinoox\Portal\Pinion;
+use Tests\Support\TestSandbox;
 
 it('resolves pinion staging paths', function () {
     $resolver = new PinooxPathResolver();
@@ -29,8 +30,7 @@ it('creates portal http handler through protocol manager', function () {
 });
 
 it('completes a local pinion upload through protocol manager', function () {
-    $dir = sys_get_temp_dir() . '/pinion-pincore-' . uniqid('', true);
-    @mkdir($dir, 0755, true);
+    $dir = TestSandbox::ensure('pinion/' . uniqid('pincore-', true));
 
     $manager = new ProtocolManager(
         new Store($dir),

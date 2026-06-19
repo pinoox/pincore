@@ -19,6 +19,12 @@ final class PinooxPathResolver implements PathResolverInterface
             $reference = substr($reference, strlen('local:'));
         }
 
+        $normalized = str_replace('\\', '/', $reference);
+        if (str_starts_with($normalized, '/')
+            || preg_match('/^[A-Za-z]:\//', $normalized) === 1) {
+            return $normalized;
+        }
+
         if (function_exists('path')) {
             return path($reference);
         }
