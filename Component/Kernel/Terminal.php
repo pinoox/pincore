@@ -13,6 +13,7 @@
 
 namespace Pinoox\Component\Kernel;
 
+use Pinoox\Component\Helpers\ConsoleApplication as ConsoleApplicationHelper;
 use Pinoox\Component\Helpers\Str;
 use Pinoox\Component\Package\AppManager;
 use Pinoox\Portal\App\AppEngine;
@@ -46,18 +47,7 @@ class Terminal
 
     public function addCommand(object $command): void
     {
-        $this->registerApplicationCommand($command);
-    }
-
-    private function registerApplicationCommand(object $command): void
-    {
-        if (method_exists($this->application, 'addCommand')) {
-            $this->application->addCommand($command);
-
-            return;
-        }
-
-        $this->application->add($command);
+        ConsoleApplicationHelper::addCommand($this->application, $command);
     }
 
     private function finds(): void
@@ -113,7 +103,7 @@ class Terminal
         //register commands
         foreach ($this->commands as $c) {
             $command = $c['namespace'] . $c['className'];
-            $this->registerApplicationCommand(new $command());
+            $this->addCommand(new $command());
         }
 
     }

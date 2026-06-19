@@ -2,6 +2,7 @@
 
 uses()->group('non-isolated');
 
+use Pinoox\Component\Helpers\ConsoleApplication as ConsoleApplicationHelper;
 use Pinoox\Component\Server\DevelopmentServer;
 use Pinoox\Terminal\Serve\ServeCommand;
 
@@ -50,7 +51,7 @@ it('allows a project-level server.php override', function () {
 
 it('is listed in pinoox command registry', function () {
     $application = new Symfony\Component\Console\Application();
-    $application->addCommand(new ServeCommand());
+    ConsoleApplicationHelper::addCommand($application, new ServeCommand());
 
     expect($application->has('serve'))->toBeTrue();
 });

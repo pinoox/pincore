@@ -1,6 +1,7 @@
 <?php
 
 use Pinoox\Component\Database\Patch\PatchBase;
+use Pinoox\Component\Helpers\ConsoleApplication as ConsoleApplicationHelper;
 use Pinoox\Terminal\Patch\PatchCreateCommand;
 use Pinoox\Terminal\Patch\PatchRollbackCommand;
 use Pinoox\Terminal\Patch\PatchRunCommand;
@@ -75,7 +76,7 @@ it('lets CLI commands select a package interactively by number', function () {
     };
 
     $application = new Application();
-    $application->addCommand($command);
+    ConsoleApplicationHelper::addCommand($application, $command);
 
     $tester = new CommandTester($application->find('test:package-select'));
     $tester->setInputs(['0']);
