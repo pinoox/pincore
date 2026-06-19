@@ -41,7 +41,7 @@ jobs:
       - uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          extensions: mbstring, xml, dom, curl, zip, sqlite3, pdo_sqlite, fileinfo, tokenizer, ctype
+          extensions: mbstring, xml, dom, curl, zip, sqlite3, pdo_sqlite, fileinfo, tokenizer, ctype, sodium
           coverage: none
 
       - uses: actions/cache@v4
@@ -53,6 +53,13 @@ jobs:
 
       - name: Install dependencies
         run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Verify CI fixtures
+        run: |
+          test -f tests/Fixtures/system-apps/com_pinoox_welcome/app.php
+          test -f tests/Fixtures/system-apps/com_pinoox_installer/app.php
+          test -f tests/Fixtures/system-apps/com_pinoox_manager/app.php
+          php -r "require 'tests/bootstrap.php';"
 
       - name: Pest (isolated suite)
         run: composer test:ci

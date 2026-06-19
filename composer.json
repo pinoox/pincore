@@ -76,7 +76,7 @@
   },
   "scripts": {
     "test": "@php vendor/bin/pest --configuration=phpunit.xml",
-    "test:ci": "@php vendor/bin/pest --configuration=phpunit.xml --exclude-group=non-isolated",
+    "test:ci": "@php vendor/bin/pest --configuration=phpunit.ci.xml",
     "test:unit": "@php vendor/bin/pest --configuration=phpunit.xml --testsuite=Unit",
     "pincore": "@php bin/pincore"
   },

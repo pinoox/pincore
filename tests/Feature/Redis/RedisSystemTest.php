@@ -48,7 +48,7 @@ it('falls back to predis when phpredis is unavailable', function () {
 
 it('wraps predis client commands', function () {
     if (!class_exists(\Predis\Client::class)) {
-        $this->markTestSkipped('Predis is not installed.');
+        test()->markTestSkipped('Predis is not installed.');
     }
 
     $client = new class {
@@ -95,7 +95,7 @@ it('builds manager connection list from config', function () {
 
 it('creates predis connector with prefix option', function () {
     if (!class_exists(\Predis\Client::class)) {
-        $this->markTestSkipped('Predis is not installed.');
+        test()->markTestSkipped('Predis is not installed.');
     }
 
     $connector = new PredisConnector();
