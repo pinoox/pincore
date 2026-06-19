@@ -19,7 +19,7 @@ return [
     |
     | jalali | gregorian
     |
-    | Platform default is gregorian. Per-app override: app.php → date.calendar.
+    | Platform default is gregorian. Per-app override: app.php → `'date' => 'jalali'` or `date.calendar`.
     | When an app leaves date.calendar empty, locale_calendar below is used.
     |
     */
