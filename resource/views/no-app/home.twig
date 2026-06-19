@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="{{ locale|default('en') }}" dir="{{ dir|default('ltr') }}">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>{{ t('no-app.page.title') }}</title>
+    <link rel="stylesheet" href="{{ url('~pincore/resource/views/no-route/css/style.css') }}">
+    {% if locale == 'fa' %}
+        <link rel="stylesheet" href="{{ url('~pincore/resource/views/no-route/css/fonts-kalameh.css') }}">
+    {% endif %}
+</head>
+<body>
+<div class="app">
+    {% if locales|length > 1 %}
+        <div class="lang-bar">
+            <label for="help-lang">{{ t('no-app.labels.language') }}</label>
+            <select id="help-lang" class="lang-select" aria-label="{{ t('no-app.labels.language') }}">
+                {% for code, name in locales %}
+                    <option value="{{ code }}"{% if code == locale %} selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    {% endif %}
+
+    <div class="page">
+        <section class="page__message">
+            <div class="image">
+                <img src="{{ url('~pincore/resource/images/logo.png') }}" alt="Pinoox">
+            </div>
+
+            <div class="title">
+                <span>{{ t('no-app.page.welcome_prefix') }}</span>
+                <h2>Pinoox</h2>
+                {% if t('no-app.page.welcome_suffix') %}
+                    <span>{{ t('no-app.page.welcome_suffix') }}</span>
+                {% endif %}
+            </div>
+
+            <div class="text">
+                <div class="path" dir="ltr">{{ requestPath|default('/') }}</div>
+                <p class="description">{{ t('no-app.page.descriptions.' ~ resolution) }}</p>
+
+                <dl class="quick-start">
+                    <dt>{{ t('no-app.page.labels.host') }}</dt>
+                    <dd dir="ltr">{{ host }}</dd>
+
+                    <dt>{{ t('no-app.page.labels.request_path') }}</dt>
+                    <dd dir="ltr">{{ requestPath|default('/') }}</dd>
+
+                    {% if configuredPath %}
+                        <dt>{{ t('no-app.page.labels.configured_path') }}</dt>
+                        <dd dir="ltr">{{ configuredPath }}</dd>
+                    {% endif %}
+
+                    {% if configuredPackage %}
+                        <dt>{{ t('no-app.page.labels.configured_package') }}</dt>
+                        <dd dir="ltr">{{ configuredPackage }}</dd>
+                    {% endif %}
+                </dl>
+
+                <div class="quick-start">
+                    <h3>{{ t('no-app.page.quick_start_title') }}</h3>
+                    <ol class="quick-start__steps">
+                        <li>{{ t('no-app.page.steps.' ~ resolution ~ '.step1', {
+                            router_file: routerConfigFile|default('config/app-router.config.php'),
+                            package: configuredPackage|default('com_vendor_myapp')
+                        })|raw }}</li>
+                        <li>{{ t('no-app.page.steps.' ~ resolution ~ '.step2', {
+                            router_file: routerConfigFile|default('config/app-router.config.php'),
+                            package: configuredPackage|default('com_vendor_myapp')
+                        })|raw }}</li>
+                    </ol>
+
+                    <a class="docs-btn" href="https://pinoox.com/docs" target="_blank" rel="noopener">
+                        {{ t('no-app.page.docs_link') }}
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <section class="page__help">
+            <div class="page__help-content">
+                <div class="content-item">
+                    <div class="icon icon--docs" aria-hidden="true"></div>
+                    <div class="caption">{{ t('no-app.help.docs') }}</div>
+                    <div class="links">
+                        <a href="https://pinoox.com/docs" target="_blank" rel="noopener">{{ t('no-app.help.guides') }}</a>
+                        <a href="https://pinoox.com/docs" target="_blank" rel="noopener">{{ t('no-app.help.api') }}</a>
+                    </div>
+                </div>
+
+                <div class="content-item">
+                    <div class="icon icon--tutorial" aria-hidden="true"></div>
+                    <div class="caption">{{ t('no-app.help.tutorials') }}</div>
+                    <div class="links">
+                        <a href="https://pinoox.com/developer" target="_blank" rel="noopener">{{ t('no-app.help.first_app') }}</a>
+                    </div>
+                </div>
+
+                <div class="content-item">
+                    <div class="icon icon--community" aria-hidden="true"></div>
+                    <div class="caption">{{ t('no-app.help.community') }}</div>
+                    <div class="links">
+                        <a href="https://pinoox.com/faq" target="_blank" rel="noopener">{{ t('no-app.help.faq') }}</a>
+                        <a href="https://pinoox.com" target="_blank" rel="noopener">{{ t('no-app.help.contact') }}</a>
+                        <a href="https://t.me/pinoox" target="_blank" rel="noopener">{{ t('no-app.help.telegram') }}</a>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </div>
+</div>
+
+{% if locales|length > 1 %}
+<script>
+(function () {
+    var select = document.getElementById('help-lang');
+    if (!select) {
+        return;
+    }
+
+    select.addEventListener('change', function () {
+        var url = new URL(window.location.href);
+        url.searchParams.set('lang', select.value);
+        window.location.href = url.toString();
+    });
+})();
+</script>
+{% endif %}
+</body>
+</html>
