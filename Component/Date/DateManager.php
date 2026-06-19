@@ -8,7 +8,7 @@ use DatePeriod;
 use DateTime;
 use DateTimeZone;
 use Illuminate\Support\DateFactory;
-use Morilog\Jalali\Jalalian;
+use Pinoox\Component\Date\Contract\CalendarDateInterface;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\Config;
 
@@ -101,6 +101,32 @@ class DateManager
     public function isJalali(): bool
     {
         return $this->calendar() === 'jalali';
+    }
+
+    public function make(mixed $time = null, ?string $calendar = null, DateTimeZone|string|null $tz = null): CalendarDateInterface
+    {
+        $calendar ??= $this->calendar();
+
+        return $calendar === 'jalali'
+            ? $this->jalali($time, $tz)
+            : $this->gregorian($time, $tz);
+    }
+
+    public function gregorian(mixed $time = null, DateTimeZone|string|null $tz = null): GregorianDate
+    {
+        return GregorianDate::make($this->parse($time, $tz));
+    }
+
+    public function smart(mixed $time = null, ?string $format = null, ?string $calendar = null): string
+    {
+        return $this->make($time, $calendar)->format($format ?? $this->formatKey('datetime', $calendar));
+    }
+
+    public function display(mixed $time = null, string $key = 'datetime', ?string $calendar = null): string
+    {
+        $calendar ??= $this->calendar();
+
+        return $this->make($time, $calendar)->format($this->formatKey($key, $calendar));
     }
 
     public function format(mixed $time = null, ?string $format = null, ?string $calendar = null): string
@@ -200,10 +226,6 @@ class DateManager
         bool $isJalali = false,
         string $format = 'Y/m/d H:i:s',
     ): bool {
-        if ($isJalali) {
-            $date = $this->g($format, $date, true);
-        }
-
         return $this->compare($date, $startDate, '>=', $isJalali, $format)
             && $this->compare($date, $endDate, '<=', $isJalali, $format);
     }
@@ -215,13 +237,8 @@ class DateManager
         bool $isJalali = false,
         string $format = 'Y-m-d H:i:s',
     ): bool {
-        if ($isJalali) {
-            $date1 = $this->g($format, $date1, true);
-            $date2 = $this->g($format, $date2, true);
-        }
-
-        $d1 = new DateTime((string) $date1);
-        $d2 = new DateTime((string) $date2);
+        $d1 = $this->toComparableDateTime($date1, $isJalali, $format);
+        $d2 = $this->toComparableDateTime($date2, $isJalali, $format);
 
         return match ($operator) {
             '==' => $d1 == $d2,
@@ -241,7 +258,7 @@ class DateManager
     {
         if ($isJalali) {
             $base = $this->jalali($date);
-            $weekDay = $base->inner()->getDayOfWeek();
+            $weekDay = $base->dayOfWeek();
             $result = [];
 
             for ($i = 0; $i <= 6; $i++) {
@@ -304,6 +321,27 @@ class DateManager
         if ($timezone !== '' && !ini_get('date.timezone')) {
             date_default_timezone_set($timezone);
         }
+    }
+
+    private function toComparableDateTime(mixed $date, bool $isJalali, string $format): DateTime
+    {
+        if ($date instanceof CalendarDateInterface) {
+            return new DateTime('@' . $date->timestamp());
+        }
+
+        if ($date instanceof Carbon) {
+            return new DateTime('@' . $date->getTimestamp());
+        }
+
+        if ($isJalali) {
+            if (is_string($date) && $this->detectJalaliString($date)) {
+                return new DateTime('@' . $this->parseJalali($this->extractDatePart($date), $format)->timestamp());
+            }
+
+            return new DateTime('@' . $this->jalali($date)->timestamp());
+        }
+
+        return new DateTime((string) $date);
     }
 
     private function detectJalaliString(string $date): bool

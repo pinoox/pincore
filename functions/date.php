@@ -31,6 +31,34 @@ if (!function_exists('jalali')) {
     }
 }
 
+if (!function_exists('gregorian')) {
+    function gregorian(mixed $time = null, DateTimeZone|string|null $timezone = null): \Pinoox\Component\Date\GregorianDate
+    {
+        return Date::gregorian($time, $timezone);
+    }
+}
+
+if (!function_exists('date_make')) {
+    function date_make(mixed $time = null, ?string $calendar = null, DateTimeZone|string|null $timezone = null): \Pinoox\Component\Date\Contract\CalendarDateInterface
+    {
+        return Date::make($time, $calendar, $timezone);
+    }
+}
+
+if (!function_exists('date_smart')) {
+    function date_smart(mixed $time = null, ?string $format = null, ?string $calendar = null): string
+    {
+        return Date::smart($time, $format, $calendar);
+    }
+}
+
+if (!function_exists('date_display')) {
+    function date_display(mixed $time = null, string $key = 'datetime', ?string $calendar = null): string
+    {
+        return Date::display($time, $key, $calendar);
+    }
+}
+
 if (!function_exists('format_date')) {
     function format_date(mixed $time = null, ?string $format = null, ?string $calendar = null): string
     {
