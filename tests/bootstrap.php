@@ -69,9 +69,6 @@ require_once __DIR__ . '/TestCase.php';
 
 Tests\Support\TestRuntime::bootstrap($platformRoot);
 
-\Pinoox\Component\Helpers\EnvBootstrap::load(PINOOX_BASE_PATH);
-\Pinoox\Support\SystemConfig::clearCache();
-
 // PHPUnit/Pest: test runtime overrides machine env (individual tests may override again).
 putenv('APP_ENV=test');
 $_ENV['APP_ENV'] = 'test';
@@ -79,6 +76,14 @@ $_SERVER['APP_ENV'] = 'test';
 putenv('DB_CONNECTION=sqlite');
 $_ENV['DB_CONNECTION'] = 'sqlite';
 $_SERVER['DB_CONNECTION'] = 'sqlite';
+
+\Pinoox\Component\Helpers\EnvBootstrap::load(PINOOX_BASE_PATH);
+
+// EnvBootstrap defaults APP_DEBUG=true for non-production modes; PHPUnit treats E_USER_NOTICE as failures.
+putenv('APP_DEBUG=false');
+$_ENV['APP_DEBUG'] = 'false';
+$_SERVER['APP_DEBUG'] = 'false';
+\Pinoox\Support\SystemConfig::clearCache();
 
 Pinoox\Component\Test\AppTestKit::boot();
 
