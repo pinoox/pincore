@@ -60,7 +60,10 @@ Run only isolated tests (CI-friendly):
 
 ```bash
 php pinoox test platform --exclude-group=non-isolated
+composer test:ci
 ```
+
+CI uses `phpunit.ci.xml`, which excludes the `non-isolated` group at the PHPUnit config level.
 
 Installer DB integration (optional):
 
