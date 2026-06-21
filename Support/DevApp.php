@@ -29,10 +29,6 @@ final class DevApp
 
     public static function defaultCliPackage(): string
     {
-        if (getenv('PINX_DEV') !== '1' && getenv('PINOOX_DEV') !== '1') {
-            return 'platform';
-        }
-
         return self::package() ?? 'platform';
     }
 

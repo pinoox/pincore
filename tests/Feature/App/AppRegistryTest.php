@@ -36,7 +36,7 @@ it('registers external apps from the system app registry config', function () {
         file_put_contents($registryFile, "<?php\n\nreturn ['packages' => ['{$package}' => '" . testFixturesProjectRelative('external_apps/' . $package) . "']];\n");
 
         $packages = AppRegistry::load($registryFile, $basePath);
-        $engine = new PackageAppEngine($basePath . '/missing_apps_dir', 'app.php', 'pinker', null, $packages);
+        $engine = new PackageAppEngine($basePath . '/missing_apps_dir', 'app.php', testAppRegistryPinkerPath(), null, $packages);
 
         expect($packages[$package])->toBe($externalApp)
             ->and($engine->exists($package))->toBeTrue()
@@ -62,7 +62,7 @@ it('autoloads external app namespaces registered by the system registry', functi
     file_put_contents($controllerDir . '/RegistryController.php', "<?php\n\nnamespace App\\{$package}\\Controller;\n\nclass RegistryController {}\n");
 
     $packages = [$package => $externalApp];
-    $engine = new PackageAppEngine($basePath . '/missing_apps_dir', 'app.php', 'pinker', null, $packages);
+    $engine = new PackageAppEngine($basePath . '/missing_apps_dir', 'app.php', testAppRegistryPinkerPath(), null, $packages);
     $loader = new Composer\Autoload\ClassLoader();
     $loader->register();
 
@@ -143,7 +143,7 @@ it('combines folder discovery with registry packages in the app engine', functio
         ],
     ], $basePath);
 
-    $engine = new PackageAppEngine($appsPath, 'app.php', 'pinker', null, $registry);
+    $engine = new PackageAppEngine($appsPath, 'app.php', testAppRegistryPinkerPath(), null, $registry);
 
     expect($engine->exists($folderPackage))->toBeTrue()
         ->and($engine->exists($registryPackage))->toBeTrue()
@@ -174,7 +174,7 @@ it('prefers registry path when the same package exists in the apps folder', func
         ],
     ], $basePath);
 
-    $engine = new PackageAppEngine($appsPath, 'app.php', 'pinker', null, $registry);
+    $engine = new PackageAppEngine($appsPath, 'app.php', testAppRegistryPinkerPath(), null, $registry);
 
     expect($engine->path($package))->toBe($externalApp)
         ->and($engine->config($package)->get('name'))->toBe('Registry copy');
@@ -231,5 +231,10 @@ function deleteAppRegistryTestDirectory(string $dir): void
     }
 
     rmdir($dir);
+}
+
+function testAppRegistryPinkerPath(): string
+{
+    return testFixturesProjectRelative('runtime/pinker');
 }
 

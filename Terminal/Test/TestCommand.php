@@ -47,6 +47,7 @@ class TestCommand extends Terminal
         'Theme',
         'Config',
         'Database',
+        'Cli',
         'Integration',
         'Unit',
     ];
@@ -89,6 +90,7 @@ HELP)
         parent::execute($input, $output);
         $io = new SymfonyStyle($input, $output);
 
+        $this->primeIsolatedRuntimePaths();
         Config::name('~pinoox')->set('mode', 'test');
 
         if ($input->getOption('list-suites')) {
@@ -260,6 +262,67 @@ HELP)
         putenv('PINOOX_TEST_PACKAGE=' . $package);
         $_ENV['PINOOX_TEST_PACKAGE'] = $package;
         $_SERVER['PINOOX_TEST_PACKAGE'] = $package;
+    }
+
+    private function primeIsolatedRuntimePaths(): void
+    {
+        $useProjectPaths = $this->envValue('PINOOX_TEST_USE_PROJECT_PATHS');
+        if ($useProjectPaths === '1' || strtolower($useProjectPaths) === 'true') {
+            return;
+        }
+
+        $runtime = rtrim(SystemConfig::corePath('tests/Fixtures/runtime'), '/\\');
+
+        $this->setEnv('PINOOX_TEST_RUNTIME_PATH', $this->projectRelative($runtime));
+        $this->setEnv('PINOOX_APPS_PATH', $this->projectRelative($runtime . '/apps'));
+        $this->setEnv('PINOOX_PINKER_PATH', $this->projectRelative($runtime . '/pinker'));
+        $this->setEnv('PINOOX_STORAGE_PATH', $this->projectRelative($runtime . '/storage'));
+        $this->setEnv('PINOOX_PROJECT_REGISTRY_PATH', $this->projectRelative($runtime . '/project-apps.registry.php'));
+
+        foreach ([
+            $runtime,
+            $runtime . '/apps',
+            $runtime . '/pinker',
+            $runtime . '/pinker/apps',
+            $runtime . '/pinker/platform',
+            $runtime . '/pinker/state',
+            $runtime . '/pinker/state/platform',
+            $runtime . '/pinker/wizard_tmp',
+            $runtime . '/storage',
+            $runtime . '/storage/pinion',
+        ] as $directory) {
+            if (!is_dir($directory)) {
+                @mkdir($directory, 0777, true);
+            }
+        }
+
+        SystemConfig::clearCache();
+    }
+
+    private function setEnv(string $key, string $value): void
+    {
+        putenv($key . '=' . $value);
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
+    }
+
+    private function envValue(string $key): string
+    {
+        $value = $_ENV[$key] ?? $_SERVER[$key] ?? getenv($key);
+
+        return is_string($value) ? $value : '';
+    }
+
+    private function projectRelative(string $path): string
+    {
+        $root = rtrim(str_replace('\\', '/', SystemConfig::rootPath()), '/');
+        $path = str_replace('\\', '/', $path);
+
+        if (str_starts_with($path, $root . '/')) {
+            return substr($path, strlen($root) + 1);
+        }
+
+        return $path;
     }
 
     private function printAppTestHints(SymfonyStyle $io, string $package, string $testPath): void

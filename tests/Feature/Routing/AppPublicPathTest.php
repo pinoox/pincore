@@ -27,7 +27,7 @@ it('resolves empty public prefix for in-tree apps registered with ~', function (
     appPublicPathBootstrapIntreeApp($basePath, $package);
 
     $registry = AppRegistry::fromArray(['packages' => [$package => '~']], $basePath);
-    $engine = new PackageAppEngine($basePath . '/apps_unused', 'app.php', 'pinker', null, $registry);
+    $engine = new PackageAppEngine($basePath . '/apps_unused', 'app.php', appPublicPathPinkerPath(), null, $registry);
 
     expect(AppPublicPath::prefix($engine, $package, $basePath))->toBe('')
         ->and($engine->packagePaths())->toHaveKey($package)
@@ -41,7 +41,7 @@ it('builds theme asset urls without apps prefix for in-tree apps', function () {
     appPublicPathBootstrapIntreeApp($basePath, $package);
 
     $registry = AppRegistry::fromArray(['packages' => [$package => '~']], $basePath);
-    $engine = new PackageAppEngine($basePath . '/apps_unused', 'app.php', 'pinker', null, $registry);
+    $engine = new PackageAppEngine($basePath . '/apps_unused', 'app.php', appPublicPathPinkerPath(), null, $registry);
     $request = Request::create('http://localhost/', 'GET');
     $request->server->set('HTTP_HOST', 'localhost');
 
@@ -65,7 +65,7 @@ it('keeps apps prefix for standard folder apps', function () {
     file_put_contents($appRoot . '/app.php', "<?php\n\nreturn ['package' => '{$package}', 'enable' => true];\n");
     file_put_contents($appRoot . '/resources/icon.png', 'png');
 
-    $engine = new PackageAppEngine($appsPath, 'app.php', 'pinker');
+    $engine = new PackageAppEngine($appsPath, 'app.php', appPublicPathPinkerPath());
     $request = Request::create('http://localhost/', 'GET');
     $request->server->set('HTTP_HOST', 'localhost');
 
@@ -79,6 +79,11 @@ it('keeps apps prefix for standard folder apps', function () {
 function appPublicPathFixtureRoot(): string
 {
     return str_replace('\\', '/', testFixtures('app_public_path'));
+}
+
+function appPublicPathPinkerPath(): string
+{
+    return testRuntimePinker();
 }
 
 function appPublicPathBootstrapIntreeApp(string $basePath, string $package): void

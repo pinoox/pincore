@@ -89,9 +89,14 @@ class Pinker extends Portal
 		$relative = $sourceFile;
 		$corePath = defined('PINOOX_CORE_PATH') ? rtrim(self::ds(\PINOOX_CORE_PATH), '/') : $basePath . '/pincore';
 		$appsPath = rtrim(self::ds(SystemConfig::path('apps')), '/');
+		$testRuntimePath = self::testRuntimePath();
 
 		if ($appsPath !== '' && str_starts_with($sourceFile, $appsPath . '/')) {
 			$relative = 'apps/' . substr($sourceFile, strlen($appsPath) + 1);
+		} elseif ($testRuntimePath !== null && str_starts_with($sourceFile, $testRuntimePath . '/apps/')) {
+			$relative = 'apps/' . substr($sourceFile, strlen($testRuntimePath . '/apps/'));
+		} elseif ($testRuntimePath !== null && str_starts_with($sourceFile, $testRuntimePath . '/')) {
+			$relative = 'runtime/' . substr($sourceFile, strlen($testRuntimePath) + 1);
 		} elseif (!empty($corePath) && str_starts_with($sourceFile, $corePath . '/config/')) {
 			$relative = 'platform' . substr($sourceFile, strlen($corePath . '/config'));
 		} elseif (!empty($corePath) && ($sourceFile === $corePath || str_starts_with($sourceFile, $corePath . '/'))) {
@@ -106,6 +111,16 @@ class Pinker extends Portal
 	public static function rootPath(): string
 	{
 		return rtrim(self::ds((string)Loader::getBasePath()), '/');
+	}
+
+	private static function testRuntimePath(): ?string
+	{
+		$path = SystemConfig::env('PINOOX_TEST_RUNTIME_PATH');
+		if (!is_string($path) || $path === '') {
+			return null;
+		}
+
+		return rtrim(self::ds(SystemConfig::resolvePath($path)), '/');
 	}
 
 	private static function isAbsolutePath(string $path): bool

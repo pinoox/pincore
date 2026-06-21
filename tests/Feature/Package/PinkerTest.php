@@ -326,6 +326,16 @@ it('maps pincore config source files to pinker/platform', function () {
         ->toBe(pinkerTestPinkerRoot() . '/platform/app/source.config.php');
 });
 
+it('keeps test runtime sources inside the isolated pinker root', function () {
+    $sourceFile = pinkerTestPath(testRuntimeRoot() . '/config/sample.php');
+    $bakedFile = Pinker::bakedFileFromSource($sourceFile);
+
+    expect($bakedFile)
+        ->toBe(testRuntimePinker() . '/runtime/config/sample.php')
+        ->and($bakedFile)->toStartWith(testRuntimePinker() . '/')
+        ->and($bakedFile)->not->toContain('/pinker/pincore/tests/Fixtures/runtime/');
+});
+
 function deletePinkerTestApp(string $package): void
 {
     AppTestKit::deleteFakeApp($package);

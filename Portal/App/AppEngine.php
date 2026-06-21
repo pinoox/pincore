@@ -22,6 +22,7 @@ use Pinoox\Component\Store\Config\ConfigInterface as ObjectPortal3;
 use Pinoox\Component\Translator\Translator as ObjectPortal1;
 use Pinoox\Portal\Pinker;
 use Pinoox\Support\AppRegistry;
+use Pinoox\Support\DevApp;
 use Pinoox\Support\SystemConfig;
 use Pinoox\Support\SystemApp;
 
@@ -60,10 +61,17 @@ class AppEngine extends Portal
 
 	private static function registeredPackages(): array
 	{
-		return AppRegistry::load(
+		$packages = AppRegistry::load(
 		    SystemConfig::path('system_registry'),
 		    (string)Loader::getBasePath(),
 		);
+
+		$devPackage = DevApp::package((string)Loader::getBasePath());
+		if ($devPackage !== null && !isset($packages[$devPackage])) {
+			$packages[$devPackage] = (string)Loader::getBasePath();
+		}
+
+		return $packages;
 	}
 
 	/**
