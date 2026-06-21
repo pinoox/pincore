@@ -15,6 +15,8 @@ final class TestRuntime
 
     private const ENV_STORAGE_PATH = 'PINOOX_STORAGE_PATH';
 
+    private const ENV_TEST_RUNTIME_PATH = 'PINOOX_TEST_RUNTIME_PATH';
+
     private const ENV_PROJECT_REGISTRY = 'PINOOX_PROJECT_REGISTRY_PATH';
 
     public static function bootstrap(string $platformRoot): void
@@ -111,6 +113,7 @@ final class TestRuntime
 
     private static function applyPathEnv(): void
     {
+        self::setEnv(self::ENV_TEST_RUNTIME_PATH, self::projectRelative(self::root()));
         self::setEnv(self::ENV_APPS_PATH, self::projectRelative(self::appsRoot()));
         self::setEnv(self::ENV_PINKER_PATH, self::projectRelative(self::pinkerRoot()));
         self::setEnv(self::ENV_STORAGE_PATH, self::projectRelative(self::storageRoot()));
