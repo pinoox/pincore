@@ -8,6 +8,7 @@ use Pinoox\Component\Package\Pinx\PinxInstaller;
 use Pinoox\Component\Package\Pinx\PinxManifest;
 use Pinoox\Component\Package\Pinx\PinxPinkerRegistry;
 use Pinoox\Component\Package\Pinx\PinxReader;
+use Pinoox\Component\Package\Pinx\PinxUninstaller;
 use Pinoox\Component\Package\Pinx\PinxSignKey;
 use Pinoox\Component\Package\Pinx\PinxVersion;
 use Pinoox\Component\Test\AppTestKit;
@@ -19,6 +20,8 @@ use Symfony\Component\Console\Tester\CommandTester;
 beforeEach(function () {
     pinxSystemDeleteTestApp('com_test_pinx');
     pinxSystemDeleteTestApp('com_test_pinx_clone');
+    pinxSystemDeleteTestApp('com_test_dep_host');
+    pinxSystemDeleteTestApp('com_test_dep_client');
     pinxSystemCleanupArtifacts();
     AppEngine::__rebuild();
 });
@@ -26,6 +29,8 @@ beforeEach(function () {
 afterEach(function () {
     pinxSystemDeleteTestApp('com_test_pinx');
     pinxSystemDeleteTestApp('com_test_pinx_clone');
+    pinxSystemDeleteTestApp('com_test_dep_host');
+    pinxSystemDeleteTestApp('com_test_dep_client');
     pinxSystemCleanupArtifacts();
 });
 
@@ -387,6 +392,60 @@ it('preserves pinker runtime overrides when updating an app package', function (
         ->and(AppEngine::config('com_test_pinx')->get('lang'))->toBe('fa')
         ->and(AppEngine::config('com_test_pinx')->get('theme'))->toBe('custom')
         ->and(AppEngine::config('com_test_pinx')->get('name'))->toBe('Updated');
+});
+
+it('uninstalls an app with rollback routes and pinker cleanup', function () {
+    pinxSystemWriteTestApp('com_test_pinx');
+    AppEngine::__rebuild();
+
+    PinxPinkerRegistry::restoreOverrides('com_test_pinx', [
+        'app.php' => [
+            'data' => ['lang' => 'fa'],
+            'remove' => [],
+        ],
+    ]);
+
+    $result = (new PinxUninstaller(AppEngine::___()))
+        ->uninstallApp('com_test_pinx', [
+            'skip_migrate' => true,
+        ]);
+
+    expect($result->success)->toBeTrue()
+        ->and($result->type)->toBe('app')
+        ->and(AppEngine::___()->exists('com_test_pinx'))->toBeFalse();
+
+    $pinkerRoot = SystemConfig::path('pinker');
+    expect(is_dir($pinkerRoot . '/state/apps/com_test_pinx'))->toBeFalse();
+});
+
+it('blocks uninstall when another app depends on the package', function () {
+    pinxSystemWriteTestApp('com_test_dep_host');
+    pinxSystemWriteTestApp('com_test_dep_client', [
+        'depends' => ['com_test_dep_host'],
+    ]);
+    AppEngine::__rebuild();
+
+    $result = (new PinxUninstaller(AppEngine::___()))
+        ->uninstallApp('com_test_dep_host');
+
+    expect($result->success)->toBeFalse()
+        ->and($result->message)->toContain('com_test_dep_client');
+});
+
+it('uninstalls a theme folder from its host app', function () {
+    pinxSystemWriteTestApp('com_test_pinx', ['theme' => 'spark'], withTheme: 'spark', withThemeMeta: true);
+    AppEngine::__rebuild();
+
+    $themePath = pinxSystemAppDir('com_test_pinx') . '/theme/spark';
+    expect(is_dir($themePath))->toBeTrue();
+
+    $result = (new PinxUninstaller(AppEngine::___()))
+        ->uninstallTheme('com_test_pinx', 'spark');
+
+    expect($result->success)->toBeTrue()
+        ->and($result->type)->toBe('theme')
+        ->and(is_dir($themePath))->toBeFalse()
+        ->and(AppEngine::___()->exists('com_test_pinx'))->toBeTrue();
 });
 
 function pinxSystemWriteTestApp(string $package, array $extra = [], bool $withTheme = false, bool $withThemeMeta = false): void

@@ -288,6 +288,50 @@ final class AppDependency
     }
 
     /**
+     * Installed apps that declare a required dependency on $package.
+     *
+     * @return list<string>
+     */
+    public static function dependents(string $package, AppEngine $engine): array
+    {
+        $package = trim($package);
+
+        if ($package === '') {
+            return [];
+        }
+
+        $dependents = [];
+
+        foreach ($engine->all() as $name => $manager) {
+            if (!$manager->exists() || $name === $package) {
+                continue;
+            }
+
+            $appFile = $engine->path($name, 'app.php');
+            $config = is_file($appFile) ? include $appFile : [];
+
+            if (!is_array($config)) {
+                continue;
+            }
+
+            foreach (self::fromAppConfig($config) as $rule) {
+                if (!empty($rule['optional'])) {
+                    continue;
+                }
+
+                if ($rule['package'] === $package) {
+                    $dependents[] = $name;
+                    break;
+                }
+            }
+        }
+
+        sort($dependents);
+
+        return array_values(array_unique($dependents));
+    }
+
+    /**
      * @param array<string, true> $candidateSet
      * @return list<string>
      */
