@@ -39,4 +39,5 @@ return [
     'app_config' => 'config',
     'wizard_tmp' => '~pinker/wizard_tmp',
     'pinion_uploads' => '~storage/pinion',
+    'package_manual' => '~storage/downloads/packages/manual',
 ];
