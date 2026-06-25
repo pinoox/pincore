@@ -3,12 +3,12 @@
 namespace Pinoox\Terminal\Pinx;
 
 use Pinoox\Component\Package\AppDependency;
-use Pinoox\Component\Package\Pinx\PinxBuilder;
 use Pinoox\Component\Package\Pinx\PinxBuildConfig;
 use Pinoox\Component\Package\Pinx\PinxCliManifest;
 use Pinoox\Component\Package\Pinx\PinxManifest;
 use Pinoox\Component\Terminal;
 use Pinoox\Portal\App\AppEngine;
+use Pinoox\Portal\Pinx;
 use Pinoox\Terminal\Concerns\SelectsPackage;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -63,7 +63,7 @@ HELP
             'sectionTitle' => 'Packages available for pinx build',
         ]);
 
-        $builder = new PinxBuilder(AppEngine::___());
+        $builder = Pinx::builder();
         $outputPath = $input->getOption('output');
 
         $locale = trim((string) $input->getOption('locale'));

@@ -4,11 +4,9 @@ namespace Pinoox\Terminal\Pinx;
 
 use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Kernel\Loader;
-use Pinoox\Component\Package\Pinx\PinxInstaller;
-use Pinoox\Component\Package\Pinx\PinxReader;
 use Pinoox\Component\Terminal;
 use Pinoox\Portal\App\AppEngine;
-use Pinoox\Support\SystemConfig;
+use Pinoox\Portal\Pinx;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -64,20 +62,13 @@ HELP
         }
 
         try {
-            $reader = new PinxReader();
-            $reader->open($packagePath);
-            $manifest = $reader->manifest();
-            $reader->close();
+            $manifest = Pinx::manifest($packagePath);
         } catch (\Throwable $e) {
             $io->error($e->getMessage());
             return Command::FAILURE;
         }
 
-        $installer = new PinxInstaller(
-            AppEngine::___(),
-            SystemConfig::path('wizard_tmp'),
-        );
-        $plannedMode = $installer->resolveMode($manifest, (bool) $input->getOption('force'));
+        $plannedMode = Pinx::resolveMode($manifest, (bool) $input->getOption('force'));
 
         $io->section('Pinx install');
         $io->definitionList(
@@ -129,6 +120,7 @@ HELP
             return Command::SUCCESS;
         }
 
+        $installer = Pinx::installer();
         $installer->onStep(static function (string $step, string $status, string $message) use ($io): void {
             $io->writeln(sprintf('  <comment>[%s]</comment> %s: %s', strtoupper($status), $step, $message));
         });

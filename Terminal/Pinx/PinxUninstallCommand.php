@@ -3,9 +3,9 @@
 namespace Pinoox\Terminal\Pinx;
 
 use Pinoox\Component\Package\AppDependency;
-use Pinoox\Component\Package\Pinx\PinxUninstaller;
 use Pinoox\Component\Terminal;
 use Pinoox\Portal\App\AppEngine;
+use Pinoox\Portal\Pinx;
 use Pinoox\Terminal\Concerns\SelectsPackage;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -103,7 +103,7 @@ HELP
             return Command::SUCCESS;
         }
 
-        $uninstaller = new PinxUninstaller(AppEngine::___());
+        $uninstaller = Pinx::uninstaller();
         $uninstaller->onStep(static function (string $step, string $status, string $message) use ($io): void {
             $io->writeln(sprintf('  <comment>[%s]</comment> %s: %s', strtoupper($status), $step, $message));
         });
