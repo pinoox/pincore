@@ -210,4 +210,27 @@ final class PinxPinkerRegistry
 
         file_put_contents($overrideFile, $content);
     }
+
+    public static function purge(string $package): int
+    {
+        $count = 0;
+
+        foreach (self::entries($package) as $entry) {
+            $entry['pinker']->remove();
+            $count++;
+        }
+
+        $pinkerRoot = rtrim(str_replace('\\', '/', SystemConfig::path('pinker')), '/');
+
+        foreach ([
+            $pinkerRoot . '/apps/' . $package,
+            $pinkerRoot . '/state/apps/' . $package,
+        ] as $dir) {
+            if (is_dir($dir)) {
+                \Pinoox\Portal\FileSystem::remove($dir);
+            }
+        }
+
+        return $count;
+    }
 }
