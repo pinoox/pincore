@@ -72,6 +72,7 @@ class PinxBuilder
                 $sourcePath,
                 $build,
                 $manifest,
+                $appConfig,
                 $outputPath,
                 $alwaysInclude,
                 $composerPrepared,
@@ -107,6 +108,7 @@ class PinxBuilder
         string $sourcePath,
         array $build,
         PinxManifest $manifest,
+        array $appConfig,
         ?string $outputPath,
         array $alwaysInclude,
         bool $composerPrepared,
@@ -127,6 +129,12 @@ class PinxBuilder
             throw new Exception(
                 'No files selected for pinx build. Source: ' . $sourcePath
                 . ' (check build excludes or app path mapping).',
+            );
+        }
+
+        if ($build['type'] === PinxManifest::TYPE_APP) {
+            $manifest = PinxManifest::fromArray(
+                PinxIcon::enrichManifest($manifest->toArray(), $appConfig, $payloadFiles),
             );
         }
 

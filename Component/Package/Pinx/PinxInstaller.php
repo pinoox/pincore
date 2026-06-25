@@ -35,6 +35,11 @@ class PinxInstaller
         return $this;
     }
 
+    public function resolveMode(PinxManifest $manifest, bool $force = false): string
+    {
+        return $this->detectMode($manifest, $force);
+    }
+
     /**
      * @param array{
      *     force?: bool,
@@ -42,7 +47,8 @@ class PinxInstaller
      *     skip_patch?: bool,
      *     skip_cache?: bool,
      *     skip_verify?: bool,
-     *     require_signature?: bool
+     *     require_signature?: bool,
+     *     reset_overrides?: bool
      * } $options
      */
     public function install(string $packagePath, array $options = []): PinxInstallResult
@@ -103,7 +109,7 @@ class PinxInstaller
             }
 
             $mode = $this->detectMode($manifest, (bool) ($options['force'] ?? false));
-            $this->recordStep($steps, 'detect', 'ok', ucfirst($mode) . ' detected.');
+            $this->recordStep($steps, 'detect', 'ok', $this->describeMode($manifest, $mode));
 
             if ($manifest->isTheme()) {
                 $this->assertThemeTarget($manifest);
@@ -123,6 +129,26 @@ class PinxInstaller
                 $this->recordStep($steps, 'identity', 'skipped', 'Fresh install publisher recorded after extraction.');
             }
 
+            $pinkerReconciler = new PinxPinkerReconciler();
+            $resetOverrides = (bool) ($options['reset_overrides'] ?? false);
+
+            if ($mode === 'update' && $manifest->isApp() && !$resetOverrides) {
+                $paths = $pinkerReconciler->captureForUpdate($manifest->package());
+
+                if ($paths > 0) {
+                    $this->recordStep(
+                        $steps,
+                        'pinker_snapshot',
+                        'ok',
+                        sprintf('Captured %d runtime override path(s) from pinker/state.', $paths),
+                    );
+                } else {
+                    $this->recordStep($steps, 'pinker_snapshot', 'skipped', 'No pinker runtime overrides to preserve.');
+                }
+            } elseif ($mode === 'update' && $manifest->isApp() && $resetOverrides) {
+                $this->recordStep($steps, 'pinker_snapshot', 'skipped', 'Runtime overrides will be reset after update.');
+            }
+
             $this->extractPackage($manifest, $zip, $destination);
             $this->recordStep($steps, 'extract', 'ok', 'Files extracted to ' . $destination . '.');
 
@@ -138,6 +164,23 @@ class PinxInstaller
             AppEnginePortal::__rebuild();
 
             if ($manifest->isApp()) {
+                $reconcile = $pinkerReconciler->reconcile($manifest->package(), $resetOverrides);
+
+                if ($reconcile['rebuilt'] > 0) {
+                    $this->recordStep(
+                        $steps,
+                        'pinker',
+                        'ok',
+                        sprintf(
+                            'Pinker rebuilt for %d file(s); %d override path(s) restored.',
+                            $reconcile['rebuilt'],
+                            $reconcile['restored'],
+                        ),
+                    );
+                } else {
+                    $this->recordStep($steps, 'pinker', 'skipped', 'No pinker-managed files for this app.');
+                }
+
                 $this->runRegistry($manifest, $steps);
 
                 if (!($options['skip_migrate'] ?? false)) {
@@ -227,6 +270,37 @@ class PinxInstaller
         }
 
         return 'update';
+    }
+
+    private function describeMode(PinxManifest $manifest, string $mode): string
+    {
+        if ($manifest->isTheme()) {
+            return $mode === 'install'
+                ? 'Fresh theme install into ' . $manifest->targetApp() . '.'
+                : 'Theme update for ' . $manifest->themeName() . ' in ' . $manifest->targetApp() . '.';
+        }
+
+        if ($mode === 'install') {
+            return sprintf(
+                'Fresh app install (package %s #%d).',
+                $manifest->package(),
+                $manifest->versionCode(),
+            );
+        }
+
+        $installedCode = 0;
+
+        if ($this->engine->exists($manifest->package())) {
+            $existing = include $this->engine->path($manifest->package(), 'app.php');
+            $installedCode = (int) (is_array($existing) ? ($existing['version-code'] ?? 0) : 0);
+        }
+
+        return sprintf(
+            'App update: %s #%d → #%d.',
+            $manifest->package(),
+            $installedCode,
+            $manifest->versionCode(),
+        );
     }
 
     private function canUpdate(PinxManifest $manifest, bool $force): bool
