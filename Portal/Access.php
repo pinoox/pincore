@@ -41,18 +41,7 @@ class Access extends Portal
 
     public static function __callback(): array
     {
-        return [
-            'can',
-            'any',
-            'all',
-            'cannot',
-            'authorize',
-            'define',
-            'abilitiesFor',
-            'assignRole',
-            'givePermissionToRole',
-            'routePermission',
-        ];
+        return [];
     }
 }
 
