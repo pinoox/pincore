@@ -146,6 +146,42 @@ class PinxReader
 
 
 
+    public function iconContents(): ?string
+
+    {
+
+        if ($this->zip === null || $this->manifest === null) {
+
+            return null;
+
+        }
+
+
+
+        return PinxIcon::readContents($this->manifest, $this->zip);
+
+    }
+
+
+
+    public function iconDataUri(): ?string
+
+    {
+
+        if ($this->zip === null || $this->manifest === null) {
+
+            return null;
+
+        }
+
+
+
+        return PinxIcon::dataUri($this->manifest, $this->zip);
+
+    }
+
+
+
     private function detectManifest(ZipFile $zip): PinxManifest
 
     {

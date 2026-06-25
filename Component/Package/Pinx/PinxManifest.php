@@ -240,6 +240,34 @@ class PinxManifest
         return $this->type() === self::TYPE_THEME;
     }
 
+    public function icon(): string
+    {
+        return (string) ($this->data['icon'] ?? '');
+    }
+
+    public function iconEntry(): string
+    {
+        return (string) ($this->data['icon_entry'] ?? '');
+    }
+
+    public function iconMime(): string
+    {
+        return (string) ($this->data['icon_mime'] ?? '');
+    }
+
+    public function hasIcon(): bool
+    {
+        return $this->iconEntry() !== '';
+    }
+
+    /**
+     * @param array<string, mixed> $data
+     */
+    public function withData(array $data): self
+    {
+        return new self(array_replace($this->data, $data));
+    }
+
     /**
      * @return array<string, mixed>
      */

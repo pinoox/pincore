@@ -6,6 +6,7 @@ use Pinoox\Component\Package\Pinx\PinxFileSelector;
 use Pinoox\Component\Package\Pinx\PinxIdentity;
 use Pinoox\Component\Package\Pinx\PinxInstaller;
 use Pinoox\Component\Package\Pinx\PinxManifest;
+use Pinoox\Component\Package\Pinx\PinxPinkerRegistry;
 use Pinoox\Component\Package\Pinx\PinxReader;
 use Pinoox\Component\Package\Pinx\PinxSignKey;
 use Pinoox\Component\Package\Pinx\PinxVersion;
@@ -295,6 +296,97 @@ it('rejects update signed with a different publisher key', function () {
 
     expect($result->success)->toBeFalse()
         ->and($result->message)->toContain('signing key does not match');
+});
+
+it('embeds app icon metadata in pinx manifest when icon file exists', function () {
+    pinxSystemWriteTestApp('com_test_pinx', ['icon' => 'icon.png']);
+    file_put_contents(pinxSystemAppDir('com_test_pinx') . '/icon.png', 'fake-png-bytes');
+    AppEngine::__rebuild();
+
+    $build = pinxSystemBuild('com_test_pinx');
+    $manifest = (new PinxReader())->open($build['path'])->manifest();
+
+    expect($manifest->hasIcon())->toBeTrue()
+        ->and($manifest->icon())->toBe('icon.png')
+        ->and($manifest->iconEntry())->toBe('payload/icon.png');
+});
+
+it('resolves install and update mode before running the pipeline', function () {
+    pinxSystemWriteTestApp('com_test_pinx');
+    AppEngine::__rebuild();
+
+    $build = pinxSystemBuild('com_test_pinx');
+    $installer = new PinxInstaller(AppEngine::___(), SystemConfig::path('wizard_tmp'));
+
+    pinxSystemDeleteTestApp('com_test_pinx');
+    AppEngine::__rebuild();
+
+    $reader = new PinxReader();
+    $reader->open($build['path']);
+
+    expect($installer->resolveMode($reader->manifest()))->toBe('install');
+
+    $reader->close();
+
+    pinxSystemWriteTestApp('com_test_pinx');
+    AppEngine::__rebuild();
+
+    $reader->open($build['path']);
+
+    expect($installer->resolveMode($reader->manifest()))->toBe('update');
+
+    $reader->close();
+});
+
+it('preserves pinker runtime overrides when updating an app package', function () {
+    pinxSystemWriteTestApp('com_test_pinx', ['lang' => 'en', 'version-code' => 1]);
+    AppEngine::__rebuild();
+
+    PinxPinkerRegistry::restoreOverrides('com_test_pinx', [
+        'app.php' => [
+            'data' => ['lang' => 'fa', 'theme' => 'custom'],
+            'remove' => [],
+        ],
+    ]);
+
+    AppEngine::__rebuild();
+
+    expect(AppEngine::config('com_test_pinx')->get('lang'))->toBe('fa');
+
+    pinxSystemWriteTestApp('com_test_pinx', [
+        'lang' => 'en',
+        'theme' => 'default',
+        'version-code' => 2,
+        'name' => 'Updated',
+    ]);
+    AppEngine::__rebuild();
+
+    PinxPinkerRegistry::restoreOverrides('com_test_pinx', [
+        'app.php' => [
+            'data' => ['lang' => 'fa', 'theme' => 'custom'],
+            'remove' => [],
+        ],
+    ]);
+
+    AppEngine::__rebuild();
+
+    $build = pinxSystemBuild('com_test_pinx');
+
+    $result = (new PinxInstaller(AppEngine::___(), SystemConfig::path('wizard_tmp')))
+        ->install($build['path'], [
+            'force' => true,
+            'skip_migrate' => true,
+            'skip_patch' => true,
+            'skip_cache' => true,
+        ]);
+
+    AppEngine::__rebuild();
+
+    expect($result->success)->toBeTrue()
+        ->and($result->mode)->toBe('update')
+        ->and(AppEngine::config('com_test_pinx')->get('lang'))->toBe('fa')
+        ->and(AppEngine::config('com_test_pinx')->get('theme'))->toBe('custom')
+        ->and(AppEngine::config('com_test_pinx')->get('name'))->toBe('Updated');
 });
 
 function pinxSystemWriteTestApp(string $package, array $extra = [], bool $withTheme = false, bool $withThemeMeta = false): void
