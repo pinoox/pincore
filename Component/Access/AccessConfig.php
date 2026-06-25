@@ -13,7 +13,8 @@ class AccessConfig
      *     enabled: bool,
      *     package: string,
      *     super_roles: list<string>,
-     *     groups: array<string, list<string>>
+     *     groups: array<string, list<string>>,
+     *     platform_super: bool
      * }
      */
     public static function resolve(): array
@@ -29,6 +30,7 @@ class AccessConfig
             'package' => TransportConfig::package(TransportScenario::ACCESS_TABLE),
             'super_roles' => array_values($config['super_roles'] ?? ['admin', 'superadmin']),
             'groups' => is_array($config['groups'] ?? null) ? $config['groups'] : [],
+            'platform_super' => (bool) ($config['platform_super'] ?? true),
         ];
     }
 }

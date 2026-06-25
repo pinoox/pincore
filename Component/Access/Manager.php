@@ -9,6 +9,7 @@ use Pinoox\Portal\Auth;
 use Pinoox\Model\PermissionModel;
 use Pinoox\Model\RoleModel;
 use Pinoox\Model\UserModel;
+use Pinoox\Support\Platform;
 
 class Manager
 {
@@ -194,6 +195,10 @@ class Manager
             return true;
         }
 
+        if ($this->isPlatformSuperUser($user, $config)) {
+            return true;
+        }
+
         if (!method_exists($user, 'roles')) {
             return false;
         }
@@ -201,6 +206,20 @@ class Manager
         return $this->withRoles(function () use ($user, $config): bool {
             return $user->roles()->whereIn('role_key', $config['super_roles'])->exists();
         }, false);
+    }
+
+    /**
+     * Platform-scoped accounts are panel super-admins (installer may omit group_key).
+     *
+     * @param array{super_roles: list<string>, groups: array<string, list<string>>, platform_super?: bool} $config
+     */
+    private function isPlatformSuperUser(UserModel $user, array $config): bool
+    {
+        if (!($config['platform_super'] ?? true)) {
+            return false;
+        }
+
+        return Platform::isPackage((string) ($user->getAttribute('app') ?? ''));
     }
 
     /**
