@@ -14,6 +14,8 @@ use Pinoox\Component\Http\Request;
 
 use Pinoox\Pinion\HttpHandler as PackageHttpHandler;
 
+use Pinoox\Support\SystemConfig;
+
 
 
 final class HttpHandler
@@ -151,6 +153,22 @@ final class HttpHandler
     {
 
         return $this->respond($this->handler->abort($uploadId));
+
+    }
+
+
+
+    public function limits(): JsonResponse
+
+    {
+
+        return ApiResponse::success(
+
+            PinionHostLimits::clientProfile(SystemConfig::path('pinion_uploads')),
+
+            translate: false,
+
+        );
 
     }
 

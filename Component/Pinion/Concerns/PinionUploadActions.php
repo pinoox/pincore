@@ -47,4 +47,9 @@ trait PinionUploadActions
     {
         return $this->pinionHandler()->abort($uploadId);
     }
+
+    public function limits()
+    {
+        return $this->pinionHandler()->limits();
+    }
 }
