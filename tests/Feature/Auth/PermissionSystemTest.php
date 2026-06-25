@@ -15,9 +15,10 @@ it('registers access portal and helpers', function () {
 it('resolves access config defaults', function () {
     $config = AccessConfig::resolve();
 
-    expect($config)->toHaveKeys(['enabled', 'package', 'super_roles', 'groups'])
+    expect($config)->toHaveKeys(['enabled', 'package', 'super_roles', 'groups', 'platform_super'])
         ->and($config['enabled'])->toBeTrue()
-        ->and($config['super_roles'])->toContain('admin');
+        ->and($config['super_roles'])->toContain('admin')
+        ->and($config['platform_super'])->toBeTrue();
 });
 
 it('checks abilities via custom gates', function () {
@@ -99,6 +100,16 @@ it('extracts route permission from api defaults', function () {
     ]);
 
     expect($permission)->toBe('manager.users.view');
+});
+
+it('treats platform users as super admins when group_key is missing', function () {
+    $manager = new Manager();
+
+    $user = new UserModel();
+    $user->user_id = 103;
+    $user->setAttribute('app', 'platform');
+
+    expect($manager->can('manager.users.view', $user))->toBeTrue();
 });
 
 it('authorizes or throws authorization exception', function () {
