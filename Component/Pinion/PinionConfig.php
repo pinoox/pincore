@@ -15,9 +15,15 @@ final class PinionConfig
         $config = self::load('pinion');
         $merged = array_merge($config, $overrides ?? []);
 
+        $stagingPath = null;
         if (!isset($merged['storage_path']) || str_starts_with((string) $merged['storage_path'], '~')) {
-            $merged['storage_path'] = SystemConfig::path('pinion_uploads');
+            $stagingPath = SystemConfig::path('pinion_uploads');
+            $merged['storage_path'] = $stagingPath;
+        } else {
+            $stagingPath = (string) $merged['storage_path'];
         }
+
+        $merged = PinionHostLimits::tune($merged, $stagingPath);
 
         return PackageConfig::resolve($merged);
     }
