@@ -17,6 +17,7 @@ namespace Pinoox\Terminal\Migrate;
 use Pinoox\Component\Migration\Migrator;
 use Pinoox\Component\Terminal;
 use Pinoox\Component\Database\DatabaseConfig;
+use Pinoox\Component\Database\DevDB\DevDbStore;
 use Pinoox\Portal\Database\DB;
 use Pinoox\Support\SystemConfig;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -60,6 +61,7 @@ HELP
             ->addOption('ignore-fk', 'f', InputOption::VALUE_NONE, 'Disable foreign key checks during migration')
             ->addOption('dbconfig', null, InputOption::VALUE_NONE, 'Print the active database connection settings')
             ->addOption('devdb', null, InputOption::VALUE_NONE, 'Run migrations using Pinoox DevDB in local development')
+            ->addOption('preview', null, InputOption::VALUE_NONE, 'Preview DevDB schema metadata without writing project DevDB files')
             ->addOption('status', 's', InputOption::VALUE_NONE, 'Show which migrations ran and which are pending')
             ->addOption('reset', 'r', InputOption::VALUE_NONE, 'Rollback all migrations, then run them again')
             ->addOption('force', null, InputOption::VALUE_NONE, 'Run even when tables already exist');
@@ -77,10 +79,18 @@ HELP
         $reset = $input->getOption('reset');
         $force = $input->getOption('force');
 
-        if ($input->getOption('devdb')) {
+        if ($input->getOption('devdb') || $input->getOption('preview')) {
             $_ENV['DB_CONNECTION'] = 'devdb';
             $_SERVER['DB_CONNECTION'] = 'devdb';
             putenv('DB_CONNECTION=devdb');
+
+            if ($input->getOption('preview')) {
+                $previewPath = sys_get_temp_dir() . '/pinoox_devdb_preview_' . uniqid();
+                $_ENV['DEVDB_PATH'] = $previewPath;
+                $_SERVER['DEVDB_PATH'] = $previewPath;
+                putenv('DEVDB_PATH=' . $previewPath);
+            }
+
             SystemConfig::clearCache();
         }
 
@@ -120,6 +130,15 @@ HELP
 
             $migrator = new Migrator($package, 'run', ['force' => $force]);
             $result = $migrator->run();
+
+            if ($input->getOption('preview')) {
+                $store = new DevDbStore((string) SystemConfig::env('DEVDB_PATH'));
+                $io->section('DevDB Preview');
+                $io->writeln(json_encode($store->export()['schema'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+                return Command::SUCCESS;
+            }
+
             $this->printResult($io, $result);
 
             if ($ignoreFk) {
