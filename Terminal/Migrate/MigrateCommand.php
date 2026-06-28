@@ -17,7 +17,7 @@ namespace Pinoox\Terminal\Migrate;
 use Pinoox\Component\Migration\Migrator;
 use Pinoox\Component\Terminal;
 use Pinoox\Component\Database\DatabaseConfig;
-use Pinoox\Component\Database\DevDB\DevDbStore;
+use Pinoox\Component\Database\DevDB\DevDbRuntime;
 use Pinoox\Portal\Database\DB;
 use Pinoox\Support\SystemConfig;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -132,9 +132,9 @@ HELP
             $result = $migrator->run();
 
             if ($input->getOption('preview')) {
-                $store = new DevDbStore((string) SystemConfig::env('DEVDB_PATH'));
+                $runtime = new DevDbRuntime();
                 $io->section('DevDB Preview');
-                $io->writeln(json_encode($store->export()['schema'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+                $io->writeln(json_encode($runtime->export()['schema'], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
 
                 return Command::SUCCESS;
             }

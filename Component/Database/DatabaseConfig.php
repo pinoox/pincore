@@ -137,9 +137,56 @@ final class DatabaseConfig
             $config['driver'] = 'mysql';
         }
 
-        if (($config['driver'] ?? null) === self::DEVDB_CONNECTION && !self::isLocalRuntime()) {
-            throw new \RuntimeException('Pinoox DevDB can only be used when APP_ENV=local or APP_ENV=development.');
+        if (($config['driver'] ?? null) === self::DEVDB_CONNECTION) {
+            if (!self::isLocalRuntime()) {
+                throw new \RuntimeException('Pinoox DevDB can only be used when APP_ENV=local or APP_ENV=development.');
+            }
+
+            return self::normalizeDevDbConnection($config);
         }
+
+        return $config;
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    public static function normalizeDevDbConnection(array $config): array
+    {
+        $engine = strtolower(trim((string) ($config['engine'] ?? SystemConfig::env('DEVDB_ENGINE', 'auto'))));
+        $engine = $engine !== '' ? $engine : 'auto';
+
+        if (in_array($engine, ['auto', 'sqlite'], true) && extension_loaded('pdo_sqlite')) {
+            $path = self::devDbPath($config);
+            $sqliteDatabase = (string) ($config['sqlite_database'] ?? SystemConfig::env('DEVDB_SQLITE_DATABASE', ''));
+            if ($sqliteDatabase === '') {
+                $sqliteDatabase = $path . '/devdb.sqlite';
+            }
+
+            $dir = dirname($sqliteDatabase);
+            if ($dir !== '' && !is_dir($dir)) {
+                @mkdir($dir, 0775, true);
+            }
+            if (!is_file($sqliteDatabase)) {
+                @touch($sqliteDatabase);
+            }
+
+            return [
+                'driver' => 'sqlite',
+                'database' => $sqliteDatabase,
+                'prefix' => (string) ($config['prefix'] ?? DatabaseManager::DEFAULT_CORE_TABLE_PREFIX),
+                'foreign_key_constraints' => true,
+                'devdb' => true,
+                'devdb_engine' => 'sqlite',
+                'devdb_path' => $path,
+            ];
+        }
+
+        $config['engine'] = 'json';
+        $config['path'] = self::devDbPath($config);
+        $config['devdb'] = true;
+        $config['devdb_engine'] = 'json';
 
         return $config;
     }
@@ -413,5 +460,24 @@ final class DatabaseConfig
     private static function isLocalRuntime(): bool
     {
         return RuntimeMode::fromEnv() === RuntimeMode::DEVELOPMENT;
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private static function devDbPath(array $config): string
+    {
+        $path = (string) ($config['path'] ?? SystemConfig::env('DEVDB_PATH', ''));
+
+        if ($path === '') {
+            $path = SystemConfig::resolvePath('~/storage/devdb');
+        }
+
+        $path = SystemConfig::resolvePath($path);
+        if (!is_dir($path)) {
+            @mkdir($path, 0775, true);
+        }
+
+        return $path;
     }
 }

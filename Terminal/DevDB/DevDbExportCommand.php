@@ -25,7 +25,7 @@ class DevDbExportCommand extends Terminal
     {
         parent::execute($input, $output);
         $io = new SymfonyStyle($input, $output);
-        $json = json_encode($this->store()->export(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+        $json = json_encode($this->runtime()->export(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
         $file = $input->getArgument('file');
 
         if (is_string($file) && $file !== '') {
@@ -44,4 +44,3 @@ class DevDbExportCommand extends Terminal
         return Command::SUCCESS;
     }
 }
-

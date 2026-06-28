@@ -32,10 +32,9 @@ class DevDbClearCommand extends Terminal
             return Command::SUCCESS;
         }
 
-        $this->store()->clear();
+        $this->runtime()->clear();
         $io->success('Pinoox DevDB cleared.');
 
         return Command::SUCCESS;
     }
 }
-

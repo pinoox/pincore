@@ -2,6 +2,8 @@
 
 use Pinoox\Component\Database\Connections\DevDbConnection;
 use Pinoox\Component\Database\DatabaseConfig;
+use Pinoox\Component\Database\DatabaseManager;
+use Pinoox\Component\Database\DevDB\DevDbRuntime;
 use Pinoox\Component\Kernel\Loader;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\App\AppProvider;
@@ -81,6 +83,9 @@ it('supports Pinoox models, DB app tables, relations, pagination, and factories'
     $_ENV['APP_ENV'] = 'local';
     $_SERVER['APP_ENV'] = 'local';
     putenv('APP_ENV=local');
+    $_ENV['DEVDB_ENGINE'] = 'json';
+    $_SERVER['DEVDB_ENGINE'] = 'json';
+    putenv('DEVDB_ENGINE=json');
     \Pinoox\Support\SystemConfig::clearCache();
 
     writeTestApp('com_test_devdb', [
@@ -213,6 +218,9 @@ it('exposes DevDB status, inspect, and clear commands', function () {
     $_ENV['DEVDB_PATH'] = $path;
     $_SERVER['DEVDB_PATH'] = $path;
     putenv('DEVDB_PATH=' . $path);
+    $_ENV['DEVDB_ENGINE'] = 'json';
+    $_SERVER['DEVDB_ENGINE'] = 'json';
+    putenv('DEVDB_ENGINE=json');
     \Pinoox\Support\SystemConfig::clearCache();
 
     $connection = new DevDbConnection(null, 'devdb', '', ['path' => $path]);
@@ -331,4 +339,124 @@ it('supports DevDB v2 joins, advanced aggregates, grouped rows, nested OR querie
     $connection->table('posts')->insert(['id' => 4, 'user_id' => 3, 'status' => 'draft', 'views' => 99]);
     $connection->commit();
     expect($connection->table('posts')->count())->toBe(4);
+});
+
+it('uses an internal SQLite DevDB engine automatically when pdo sqlite is available', function () {
+    if (!extension_loaded('pdo_sqlite')) {
+        expect(true)->toBeTrue();
+
+        return;
+    }
+
+    $previous = [
+        'APP_ENV' => getenv('APP_ENV'),
+        'DB_CONNECTION' => getenv('DB_CONNECTION'),
+        'DEVDB_ENGINE' => getenv('DEVDB_ENGINE'),
+        'DEVDB_PATH' => getenv('DEVDB_PATH'),
+    ];
+    $path = sys_get_temp_dir() . '/pinoox_devdb_sqlite_' . uniqid();
+
+    $_ENV['APP_ENV'] = 'local';
+    $_SERVER['APP_ENV'] = 'local';
+    putenv('APP_ENV=local');
+    $_ENV['DB_CONNECTION'] = 'devdb';
+    $_SERVER['DB_CONNECTION'] = 'devdb';
+    putenv('DB_CONNECTION=devdb');
+    $_ENV['DEVDB_ENGINE'] = 'auto';
+    $_SERVER['DEVDB_ENGINE'] = 'auto';
+    putenv('DEVDB_ENGINE=auto');
+    $_ENV['DEVDB_PATH'] = $path;
+    $_SERVER['DEVDB_PATH'] = $path;
+    putenv('DEVDB_PATH=' . $path);
+    \Pinoox\Support\SystemConfig::clearCache();
+
+    $root = DatabaseConfig::normalize([
+        'connections' => [
+            'devdb' => [
+                'driver' => 'devdb',
+                'path' => $path,
+                'prefix' => '',
+            ],
+        ],
+    ]);
+    $config = DatabaseConfig::connectionConfig($root, 'devdb');
+
+    expect($config['driver'])->toBe('sqlite')
+        ->and($config['devdb_engine'])->toBe('sqlite')
+        ->and($config['database'])->toBe(str_replace('\\', '/', $path) . '/devdb.sqlite');
+
+    $manager = new DatabaseManager(new Illuminate\Container\Container());
+    $manager->addConnection($config, 'devdb_probe');
+    $connection = $manager->getConnection('devdb_probe');
+    $connection->getSchemaBuilder()->create('posts', function ($table) {
+        $table->increments('id');
+        $table->string('status');
+        $table->integer('views');
+    });
+    $connection->table('posts')->insert([
+        ['status' => 'published', 'views' => 10],
+        ['status' => 'draft', 'views' => 5],
+    ]);
+
+    $raw = $connection->select('select status, sum(views) as total from posts group by status order by status');
+    $runtime = new DevDbRuntime();
+    $status = $runtime->status();
+    $inspect = $runtime->inspectTable('posts', 5);
+
+    expect($raw[0]->status ?? $raw[0]['status'] ?? null)->toBe('draft')
+        ->and($status['engine'])->toBe('sqlite')
+        ->and($status['table_count'])->toBe(1)
+        ->and($inspect['row_count'])->toBe(2);
+
+    $runtime->clear();
+    expect($runtime->status()['table_count'])->toBe(0);
+
+    foreach ($previous as $key => $value) {
+        if ($value === false) {
+            putenv($key);
+            unset($_ENV[$key], $_SERVER[$key]);
+            continue;
+        }
+
+        $_ENV[$key] = (string) $value;
+        $_SERVER[$key] = (string) $value;
+        putenv($key . '=' . $value);
+    }
+    \Pinoox\Support\SystemConfig::clearCache();
+});
+
+it('keeps the JSON DevDB engine available when requested explicitly', function () {
+    $previous = [
+        'APP_ENV' => getenv('APP_ENV'),
+        'DEVDB_ENGINE' => getenv('DEVDB_ENGINE'),
+    ];
+    $_ENV['APP_ENV'] = 'local';
+    $_SERVER['APP_ENV'] = 'local';
+    putenv('APP_ENV=local');
+    $_ENV['DEVDB_ENGINE'] = 'json';
+    $_SERVER['DEVDB_ENGINE'] = 'json';
+    putenv('DEVDB_ENGINE=json');
+    \Pinoox\Support\SystemConfig::clearCache();
+
+    $config = DatabaseConfig::normalizeConnectionDriver([
+        'driver' => 'devdb',
+        'path' => sys_get_temp_dir() . '/pinoox_devdb_json_' . uniqid(),
+        'prefix' => '',
+    ]);
+
+    expect($config['driver'])->toBe('devdb')
+        ->and($config['devdb_engine'])->toBe('json');
+
+    foreach ($previous as $key => $value) {
+        if ($value === false) {
+            putenv($key);
+            unset($_ENV[$key], $_SERVER[$key]);
+            continue;
+        }
+
+        $_ENV[$key] = (string) $value;
+        $_SERVER[$key] = (string) $value;
+        putenv($key . '=' . $value);
+    }
+    \Pinoox\Support\SystemConfig::clearCache();
 });

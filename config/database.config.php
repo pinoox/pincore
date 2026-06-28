@@ -46,7 +46,9 @@ return [
         'devdb' => [
             'driver' => 'devdb',
             'database' => 'devdb',
+            'engine' => env('DEVDB_ENGINE', 'auto'),
             'path' => env('DEVDB_PATH', SystemConfig::resolvePath('~/storage/devdb')),
+            'sqlite_database' => env('DEVDB_SQLITE_DATABASE'),
             'prefix' => env('DB_PREFIX', DatabaseManager::DEFAULT_CORE_TABLE_PREFIX),
         ],
 
