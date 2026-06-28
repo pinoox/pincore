@@ -95,8 +95,8 @@ function cleanupTestArtifacts(): void
 {
     AppTestKit::cleanupTransientArtifacts();
 
-    if (!\Tests\Support\TestRuntime::usesProjectPaths()) {
-        \Tests\Support\TestRuntime::bootstrap(testProjectRoot());
+if (!\Pinoox\Tests\Support\TestRuntime::usesProjectPaths()) {
+         \Pinoox\Tests\Support\TestRuntime::bootstrap(testProjectRoot());
         \Pinoox\Support\SystemConfig::clearCache();
 
         try {
@@ -108,37 +108,37 @@ function cleanupTestArtifacts(): void
 
 function testSandbox(string $relative = ''): string
 {
-    return \Tests\Support\TestSandbox::path($relative);
+    return \Pinoox\Tests\Support\TestSandbox::path($relative);
 }
 
 function testSandboxRoot(): string
 {
-    return \Tests\Support\TestSandbox::root();
+    return \Pinoox\Tests\Support\TestSandbox::root();
 }
 
 function testPackage(string $suffix): string
 {
-    return \Tests\Support\TestSandbox::packageName($suffix);
+    return \Pinoox\Tests\Support\TestSandbox::packageName($suffix);
 }
 
 function testRuntimeRoot(): string
 {
-    return \Tests\Support\TestRuntime::root();
+    return \Pinoox\Tests\Support\TestRuntime::root();
 }
 
 function testRuntimeApps(): string
 {
-    return \Tests\Support\TestRuntime::appsRoot();
+    return \Pinoox\Tests\Support\TestRuntime::appsRoot();
 }
 
 function testRuntimePinker(): string
 {
-    return \Tests\Support\TestRuntime::pinkerRoot();
+    return \Pinoox\Tests\Support\TestRuntime::pinkerRoot();
 }
 
 function testRuntimeStorage(): string
 {
-    return \Tests\Support\TestRuntime::storageRoot();
+    return \Pinoox\Tests\Support\TestRuntime::storageRoot();
 }
 
 function testProjectRoot(): string

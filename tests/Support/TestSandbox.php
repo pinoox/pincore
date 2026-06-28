@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Support;
+namespace Pinoox\Tests\Support;
 
 use Pinoox\Component\Test\AppTestKit;
 

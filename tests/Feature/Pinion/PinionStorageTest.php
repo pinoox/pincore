@@ -7,7 +7,7 @@ use Pinoox\Component\Pinion\StorageContext;
 use Pinoox\Pinion\Config;
 use Pinoox\Pinion\Store;
 use Pinoox\Portal\Pinion;
-use Tests\Support\TestSandbox;
+use Pinoox\Tests\Support\TestSandbox;
 
 it('resolves pinion staging paths', function () {
     $resolver = new PinooxPathResolver();

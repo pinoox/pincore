@@ -1,6 +1,6 @@
 <?php
 
-uses(Tests\TestCase::class)->in('Feature', 'Unit', 'NonIsolated');
+uses(Pinoox\Tests\TestCase::class)->in('Feature', 'Unit', 'NonIsolated');
 
 /*
 | Domain folders under pincore/tests/Feature/ — see pincore/tests/README.md

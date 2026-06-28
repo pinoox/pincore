@@ -113,7 +113,13 @@ class RouteNaming
         }
 
         $first = str_contains($name, '.') ? strstr($name, '.', true) : $name;
-        if (is_string($first) && $first !== '' && $first !== $bare && self::isKnownRoutePrefix($first)) {
+        if (
+            is_string($first)
+            && $first !== ''
+            && $first !== $bare
+            && $first !== 'app'
+            && self::isKnownRoutePrefix($first)
+        ) {
             return $name;
         }
 

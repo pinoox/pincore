@@ -65,7 +65,7 @@
   },
   "autoload-dev": {
     "psr-4": {
-      "Tests\\": "tests/"
+      "Pinoox\\Tests\\": "tests/"
     }
   },
   "require-dev": {

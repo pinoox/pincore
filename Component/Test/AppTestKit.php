@@ -259,11 +259,11 @@ class AppTestKit
 
     private static function ensureTestRuntimePaths(): void
     {
-        if (!class_exists(\Tests\Support\TestRuntime::class, false)) {
+        if (!class_exists(\Pinoox\Tests\Support\TestRuntime::class, false)) {
             return;
         }
 
-        if (\Tests\Support\TestRuntime::usesProjectPaths()) {
+        if (\Pinoox\Tests\Support\TestRuntime::usesProjectPaths()) {
             return;
         }
 
@@ -271,7 +271,7 @@ class AppTestKit
             ? rtrim(str_replace('\\', '/', \PINOOX_BASE_PATH), '/')
             : SystemConfig::rootPath();
 
-        \Tests\Support\TestRuntime::bootstrap($bootstrap);
+        \Pinoox\Tests\Support\TestRuntime::bootstrap($bootstrap);
         SystemConfig::clearCache();
     }
 

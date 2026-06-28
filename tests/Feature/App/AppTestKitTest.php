@@ -45,7 +45,7 @@ it('detects package from app test path', function () {
 });
 
 it('stores transient fake apps under tests/Fixtures/runtime/apps', function () {
-    if (\Tests\Support\TestRuntime::usesProjectPaths()) {
+    if (\Pinoox\Tests\Support\TestRuntime::usesProjectPaths()) {
         test()->markTestSkipped('Runtime apps path override disabled.');
     }
 
@@ -61,7 +61,7 @@ it('stores transient fake apps under tests/Fixtures/runtime/apps', function () {
 });
 
 it('stores pinker and storage under tests/Fixtures/runtime', function () {
-    if (\Tests\Support\TestRuntime::usesProjectPaths()) {
+    if (\Pinoox\Tests\Support\TestRuntime::usesProjectPaths()) {
         test()->markTestSkipped('Runtime path override disabled.');
     }
 
@@ -87,7 +87,7 @@ it('detects package from custom apps folder path', function () {
     } finally {
         putenv('PINOOX_APPS_PATH');
         unset($_ENV['PINOOX_APPS_PATH'], $_SERVER['PINOOX_APPS_PATH']);
-        \Tests\Support\TestRuntime::bootstrap(testProjectRoot());
+        \Pinoox\Tests\Support\TestRuntime::bootstrap(testProjectRoot());
         SystemConfig::clearCache();
     }
 });

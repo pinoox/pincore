@@ -35,8 +35,8 @@ it('keeps app container opt-in disabled by default', function () {
 });
 
 it('registers bindings when container is enabled', function () {
-    $interface = 'Tests\\Support\\KernelSampleContract';
-    $service = 'Tests\\Support\\KernelSampleService';
+    $interface = 'Pinoox\Tests\\Support\\KernelSampleContract';
+    $service = 'Pinoox\Tests\\Support\\KernelSampleService';
 
     IlluminateBridge::bind($interface, $service);
 
@@ -68,7 +68,7 @@ it('registers service_container alias in pincore container', function () {
 it('hydrates container bindings from boot cache payload shape', function () {
     $payload = [
         'bindings' => [
-            Tests\Support\KernelSampleContract::class => Tests\Support\KernelSampleService::class,
+            Pinoox\Tests\Support\KernelSampleContract::class => Pinoox\Tests\Support\KernelSampleService::class,
         ],
         'controllers' => [],
         'singletons' => [],

@@ -12,7 +12,7 @@ use Pinoox\Pinion\Store;
 
 use Pinoox\Pinion\Support\NativePathResolver;
 
-use Tests\Support\TestSandbox;
+use Pinoox\Tests\Support\TestSandbox;
 
 
 
