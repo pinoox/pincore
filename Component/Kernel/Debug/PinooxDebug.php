@@ -6,7 +6,6 @@ use Pinoox\Component\Kernel\Debug\Support\ExceptionContext;
 use Symfony\Component\ErrorHandler\BufferingLogger;
 use Symfony\Component\ErrorHandler\DebugClassLoader;
 use Symfony\Component\ErrorHandler\ErrorHandler;
-use Symfony\Component\ErrorHandler\ErrorRenderer\CliErrorRenderer;
 
 class PinooxDebug
 {
@@ -31,7 +30,8 @@ class PinooxDebug
 
         $handler->setExceptionHandler(static function (\Throwable $exception) use ($handler, $projectDir): void {
             if (\in_array(\PHP_SAPI, ['cli', 'phpdbg', 'embed'], true)) {
-                $renderer = new CliErrorRenderer();
+                fwrite(STDERR, (new PinooxCliErrorRenderer($projectDir))->render($exception));
+                exit(255);
             } else {
                 $renderer = new PinooxHtmlErrorRenderer(true, null, null, $projectDir);
             }
