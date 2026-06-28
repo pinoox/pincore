@@ -9,7 +9,7 @@ use Pinoox\Component\Server\DevelopmentServer;
 use Pinoox\Component\Server\FrontController;
 use Pinoox\Component\Server\WebServerFix;
 use Pinoox\Component\Server\WebServerFixCache;
-use Tests\Support\TestSandbox;
+use Pinoox\Tests\Support\TestSandbox;
 
 afterEach(function () {
     WebServerFix::resetResolvedPaths();

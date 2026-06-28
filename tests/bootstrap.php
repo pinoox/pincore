@@ -53,7 +53,7 @@ if ($loader instanceof Composer\Autoload\ClassLoader && is_file($platformRoot . 
 if ($loader instanceof Composer\Autoload\ClassLoader) {
     $coreTests = rtrim(str_replace('\\', '/', PINOOX_CORE_PATH), '/') . '/tests';
     if (is_dir($coreTests)) {
-        $loader->addPsr4('Tests\\', $coreTests . '/');
+        $loader->addPsr4('Pinoox\\Pinoox\Tests\\', $coreTests . '/');
     }
 }
 require_once PINOOX_CORE_PATH . 'functions/base.php';
@@ -68,7 +68,7 @@ require_once __DIR__ . '/Support/TestSandbox.php';
 require_once __DIR__ . '/Support/TestRuntime.php';
 require_once __DIR__ . '/TestCase.php';
 
-Tests\Support\TestRuntime::bootstrap($platformRoot);
+Pinoox\Tests\Support\TestRuntime::bootstrap($platformRoot);
 
 // PHPUnit/Pest: test runtime overrides machine env (individual tests may override again).
 putenv('APP_ENV=test');

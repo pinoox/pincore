@@ -1,6 +1,6 @@
 <?php
 
-namespace Tests\Support;
+namespace Pinoox\Tests\Support;
 
 /**
  * Isolated apps/pinker/storage workspace for framework tests — never writes to project runtime dirs.
