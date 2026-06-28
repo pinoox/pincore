@@ -15,6 +15,7 @@ namespace Pinoox\Component\Kernel;
 
 use Pinoox\Component\Helpers\ConsoleApplication as ConsoleApplicationHelper;
 use Pinoox\Component\Helpers\Str;
+use Pinoox\Component\Runtime\RuntimeMode;
 use Pinoox\Component\Package\AppManager;
 use Pinoox\Portal\App\AppEngine;
 use Symfony\Component\Console\Application;
@@ -31,6 +32,9 @@ class Terminal
     {
         $this->application = new Application();
 
+        if (RuntimeMode::bootDebugEnabled()) {
+            $this->application->setCatchExceptions(false);
+        }
     }
 
     public function run(): void
@@ -38,11 +42,7 @@ class Terminal
         $this->finds();
         $this->bindCommands();
 
-        try {
-            $this->application->run();
-        } catch (\Exception $e) {
-            dd($e);
-        }
+        $this->application->run();
     }
 
     public function addCommand(object $command): void
