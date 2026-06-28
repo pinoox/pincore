@@ -16,6 +16,10 @@ final class DatabaseConfig
 
     public const TEST_CONNECTION = 'sqlite';
 
+    public const AUTO_CONNECTION = 'auto';
+
+    public const DEVDB_CONNECTION = 'devdb';
+
     /**
      * Active connection name (from DB_CONNECTION or config default).
      *
@@ -29,6 +33,8 @@ final class DatabaseConfig
         if (!is_array($root)) {
             throw new \InvalidArgumentException('Database config is invalid.');
         }
+
+        $requested = self::resolveConnectionName(self::normalize($root), $requested);
 
         self::connectionConfig(self::normalize($root), $requested);
 
@@ -94,7 +100,7 @@ final class DatabaseConfig
     public static function connectionConfig(array $root, ?string $connection = null): array
     {
         $root = self::normalize($root);
-        $connection = $connection ?? self::requestedConnectionName();
+        $connection = self::resolveConnectionName($root, $connection ?? self::requestedConnectionName());
         $connections = $root['connections'] ?? [];
 
         if (isset($connections[$connection]) && is_array($connections[$connection])) {
@@ -116,7 +122,7 @@ final class DatabaseConfig
         $root = self::normalize($root);
         $names = array_keys($root['connections'] ?? []);
 
-        return $names !== [] ? $names : [self::DEFAULT_CONNECTION, self::TEST_CONNECTION];
+        return $names !== [] ? $names : [self::DEFAULT_CONNECTION, self::TEST_CONNECTION, self::DEVDB_CONNECTION];
     }
 
     /**
@@ -131,7 +137,20 @@ final class DatabaseConfig
             $config['driver'] = 'mysql';
         }
 
+        if (($config['driver'] ?? null) === self::DEVDB_CONNECTION && !self::isLocalRuntime()) {
+            throw new \RuntimeException('Pinoox DevDB can only be used when APP_ENV=local or APP_ENV=development.');
+        }
+
         return $config;
+    }
+
+    public static function isDevDb(): bool
+    {
+        try {
+            return self::connectionName() === self::DEVDB_CONNECTION;
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     /** @return list<string> */
@@ -220,6 +239,15 @@ final class DatabaseConfig
             ];
         }
 
+        if (!isset($connections[self::DEVDB_CONNECTION])) {
+            $connections[self::DEVDB_CONNECTION] = [
+                'driver' => self::DEVDB_CONNECTION,
+                'database' => 'devdb',
+                'path' => SystemConfig::resolvePath('~/storage/devdb'),
+                'prefix' => DatabaseManager::DEFAULT_CORE_TABLE_PREFIX,
+            ];
+        }
+
         $legacyDefault = (string) ($root['default'] ?? self::DEFAULT_CONNECTION);
 
         return [
@@ -270,5 +298,120 @@ final class DatabaseConfig
         $root['connections'] = $connections;
 
         return $root;
+    }
+
+    /**
+     * @param array<string, mixed> $root Normalized config root
+     */
+    private static function resolveConnectionName(array $root, string $requested): string
+    {
+        if ($requested === self::DEVDB_CONNECTION) {
+            if (!self::isLocalRuntime()) {
+                throw new \RuntimeException('Pinoox DevDB can only be used when APP_ENV=local or APP_ENV=development.');
+            }
+
+            return self::DEVDB_CONNECTION;
+        }
+
+        if ($requested !== self::AUTO_CONNECTION) {
+            return $requested;
+        }
+
+        if (self::realDatabaseAvailable($root, self::DEFAULT_CONNECTION)) {
+            return self::DEFAULT_CONNECTION;
+        }
+
+        if (self::sqliteAvailable($root)) {
+            return self::TEST_CONNECTION;
+        }
+
+        if (self::isLocalRuntime()) {
+            return self::DEVDB_CONNECTION;
+        }
+
+        throw new \RuntimeException(
+            'Database is not available and Pinoox DevDB is disabled outside local development. '
+            . 'Configure MySQL/PostgreSQL/SQLite or set APP_ENV=local for DevDB.',
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $root
+     */
+    private static function realDatabaseAvailable(array $root, string $connection): bool
+    {
+        $config = $root['connections'][$connection] ?? null;
+        if (!is_array($config)) {
+            return false;
+        }
+
+        $driver = (string) ($config['driver'] ?? '');
+        if (in_array($driver, ['sqlite', self::DEVDB_CONNECTION], true)) {
+            return false;
+        }
+
+        $extension = match ($driver) {
+            'mysql', 'mariadb' => 'pdo_mysql',
+            'pgsql' => 'pdo_pgsql',
+            'sqlsrv' => 'pdo_sqlsrv',
+            default => null,
+        };
+
+        if ($extension === null || !extension_loaded('pdo') || !extension_loaded($extension)) {
+            return false;
+        }
+
+        $host = (string) ($config['host'] ?? '127.0.0.1');
+        $port = (int) ($config['port'] ?? ($driver === 'pgsql' ? 5432 : 3306));
+        $database = (string) ($config['database'] ?? '');
+        $username = (string) ($config['username'] ?? '');
+        $password = (string) ($config['password'] ?? '');
+
+        if ($host === '' || $database === '' || $username === '') {
+            return false;
+        }
+
+        $dsn = match ($driver) {
+            'mysql', 'mariadb' => sprintf('mysql:host=%s;port=%d;dbname=%s;charset=%s', $host, $port, $database, $config['charset'] ?? 'utf8mb4'),
+            'pgsql' => sprintf('pgsql:host=%s;port=%d;dbname=%s', $host, $port, $database),
+            'sqlsrv' => sprintf('sqlsrv:Server=%s,%d;Database=%s', $host, $port, $database),
+            default => null,
+        };
+
+        if ($dsn === null) {
+            return false;
+        }
+
+        try {
+            $pdo = new \PDO($dsn, $username, $password, [
+                \PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION,
+                \PDO::ATTR_TIMEOUT => 2,
+            ]);
+            $pdo->query('SELECT 1');
+
+            return true;
+        } catch (\Throwable) {
+            return false;
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $root
+     */
+    private static function sqliteAvailable(array $root): bool
+    {
+        $config = $root['connections'][self::TEST_CONNECTION] ?? null;
+        if (!is_array($config) || !extension_loaded('pdo_sqlite')) {
+            return false;
+        }
+
+        $database = (string) ($config['database'] ?? '');
+
+        return $database === ':memory:' || ($database !== '' && is_file($database));
+    }
+
+    private static function isLocalRuntime(): bool
+    {
+        return RuntimeMode::fromEnv() === RuntimeMode::DEVELOPMENT;
     }
 }

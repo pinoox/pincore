@@ -15,6 +15,7 @@ namespace Pinoox\Component\Migration;
 
 use Exception;
 use Illuminate\Database\QueryException;
+use Pinoox\Component\Database\Connections\DevDbConnection;
 use Pinoox\Portal\Database\DB;
 use Pinoox\Portal\Logger;
 use Pinoox\Model\HistoryModel;
@@ -411,7 +412,7 @@ class Migrator
         $skipped = [];
         
         try {
-            // Disable foreign key checks for this session
+            // Disable foreign key checks for this session when the driver supports it.
             DB::statement('SET FOREIGN_KEY_CHECKS=0');
             
             foreach ($migrations as $migration) {
@@ -587,12 +588,19 @@ class Migrator
     private function recordMigration(string $migrationName): void
     {
         try {
+            $batch = $this->getBatchNumber();
+
             DB::table(DB::tableName(Table::HISTORY, 'platform'), null, 'platform')->insert([
                 'type' => MigrationQuery::TYPE_MIGRATION,
                 'migration' => $migrationName,
                 'app' => $this->package,
-                'batch' => $this->getBatchNumber(),
+                'batch' => $batch,
             ]);
+
+            $connection = DB::connection('platform');
+            if ($connection instanceof DevDbConnection) {
+                $connection->devDbStore()->recordMigration($this->package, $migrationName, $batch);
+            }
             
             $this->log("Successfully recorded migration: {$migrationName}");
         } catch (Exception $e) {

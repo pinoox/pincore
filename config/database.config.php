@@ -1,12 +1,13 @@
 <?php
 
 use Pinoox\Component\Database\DatabaseManager;
+use Pinoox\Support\SystemConfig;
 
 /*
 | database config (connections + migrations).
 | Redis connections: see redis.config.php (same env keys as Laravel).
 |
-| Switch driver: DB_CONNECTION=mysql|mariadb|pgsql|sqlsrv|sqlite
+| Switch driver: DB_CONNECTION=auto|devdb|mysql|mariadb|pgsql|sqlsrv|sqlite
 | Shared credentials: DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD, …
 */
 
@@ -40,6 +41,13 @@ return [
             'journal_mode' => env('DB_JOURNAL_MODE'),
             'synchronous' => env('DB_SYNCHRONOUS'),
             'transaction_mode' => env('DB_TRANSACTION_MODE', 'DEFERRED'),
+        ],
+
+        'devdb' => [
+            'driver' => 'devdb',
+            'database' => 'devdb',
+            'path' => env('DEVDB_PATH', SystemConfig::resolvePath('~/storage/devdb')),
+            'prefix' => env('DB_PREFIX', DatabaseManager::DEFAULT_CORE_TABLE_PREFIX),
         ],
 
         'mysql' => [
