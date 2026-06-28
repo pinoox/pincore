@@ -25,7 +25,7 @@ class DevDbStatusCommand extends Terminal
     {
         parent::execute($input, $output);
         $io = new SymfonyStyle($input, $output);
-        $status = $this->store()->status();
+        $status = $this->runtime()->status();
 
         if ($input->getOption('json')) {
             $io->writeln(json_encode($status, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
@@ -36,6 +36,8 @@ class DevDbStatusCommand extends Terminal
         $io->title('Pinoox DevDB');
         $io->definitionList(
             ['Path' => $status['path']],
+            ['Engine' => $status['engine'] ?? 'json'],
+            ['Database' => $status['database'] ?? '-'],
             ['Schema version' => (string) $status['schema_version']],
             ['Tables' => (string) $status['table_count']],
             ['Migrations' => (string) $status['migration_count']],
@@ -55,4 +57,3 @@ class DevDbStatusCommand extends Terminal
         return Command::SUCCESS;
     }
 }
-

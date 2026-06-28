@@ -31,7 +31,7 @@ class DevDbInspectCommand extends Terminal
         $io = new SymfonyStyle($input, $output);
 
         try {
-            $inspect = $this->store()->inspectTable(
+            $inspect = $this->runtime()->inspectTable(
                 (string) $input->getArgument('table'),
                 (int) $input->getOption('limit'),
             );
@@ -72,4 +72,3 @@ class DevDbInspectCommand extends Terminal
         return Command::SUCCESS;
     }
 }
-

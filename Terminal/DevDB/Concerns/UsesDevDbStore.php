@@ -3,15 +3,19 @@
 namespace Pinoox\Terminal\DevDB\Concerns;
 
 use Pinoox\Component\Database\DevDB\DevDbStore;
+use Pinoox\Component\Database\DevDB\DevDbRuntime;
 use Pinoox\Support\SystemConfig;
 
 trait UsesDevDbStore
 {
     protected function store(): DevDbStore
     {
-        $path = SystemConfig::env('DEVDB_PATH');
+        return $this->runtime()->store();
+    }
 
-        return new DevDbStore(is_string($path) && $path !== '' ? $path : null);
+    protected function runtime(): DevDbRuntime
+    {
+        return new DevDbRuntime();
     }
 
     protected function forceDevDbConnection(): void
@@ -22,4 +26,3 @@ trait UsesDevDbStore
         SystemConfig::clearCache();
     }
 }
-
