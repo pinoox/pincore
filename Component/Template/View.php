@@ -131,6 +131,13 @@ class View implements ViewInterface
             $this->twigEngine->addCallableFunction('th', 'th', ['is_safe' => ['html']]);
         }
 
+        $this->twigEngine->addCallableFunction('route', static function (string $name, array $parameters = [], bool $absolute = true): string {
+            return \Pinoox\Router\route($name, $parameters, $absolute);
+        });
+        $this->twigEngine->addCallableFunction('route_name', static function (string $name, ?string $package = null): string {
+            return \Pinoox\Router\route_name($name, $package);
+        });
+
         foreach ($this->twigOption('app_function_files', []) as $functions) {
             $this->twigEngine->addFunctionsFile($functions);
         }

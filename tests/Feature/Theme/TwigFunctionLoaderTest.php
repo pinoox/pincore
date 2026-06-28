@@ -5,6 +5,7 @@ use Pinoox\Component\Template\Parser\TemplateNameParser;
 use Pinoox\Component\Template\TemplateHelper;
 use Pinoox\Component\Template\Twig\AppFunctionFiles;
 use Pinoox\Component\Template\Twig\TwigFunctionLoader;
+use Pinoox\Component\Template\View;
 use Pinoox\Component\Test\AppTestKit;
 
 beforeEach(function () {
@@ -97,6 +98,19 @@ it('supports th and head_html helpers for twig-safe html output', function () {
 
     expect(head_html())->toBe('')
         ->and(footer_html())->toBe('');
+});
+
+it('registers named route helpers on default twig views', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-twig-route-' . uniqid('', true);
+    mkdir($themePath, 0777, true);
+    file_put_contents($themePath . '/route-name.twig', "{{ route_name('home', 'com_pinoox_manager') }}");
+
+    $view = new View($themePath);
+
+    expect($view->render('route-name'))->toBe('manager.home');
+
+    @unlink($themePath . '/route-name.twig');
+    @rmdir($themePath);
 });
 
 function twigFunctionLoaderCleanup(): void
