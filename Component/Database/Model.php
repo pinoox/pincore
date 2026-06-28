@@ -28,6 +28,7 @@ use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Collection as ObjectPortal6;
 use Illuminate\Support\LazyCollection as ObjectPortal5;
 use Pinoox\Component\Database\Relation\JoinWith;
+use Pinoox\Component\Database\Factories\HasFactory;
 use Pinoox\Component\Database\Search\Searchable;
 use Pinoox\Component\Database\Sort\Sortable;
 use Pinoox\Portal\App\App;
@@ -150,7 +151,7 @@ use Throwable;
  */
 abstract class Model extends EloquentModel
 {
-    use Searchable, Sortable,JoinWith;
+    use HasFactory, Searchable, Sortable,JoinWith;
 
     public function getConnectionName()
     {

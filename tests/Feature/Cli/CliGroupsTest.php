@@ -8,6 +8,7 @@ use Pinoox\Terminal\Cache\CacheBuildCommand;
 use Pinoox\Terminal\Controller\ControllerCreateCommand;
 use Pinoox\Terminal\Deps\DepsCommand;
 use Pinoox\Terminal\Docs\PinDocHtmlCommand;
+use Pinoox\Terminal\Factory\FactoryCreateCommand;
 use Pinoox\Terminal\GraphQL\GraphQLDocsCommand;
 use Pinoox\Terminal\Log\LogClearCommand;
 use Pinoox\Terminal\Log\LogViewCommand;
@@ -129,11 +130,14 @@ it('registers scaffold generator CLI commands', function () {
         new UpdatePortalCommand(),
         new FormRequestCreateCommand(),
         new SeederCreateCommand(),
+        new FactoryCreateCommand(),
         new TestCreateCommand(),
     ]);
 
     expect($application->has('controller:create'))->toBeTrue()
         ->and($application->has('model:create'))->toBeTrue()
+        ->and($application->has('factory:create'))->toBeTrue()
+        ->and($application->has('make:factory'))->toBeTrue()
         ->and($application->has('portal:create'))->toBeTrue()
         ->and($application->has('test:create'))->toBeTrue();
 });
