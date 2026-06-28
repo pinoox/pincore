@@ -28,7 +28,7 @@ class SeederCommand extends Terminal
         $this
             ->setHelp(
                 <<<'HELP'
-Runs all seeders in database/seed/ for the selected app.
+Runs all seeders in database/seeders/ for the selected app.
 
 Examples:
 

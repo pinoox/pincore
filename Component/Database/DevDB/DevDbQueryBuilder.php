@@ -13,7 +13,7 @@ class DevDbQueryBuilder extends Builder
     {
         if (!empty($this->aggregate)) {
             $function = strtolower((string) ($this->aggregate['function'] ?? ''));
-            if (in_array($function, ['count', 'max'], true)) {
+            if (in_array($function, ['count', 'sum', 'avg', 'min', 'max'], true)) {
                 return new Collection([(object) ['aggregate' => $this->aggregate($function, $this->aggregate['columns'] ?? ['*'])]]);
             }
         }
@@ -120,12 +120,20 @@ class DevDbQueryBuilder extends Builder
             return $this->count($columns);
         }
 
-        if ($function === 'max') {
-            $column = is_array($columns) ? (string) ($columns[0] ?? '') : (string) $columns;
-            $values = array_map(fn ($row) => $row[$column] ?? null, $this->filteredRows(ignoreLimit: true));
-            $values = array_filter($values, fn ($value) => $value !== null);
+        if (in_array($function, ['sum', 'avg', 'min', 'max'], true)) {
+            $column = $this->columnName(is_array($columns) ? (string) ($columns[0] ?? '') : (string) $columns);
+            $values = array_map(fn ($row) => $this->valueForColumn($row, $column), $this->filteredRows(ignoreLimit: true));
+            $values = array_values(array_filter($values, fn ($value) => $value !== null && $value !== ''));
 
-            return $values === [] ? null : max($values);
+            if ($function === 'sum') {
+                return array_sum(array_map('floatval', $values));
+            }
+
+            if ($function === 'avg') {
+                return $values === [] ? null : array_sum(array_map('floatval', $values)) / count($values);
+            }
+
+            return $values === [] ? null : ($function === 'min' ? min($values) : max($values));
         }
 
         throw DevDbException::unsupported('aggregate "' . $function . '"', $this->fromTable());
@@ -171,15 +179,21 @@ class DevDbQueryBuilder extends Builder
 
     public function join($table, $first, $operator = null, $second = null, $type = 'inner', $where = false)
     {
-        throw DevDbException::unsupported('joins', $this->fromTable());
+        return parent::join($table, $first, $operator, $second, $type, $where);
     }
 
     private function filteredRows(bool $ignoreLimit = false): array
     {
-        $rows = array_values(array_filter(
-            $this->store()->readTable($this->fromTable()),
-            fn ($row) => $this->matches($row),
-        ));
+        $rows = $this->applyJoins($this->qualifiedRows($this->fromTable()));
+        $rows = array_values(array_filter($rows, fn ($row) => $this->matches($row)));
+
+        if (!empty($this->groups)) {
+            $rows = $this->groupRows($rows);
+        }
+
+        if (!empty($this->havings)) {
+            $rows = array_values(array_filter($rows, fn ($row) => $this->matchesHavings($row)));
+        }
 
         foreach ($this->orders ?? [] as $order) {
             $column = $this->columnName((string) ($order['column'] ?? ''));
@@ -204,28 +218,55 @@ class DevDbQueryBuilder extends Builder
 
     private function matches(array $row): bool
     {
-        foreach ($this->wheres ?? [] as $where) {
+        return $this->matchesWheres($row, $this->wheres ?? []);
+    }
+
+    private function matchesWheres(array $row, array $wheres): bool
+    {
+        $result = null;
+
+        foreach ($wheres as $where) {
             $type = $where['type'] ?? 'Basic';
             $boolean = strtolower((string) ($where['boolean'] ?? 'and'));
 
-            if ($boolean !== 'and') {
-                throw DevDbException::unsupported('OR where clauses');
-            }
-
-            $matched = match ($type) {
-                'Basic' => $this->compare($row[$this->columnName($where['column'])] ?? null, $where['operator'], $where['value']),
-                'In', 'InRaw' => in_array($row[$this->columnName($where['column'])] ?? null, $where['values'] ?? [], false),
-                'NotIn', 'NotInRaw' => !in_array($row[$this->columnName($where['column'])] ?? null, $where['values'] ?? [], false),
-                'Null' => ($row[$this->columnName($where['column'])] ?? null) === null,
+            $matched = match (strtolower((string) $type)) {
+                'basic' => $this->compare($this->valueForColumn($row, $where['column']), $where['operator'], $where['value']),
+                'column' => $this->compare($this->valueForColumn($row, $where['first']), $where['operator'], $this->valueForColumn($row, $where['second'])),
+                'in', 'inraw' => in_array($this->valueForColumn($row, $where['column']), $where['values'] ?? [], false),
+                'notin', 'notinraw' => !in_array($this->valueForColumn($row, $where['column']), $where['values'] ?? [], false),
+                'null' => ($this->valueForColumn($row, $where['column']) === null) === !($where['not'] ?? false),
+                'notnull' => $this->valueForColumn($row, $where['column']) !== null,
+                'between' => $this->between($this->valueForColumn($row, $where['column']), $where['values'] ?? [], (bool) ($where['not'] ?? false)),
+                'nested' => $this->matchesWheres($row, $where['query']->wheres ?? []),
                 default => throw DevDbException::unsupported('where type "' . $type . '"', $this->fromTable()),
             };
 
-            if (!$matched) {
-                return false;
-            }
+            $result = $result === null
+                ? $matched
+                : ($boolean === 'or' ? ($result || $matched) : ($result && $matched));
         }
 
-        return true;
+        return $result ?? true;
+    }
+
+    private function matchesHavings(array $row): bool
+    {
+        $result = null;
+
+        foreach ($this->havings ?? [] as $having) {
+            $type = strtolower((string) ($having['type'] ?? 'Basic'));
+            if ($type !== 'basic') {
+                throw DevDbException::unsupported('having type "' . $type . '"', $this->fromTable());
+            }
+
+            $matched = $this->compare($this->valueForColumn($row, $having['column']), $having['operator'], $having['value']);
+            $boolean = strtolower((string) ($having['boolean'] ?? 'and'));
+            $result = $result === null
+                ? $matched
+                : ($boolean === 'or' ? ($result || $matched) : ($result && $matched));
+        }
+
+        return $result ?? true;
     }
 
     private function compare(mixed $actual, string $operator, mixed $expected): bool
@@ -240,6 +281,14 @@ class DevDbQueryBuilder extends Builder
             'like' => $this->like((string) $actual, (string) $expected),
             default => throw DevDbException::unsupported('operator "' . $operator . '"', $this->fromTable()),
         };
+    }
+
+    private function between(mixed $actual, iterable $values, bool $not): bool
+    {
+        $values = is_array($values) ? array_values($values) : iterator_to_array($values);
+        $matched = count($values) >= 2 && $actual >= $values[0] && $actual <= $values[1];
+
+        return $not ? !$matched : $matched;
     }
 
     private function like(string $actual, string $pattern): bool
@@ -259,8 +308,8 @@ class DevDbQueryBuilder extends Builder
         return array_map(function ($row) use ($columns) {
             $projected = [];
             foreach ($columns as $column) {
-                $name = $this->columnName($column);
-                $projected[$name] = $row[$name] ?? null;
+                [$name, $alias] = $this->selectNameAndAlias($column);
+                $projected[$alias] = $this->valueForColumn($row, $name);
             }
 
             return (object) $projected;
@@ -287,6 +336,15 @@ class DevDbQueryBuilder extends Builder
         return trim($table);
     }
 
+    private function tableAlias(string $table): string
+    {
+        if (preg_match('/^.+?\s+as\s+(.+)$/i', $table, $matches)) {
+            return trim($matches[1], '`" ');
+        }
+
+        return $this->columnName($table);
+    }
+
     private function columnName(mixed $column): string
     {
         $column = (string) $column;
@@ -300,6 +358,129 @@ class DevDbQueryBuilder extends Builder
         }
 
         return trim($column, '`" ');
+    }
+
+    private function selectNameAndAlias(mixed $column): array
+    {
+        $column = (string) $column;
+        if (stripos($column, ' as ') !== false) {
+            [$name, $alias] = preg_split('/\s+as\s+/i', $column, 2);
+
+            return [$this->columnName($name), $this->columnName($alias)];
+        }
+
+        $name = $this->columnName($column);
+
+        return [$name, $name];
+    }
+
+    private function valueForColumn(array $row, mixed $column): mixed
+    {
+        $column = trim((string) $column, '`" ');
+        if (array_key_exists($column, $row)) {
+            return $row[$column];
+        }
+
+        $name = $this->columnName($column);
+
+        return $row[$name] ?? null;
+    }
+
+    private function qualifiedRows(string $table): array
+    {
+        $alias = $this->tableAlias((string) $this->from);
+
+        return array_map(fn ($row) => $this->qualifyRow((array) $row, $table, $alias), $this->store()->readTable($table));
+    }
+
+    private function qualifyRow(array $row, string $table, ?string $alias = null): array
+    {
+        $qualified = $row;
+        $labels = array_values(array_unique(array_filter([$table, $alias])));
+
+        foreach ($row as $column => $value) {
+            foreach ($labels as $label) {
+                $qualified[$label . '.' . $column] = $value;
+            }
+        }
+
+        return $qualified;
+    }
+
+    private function applyJoins(array $rows): array
+    {
+        foreach ($this->joins ?? [] as $join) {
+            $joinType = strtolower((string) $join->type);
+            if (!in_array($joinType, ['inner', 'left'], true)) {
+                throw DevDbException::unsupported($joinType . ' joins', $this->fromTable());
+            }
+
+            $joinTable = $this->tableNameOnly((string) $join->table);
+            $joinAlias = $this->tableAlias((string) $join->table);
+            $joinRows = array_map(fn ($row) => $this->qualifyRow((array) $row, $joinTable, $joinAlias), $this->store()->readTable($joinTable));
+            $joined = [];
+
+            foreach ($rows as $row) {
+                $matchedAny = false;
+                foreach ($joinRows as $joinRow) {
+                    $combined = array_replace($row, $joinRow);
+                    if ($this->matchesWheres($combined, $join->wheres ?? [])) {
+                        $joined[] = $combined;
+                        $matchedAny = true;
+                    }
+                }
+
+                if (!$matchedAny && $joinType === 'left') {
+                    $joined[] = $row;
+                }
+            }
+
+            $rows = $joined;
+        }
+
+        return $rows;
+    }
+
+    private function groupRows(array $rows): array
+    {
+        $groups = [];
+        foreach ($rows as $row) {
+            $keyParts = array_map(fn ($column) => $this->valueForColumn($row, $column), (array) $this->groups);
+            $key = json_encode($keyParts);
+            $groups[$key] ??= ['row' => $row, 'rows' => []];
+            $groups[$key]['rows'][] = $row;
+        }
+
+        return array_values(array_map(function ($group) {
+            $row = $group['row'];
+            $row['aggregate_count'] = count($group['rows']);
+
+            foreach ($row as $column => $value) {
+                if (str_contains((string) $column, '.')) {
+                    continue;
+                }
+
+                $values = array_map(fn ($item) => $this->valueForColumn($item, $column), $group['rows']);
+                $values = array_values(array_filter($values, fn ($item) => is_numeric($item)));
+                if ($values !== []) {
+                    $row['sum_' . $column] = array_sum($values);
+                    $row['avg_' . $column] = array_sum($values) / count($values);
+                    $row['min_' . $column] = min($values);
+                    $row['max_' . $column] = max($values);
+                }
+            }
+
+            return $row;
+        }, $groups));
+    }
+
+    private function tableNameOnly(string $table): string
+    {
+        if (preg_match('/^(.+?)\s+as\s+.+$/i', $table, $matches)) {
+            return trim($matches[1], '`" ');
+        }
+
+        return trim($table, '`" ');
     }
 
     private function primaryKey(string $table): string
@@ -316,18 +497,6 @@ class DevDbQueryBuilder extends Builder
 
     private function guardUnsupportedQueryShape(bool $allowAggregate = false): void
     {
-        if (!empty($this->joins)) {
-            throw DevDbException::unsupported('joins', $this->fromTable());
-        }
-
-        if (!empty($this->groups)) {
-            throw DevDbException::unsupported('groupBy', $this->fromTable());
-        }
-
-        if (!empty($this->havings)) {
-            throw DevDbException::unsupported('having clauses', $this->fromTable());
-        }
-
         if (!empty($this->unions)) {
             throw DevDbException::unsupported('unions', $this->fromTable());
         }

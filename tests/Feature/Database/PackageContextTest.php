@@ -13,12 +13,13 @@ afterEach(function () {
     AppTestKit::cleanupTransientArtifacts(false);
 });
 
-it('detects package from app seed and migration paths', function () {
+it('detects package from app seeder and migration paths', function () {
     $package = 'com_demo_shop';
     AppTestKit::fakeApp($package);
     $appDir = AppTestKit::path($package);
 
-    expect(AppPackagePath::fromDataFile($appDir . '/database/seed/DemoSeeder.php'))->toBe($package)
+    expect(AppPackagePath::fromDataFile($appDir . '/database/seeders/DemoSeeder.php'))->toBe($package)
+        ->and(AppPackagePath::fromDataFile($appDir . '/database/seed/DemoSeeder.php'))->toBe($package)
         ->and(AppPackagePath::fromDataFile($appDir . '/database/migrations/2026_01_01_000000_create_demo_table.php'))->toBe($package)
         ->and(AppPackagePath::fromDataFile($appDir . '/patches/2026_01_01_000000_demo.php'))->toBe($package);
 });
@@ -45,7 +46,7 @@ it('uses runtime package when explicit package is omitted', function () {
 it('resolves package from data file path when runtime package is not set', function () {
     $package = 'com_demo_shop';
     AppTestKit::fakeApp($package);
-    $seedFile = AppTestKit::path($package) . '/database/seed/DemoSeeder.php';
+    $seedFile = AppTestKit::path($package) . '/database/seeders/DemoSeeder.php';
 
     expect(PackageContext::resolve(null, $seedFile))->toBe($package);
 });

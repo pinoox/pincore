@@ -26,14 +26,14 @@ return [
 
     'platform_lang' => '~pincore/lang',
     'platform_migrations' => '~pincore/database/migrations',
-    'platform_seed' => '~pincore/database/seed',
+    'platform_seed' => '~pincore/database/seeders',
     'platform_patches' => '~pincore/patches',
     'platform_models' => '~pincore/Model',
 
     'stubs' => '~pincore/stubs',
     'app_file' => 'app.php',
     'app_migrations' => 'database/migrations',
-    'app_seed' => 'database/seed',
+    'app_seed' => 'database/seeders',
     'app_factories' => 'database/factories',
     'app_patches' => 'patches',
     'app_lang' => 'lang',

@@ -234,7 +234,7 @@ class Path implements PathInterface
             SystemConfig::rawPath('app_config', 'config') => 'config',
             SystemConfig::rawPath('app_lang', 'lang') => 'platform_lang',
             SystemConfig::rawPath('app_migrations', 'database/migrations') => 'platform_migrations',
-            SystemConfig::rawPath('app_seed', 'database/seed') => 'platform_seed',
+            SystemConfig::rawPath('app_seed', 'database/seeders') => 'platform_seed',
             SystemConfig::rawPath('app_patches', 'patches') => 'platform_patches',
             'Model' => 'platform_models',
         ] as $folder => $pathKey) {

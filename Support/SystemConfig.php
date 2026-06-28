@@ -136,6 +136,9 @@ class SystemConfig
             ],
             'seed' => [
                 self::path('platform_seed'),
+                $core . '/database/seeders',
+                $root . '/vendor/pinoox/pincore/database/seeders',
+                $root . '/pincore/database/seeders',
                 $core . '/database/seed',
                 $root . '/vendor/pinoox/pincore/database/seed',
                 $root . '/pincore/database/seed',

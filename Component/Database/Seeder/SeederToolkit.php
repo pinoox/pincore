@@ -21,7 +21,7 @@ class SeederToolkit
 {
     private string $package = '';
     private string $seederPath = '';
-    private string $seederFolder = 'database/seed';
+    private string $seederFolder = 'database/seeders';
     private array $errors = [];
     private array $seeders = [];
 
@@ -66,7 +66,7 @@ class SeederToolkit
         if ($this->package === 'platform') {
             $this->seederPath = SystemConfig::platformPath('seed');
         } else {
-            $this->seederFolder = trim(SystemConfig::rawPath('app_seed', 'database/seed'), '/\\');
+            $this->seederFolder = trim(SystemConfig::rawPath('app_seed', 'database/seeders'), '/\\');
             $this->seederPath = AppEngine::path($this->package) . '/' . $this->seederFolder;
         }
     }
@@ -124,4 +124,3 @@ class SeederToolkit
         }
     }
 } 
-
