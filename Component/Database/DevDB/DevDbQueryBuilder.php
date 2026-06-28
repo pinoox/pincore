@@ -3,12 +3,23 @@
 namespace Pinoox\Component\Database\DevDB;
 
 use Illuminate\Database\Query\Builder;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Pagination\Paginator;
 use Illuminate\Support\Collection;
 
 class DevDbQueryBuilder extends Builder
 {
     public function get($columns = ['*'])
     {
+        if (!empty($this->aggregate)) {
+            $function = strtolower((string) ($this->aggregate['function'] ?? ''));
+            if (in_array($function, ['count', 'max'], true)) {
+                return new Collection([(object) ['aggregate' => $this->aggregate($function, $this->aggregate['columns'] ?? ['*'])]]);
+            }
+        }
+
+        $this->guardUnsupportedQueryShape();
+
         return new Collection($this->projectRows($this->filteredRows(), $columns));
     }
 
@@ -91,6 +102,8 @@ class DevDbQueryBuilder extends Builder
 
     public function count($columns = '*')
     {
+        $this->guardUnsupportedQueryShape(allowAggregate: true);
+
         return count($this->filteredRows(ignoreLimit: true));
     }
 
@@ -115,12 +128,50 @@ class DevDbQueryBuilder extends Builder
             return $values === [] ? null : max($values);
         }
 
-        throw DevDbException::unsupported('aggregate "' . $function . '"');
+        throw DevDbException::unsupported('aggregate "' . $function . '"', $this->fromTable());
+    }
+
+    public function value($column)
+    {
+        $row = $this->first([$column]);
+        $column = $this->columnName($column);
+
+        return $row->{$column} ?? null;
+    }
+
+    public function pluck($column, $key = null)
+    {
+        $columnName = $this->columnName($column);
+        $keyName = $key !== null ? $this->columnName($key) : null;
+        $values = [];
+
+        foreach ($this->filteredRows() as $row) {
+            if ($keyName !== null) {
+                $values[$row[$keyName] ?? null] = $row[$columnName] ?? null;
+                continue;
+            }
+
+            $values[] = $row[$columnName] ?? null;
+        }
+
+        return new Collection($values);
+    }
+
+    public function paginate($perPage = 15, $columns = ['*'], $pageName = 'page', $page = null, $total = null)
+    {
+        $page = $page ?: Paginator::resolveCurrentPage($pageName);
+        $total = $total ?? $this->count();
+        $items = $this->forPage($page, $perPage)->get($columns);
+
+        return new LengthAwarePaginator($items, $total, $perPage, $page, [
+            'path' => Paginator::resolveCurrentPath(),
+            'pageName' => $pageName,
+        ]);
     }
 
     public function join($table, $first, $operator = null, $second = null, $type = 'inner', $where = false)
     {
-        throw DevDbException::unsupported('joins');
+        throw DevDbException::unsupported('joins', $this->fromTable());
     }
 
     private function filteredRows(bool $ignoreLimit = false): array
@@ -163,9 +214,10 @@ class DevDbQueryBuilder extends Builder
 
             $matched = match ($type) {
                 'Basic' => $this->compare($row[$this->columnName($where['column'])] ?? null, $where['operator'], $where['value']),
-                'In' => in_array($row[$this->columnName($where['column'])] ?? null, $where['values'] ?? [], true),
+                'In', 'InRaw' => in_array($row[$this->columnName($where['column'])] ?? null, $where['values'] ?? [], false),
+                'NotIn', 'NotInRaw' => !in_array($row[$this->columnName($where['column'])] ?? null, $where['values'] ?? [], false),
                 'Null' => ($row[$this->columnName($where['column'])] ?? null) === null,
-                default => throw DevDbException::unsupported('where type "' . $type . '"'),
+                default => throw DevDbException::unsupported('where type "' . $type . '"', $this->fromTable()),
             };
 
             if (!$matched) {
@@ -186,7 +238,7 @@ class DevDbQueryBuilder extends Builder
             '<' => $actual < $expected,
             '<=' => $actual <= $expected,
             'like' => $this->like((string) $actual, (string) $expected),
-            default => throw DevDbException::unsupported('operator "' . $operator . '"'),
+            default => throw DevDbException::unsupported('operator "' . $operator . '"', $this->fromTable()),
         };
     }
 
@@ -262,9 +314,32 @@ class DevDbQueryBuilder extends Builder
         return 'id';
     }
 
+    private function guardUnsupportedQueryShape(bool $allowAggregate = false): void
+    {
+        if (!empty($this->joins)) {
+            throw DevDbException::unsupported('joins', $this->fromTable());
+        }
+
+        if (!empty($this->groups)) {
+            throw DevDbException::unsupported('groupBy', $this->fromTable());
+        }
+
+        if (!empty($this->havings)) {
+            throw DevDbException::unsupported('having clauses', $this->fromTable());
+        }
+
+        if (!empty($this->unions)) {
+            throw DevDbException::unsupported('unions', $this->fromTable());
+        }
+
+        if (!$allowAggregate && !empty($this->aggregate)) {
+            $function = (string) ($this->aggregate['function'] ?? 'aggregate');
+            throw DevDbException::unsupported('aggregate "' . $function . '"', $this->fromTable());
+        }
+    }
+
     private function store(): DevDbStore
     {
         return $this->connection->devDbStore();
     }
 }
-
