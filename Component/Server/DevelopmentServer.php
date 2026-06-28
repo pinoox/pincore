@@ -21,6 +21,15 @@ class DevelopmentServer
         'PINOOX_BASE_PATH',
         'PINOOX_CLI_PACKAGE',
         'PINOOX_SERVE_APP',
+        'PINX_PACKAGE',
+        'PINOOX_DEV_APP',
+        'SERVER_APP',
+        'PINX_DEV',
+        'PINX_STUDIO_ENABLED',
+        'PINX_STUDIO_ROUTE',
+        'PINX_STUDIO_ROUTER',
+        'PINX_STUDIO_WIDGET',
+        'PINX_STUDIO_PROJECT_ROOT',
     ];
 
     private int $portOffset = 0;
@@ -174,6 +183,17 @@ class DevelopmentServer
 
             if ($this->shouldPassEnv($key, $hasEnv) && is_scalar($value)) {
                 $env[$key] = (string) $value;
+            }
+        }
+
+        foreach (self::PASSTHROUGH_ENV as $key) {
+            if (array_key_exists($key, $env)) {
+                continue;
+            }
+
+            $value = getenv($key);
+            if (is_string($value) && $value !== '') {
+                $env[$key] = $value;
             }
         }
 
