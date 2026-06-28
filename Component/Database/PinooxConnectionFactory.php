@@ -14,6 +14,7 @@
 namespace Pinoox\Component\Database;
 
 use Illuminate\Database\Connection;
+use Pinoox\Component\Database\Connections\DevDbConnection;
 use Pinoox\Component\Database\Connections\MySqlConnection;
 use Pinoox\Component\Database\Connections\PostgresConnection;
 use Pinoox\Component\Database\Connections\SQLiteConnection;
@@ -37,5 +38,7 @@ final class PinooxConnectionFactory
         Connection::resolverFor('mariadb', static fn ($pdo, $database, $tablePrefix, $config) => new MySqlConnection($pdo, $database, $tablePrefix, $config));
 
         Connection::resolverFor('pgsql', static fn ($pdo, $database, $tablePrefix, $config) => new PostgresConnection($pdo, $database, $tablePrefix, $config));
+
+        Connection::resolverFor('devdb', static fn ($pdo, $database, $tablePrefix, $config) => new DevDbConnection($pdo, $database, $tablePrefix, $config));
     }
 }

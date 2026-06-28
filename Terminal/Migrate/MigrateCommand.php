@@ -16,7 +16,9 @@ namespace Pinoox\Terminal\Migrate;
 
 use Pinoox\Component\Migration\Migrator;
 use Pinoox\Component\Terminal;
+use Pinoox\Component\Database\DatabaseConfig;
 use Pinoox\Portal\Database\DB;
+use Pinoox\Support\SystemConfig;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -57,6 +59,7 @@ HELP
             ->addArgument('package', InputArgument::OPTIONAL, 'App package or platform. Leave empty to pick from the list.')
             ->addOption('ignore-fk', 'f', InputOption::VALUE_NONE, 'Disable foreign key checks during migration')
             ->addOption('dbconfig', null, InputOption::VALUE_NONE, 'Print the active database connection settings')
+            ->addOption('devdb', null, InputOption::VALUE_NONE, 'Run migrations using Pinoox DevDB in local development')
             ->addOption('status', 's', InputOption::VALUE_NONE, 'Show which migrations ran and which are pending')
             ->addOption('reset', 'r', InputOption::VALUE_NONE, 'Rollback all migrations, then run them again')
             ->addOption('force', null, InputOption::VALUE_NONE, 'Run even when tables already exist');
@@ -74,6 +77,13 @@ HELP
         $reset = $input->getOption('reset');
         $force = $input->getOption('force');
 
+        if ($input->getOption('devdb')) {
+            $_ENV['DB_CONNECTION'] = 'devdb';
+            $_SERVER['DB_CONNECTION'] = 'devdb';
+            putenv('DB_CONNECTION=devdb');
+            SystemConfig::clearCache();
+        }
+
         if ($input->getOption('dbconfig')) {
             $config = DB::connection()->getConfig();
             unset($config['password']);
@@ -84,6 +94,12 @@ HELP
 
         $package = $this->resolvePackage($input, $output, $io);
         $this->printHeader($io, $package);
+
+        if (DatabaseConfig::requestedConnectionName() === 'auto' && DatabaseConfig::isDevDb()) {
+            $io->warning('Database not available. Using Pinoox DevDB for local development.');
+        } elseif (DatabaseConfig::isDevDb()) {
+            $io->note('Using Pinoox DevDB for local development.');
+        }
 
         if ($showStatus) {
             return $this->showStatus($package, $io);
