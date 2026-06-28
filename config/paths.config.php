@@ -34,6 +34,7 @@ return [
     'app_file' => 'app.php',
     'app_migrations' => 'database/migrations',
     'app_seed' => 'database/seed',
+    'app_factories' => 'database/factories',
     'app_patches' => 'patches',
     'app_lang' => 'lang',
     'app_config' => 'config',

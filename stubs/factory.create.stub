@@ -1,0 +1,19 @@
+<?php
+{{ copyright }}
+
+namespace {{namespace}};
+
+use {{model}};
+use Pinoox\Component\Database\Factories\Factory;
+
+class {{classname}} extends Factory
+{
+    protected ?string $model = {{model_class}}::class;
+
+    public function definition(): array
+    {
+        return [
+            //
+        ];
+    }
+}
