@@ -44,7 +44,7 @@ class AppPackagePath
         if (str_starts_with($file, $appsRoot . '/')) {
             $remainder = substr($file, strlen($appsRoot) + 1);
 
-            if (preg_match('#^([^/]+)/(?:database/(?:seed|migrations)|patches)/#', $remainder, $matches) === 1) {
+            if (preg_match('#^([^/]+)/(?:database/(?:seeders|seed|migrations)|patches)/#', $remainder, $matches) === 1) {
                 return self::normalizePackageFolder($matches[1]);
             }
         }
@@ -54,7 +54,7 @@ class AppPackagePath
             ? substr($file, strlen($root) + 1)
             : $file;
 
-        if (preg_match('#^database/(?:seed|migrations)/#', $relative) === 1
+        if (preg_match('#^database/(?:seeders|seed|migrations)/#', $relative) === 1
             || preg_match('#^patches/#', $relative) === 1) {
             $fromRootApp = self::packageFromAppFile($root . '/app.php');
 
@@ -66,6 +66,7 @@ class AppPackagePath
         $corePath = rtrim(str_replace('\\', '/', SystemConfig::corePath()), '/');
 
         if (str_starts_with($file, $corePath . '/database/migrations/')
+            || str_starts_with($file, $corePath . '/database/seeders/')
             || str_starts_with($file, $corePath . '/database/seed/')
             || str_starts_with($file, $corePath . '/patches/')) {
             return 'platform';

@@ -32,7 +32,7 @@ class SeederCreateCommand extends Terminal
         $this
             ->setHelp(
                 <<<'HELP'
-Creates a seeder stub inside database/seed/ for the selected app.
+Creates a seeder stub inside database/seeders/ for the selected app.
 
 Example:
 
@@ -106,7 +106,7 @@ HELP
             return SystemConfig::platformPath('seed');
         }
 
-        return AppEngine::path($this->package) . '/' . trim(SystemConfig::rawPath('app_seed', 'database/seed'), '/\\');
+        return AppEngine::path($this->package) . '/' . trim(SystemConfig::rawPath('app_seed', 'database/seeders'), '/\\');
     }
 
     private function ensureSeederDirectoryExists(string $path): void
@@ -126,8 +126,8 @@ HELP
     private function getNamespace(): string
     {
         return $this->package === 'platform'
-            ? 'Pinoox\\Database\\seed'
-            : 'App\\' . $this->package . '\\database\\seed';
+            ? 'Pinoox\\Database\\seeders'
+            : 'App\\' . $this->package . '\\database\\seeders';
     }
 }
 

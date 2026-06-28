@@ -10,6 +10,9 @@ final class DevDbStore
 
     private string $root;
 
+    /** @var list<array<string, mixed>> */
+    private array $transactionSnapshots = [];
+
     public function __construct(?string $root = null)
     {
         $this->root = rtrim(str_replace('\\', '/', $root ?? SystemConfig::resolvePath('~/storage/devdb')), '/');
@@ -166,6 +169,47 @@ final class DevDbStore
                 'indexes' => $this->readJson($this->root . '/meta/indexes.json', []),
             ],
         ];
+    }
+
+    public function import(array $payload): void
+    {
+        $this->clear();
+        $schema = is_array($payload['schema'] ?? null) ? $payload['schema'] : $this->emptySchema();
+        $this->saveSchema($schema);
+
+        foreach ((array) ($payload['data'] ?? []) as $table => $rows) {
+            if (is_array($rows)) {
+                $this->replaceTable((string) $table, $rows);
+            }
+        }
+
+        $meta = is_array($payload['meta'] ?? null) ? $payload['meta'] : [];
+        $this->writeJson($this->root . '/meta/migrations.json', is_array($meta['migrations'] ?? null) ? $meta['migrations'] : []);
+        $this->saveSequences(is_array($meta['sequences'] ?? null) ? $meta['sequences'] : []);
+        $this->writeJson($this->root . '/meta/indexes.json', is_array($meta['indexes'] ?? null) ? $meta['indexes'] : []);
+    }
+
+    public function beginTransaction(): void
+    {
+        $this->transactionSnapshots[] = $this->export();
+    }
+
+    public function commitTransaction(): void
+    {
+        array_pop($this->transactionSnapshots);
+    }
+
+    public function rollbackTransaction(): void
+    {
+        $snapshot = array_pop($this->transactionSnapshots);
+        if (is_array($snapshot)) {
+            $this->import($snapshot);
+        }
+    }
+
+    public function transactionLevel(): int
+    {
+        return count($this->transactionSnapshots);
     }
 
     public function nextId(string $table): int

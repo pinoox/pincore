@@ -78,7 +78,7 @@ class AppCreateScaffolder
             "{$this->appDir}/lang/en",
             "{$this->appDir}/lang/fa",
             "{$this->appDir}/database/migrations",
-            "{$this->appDir}/database/seed",
+            "{$this->appDir}/database/seeders",
             "{$this->appDir}/patches",
             "{$this->appDir}/theme/default",
         ]);

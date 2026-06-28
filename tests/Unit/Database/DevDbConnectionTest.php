@@ -252,6 +252,83 @@ it('reports unsupported advanced queries with a clear DevDB error', function () 
         $table->increments('id');
     });
 
-    expect(fn () => $connection->table('posts')->join('users', 'users.id', '=', 'posts.user_id')->get())
-        ->toThrow(\Pinoox\Component\Database\DevDB\DevDbException::class, 'joins on table "posts"');
+    expect(fn () => $connection->select('select * from posts'))
+        ->toThrow(\Pinoox\Component\Database\DevDB\DevDbException::class, 'raw select SQL');
+});
+
+it('supports DevDB v2 joins, advanced aggregates, grouped rows, nested OR queries, and transactions', function () {
+    $connection = new DevDbConnection(null, 'devdb', '', [
+        'path' => sys_get_temp_dir() . '/pinoox_devdb_v2_' . uniqid(),
+    ]);
+
+    $connection->getSchemaBuilder()->create('users', function ($table) {
+        $table->increments('id');
+        $table->string('name');
+        $table->string('role');
+    });
+    $connection->getSchemaBuilder()->create('posts', function ($table) {
+        $table->increments('id');
+        $table->integer('user_id');
+        $table->string('status');
+        $table->integer('views');
+    });
+
+    $connection->table('users')->insert([
+        ['id' => 1, 'name' => 'Ava', 'role' => 'author'],
+        ['id' => 2, 'name' => 'Noah', 'role' => 'editor'],
+        ['id' => 3, 'name' => 'Mina', 'role' => 'author'],
+    ]);
+    $connection->table('posts')->insert([
+        ['id' => 1, 'user_id' => 1, 'status' => 'published', 'views' => 10],
+        ['id' => 2, 'user_id' => 1, 'status' => 'draft', 'views' => 5],
+        ['id' => 3, 'user_id' => 2, 'status' => 'published', 'views' => 30],
+    ]);
+
+    $joined = $connection->table('posts')
+        ->join('users', 'users.id', '=', 'posts.user_id')
+        ->where('users.role', 'author')
+        ->orderBy('posts.id')
+        ->get(['posts.id as post_id', 'users.name as author']);
+
+    $leftJoined = $connection->table('users')
+        ->leftJoin('posts', 'posts.user_id', '=', 'users.id')
+        ->where('users.name', 'Mina')
+        ->first(['users.name']);
+
+    $grouped = $connection->table('posts')
+        ->groupBy('status')
+        ->having('aggregate_count', '>=', 1)
+        ->orderBy('status')
+        ->get(['status', 'aggregate_count', 'sum_views', 'avg_views', 'max_views']);
+
+    $nested = $connection->table('posts')
+        ->where(function ($query) {
+            $query->where('status', 'draft')->orWhere('views', '>', 20);
+        })
+        ->whereBetween('views', [1, 30])
+        ->orderBy('id')
+        ->pluck('id')
+        ->all();
+
+    expect($joined->pluck('author')->all())->toBe(['Ava', 'Ava'])
+        ->and($leftJoined->name)->toBe('Mina')
+        ->and($connection->table('posts')->lockForUpdate()->where('id', 1)->first()->views)->toBe(10)
+        ->and($connection->table('posts')->sum('views'))->toBe(45.0)
+        ->and($connection->table('posts')->avg('views'))->toBe(15.0)
+        ->and($connection->table('posts')->min('views'))->toBe(5)
+        ->and($connection->table('posts')->max('views'))->toBe(30)
+        ->and($grouped->firstWhere('status', 'published')->aggregate_count)->toBe(2)
+        ->and($grouped->firstWhere('status', 'published')->sum_views)->toBe(40)
+        ->and($nested)->toBe([2, 3]);
+
+    $connection->beginTransaction();
+    $connection->table('posts')->insert(['id' => 4, 'user_id' => 3, 'status' => 'draft', 'views' => 99]);
+    expect($connection->table('posts')->count())->toBe(4);
+    $connection->rollBack();
+    expect($connection->table('posts')->count())->toBe(3);
+
+    $connection->beginTransaction();
+    $connection->table('posts')->insert(['id' => 4, 'user_id' => 3, 'status' => 'draft', 'views' => 99]);
+    $connection->commit();
+    expect($connection->table('posts')->count())->toBe(4);
 });

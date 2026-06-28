@@ -81,22 +81,22 @@ class DevDbConnection extends Connection
 
     public function beginTransaction()
     {
-        throw DevDbException::unsupported('transactions');
+        $this->store->beginTransaction();
     }
 
     public function commit()
     {
-        throw DevDbException::unsupported('transactions');
+        $this->store->commitTransaction();
     }
 
     public function rollBack($toLevel = null)
     {
-        throw DevDbException::unsupported('transactions');
+        $this->store->rollbackTransaction();
     }
 
     public function transactionLevel()
     {
-        return 0;
+        return $this->store->transactionLevel();
     }
 
     public function useDefaultQueryGrammar()
