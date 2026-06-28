@@ -51,8 +51,8 @@ class StudioWidgetListener implements EventSubscriberInterface
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px">
         <a href="{$route}" target="_blank" rel="noreferrer" style="color:#0f172a;background:#5eead4;text-decoration:none;border-radius:14px;padding:10px;font-size:13px;font-weight:800">Open Studio</a>
         <a href="{$route}#database" target="_blank" rel="noreferrer" style="color:#e5e7eb;background:rgba(255,255,255,.08);text-decoration:none;border-radius:14px;padding:10px;font-size:13px;font-weight:700">Database</a>
-        <a href="{$route}#cli" target="_blank" rel="noreferrer" style="color:#e5e7eb;background:rgba(255,255,255,.08);text-decoration:none;border-radius:14px;padding:10px;font-size:13px;font-weight:700">CLI</a>
-        <a href="{$route}/api/summary" target="_blank" rel="noreferrer" style="color:#e5e7eb;background:rgba(255,255,255,.08);text-decoration:none;border-radius:14px;padding:10px;font-size:13px;font-weight:700">Status</a>
+        <a href="{$route}#health" target="_blank" rel="noreferrer" style="color:#e5e7eb;background:rgba(255,255,255,.08);text-decoration:none;border-radius:14px;padding:10px;font-size:13px;font-weight:700">Health</a>
+        <a href="{$route}#logs" target="_blank" rel="noreferrer" style="color:#e5e7eb;background:rgba(255,255,255,.08);text-decoration:none;border-radius:14px;padding:10px;font-size:13px;font-weight:700">Logs</a>
       </div>
     </div>
     <button data-pinx-toggle type="button" title="Pinx Studio" style="height:54px;min-width:54px;border:0;border-radius:999px;background:linear-gradient(135deg,#5eead4,#60a5fa);color:#06111f;display:flex;align-items:center;gap:10px;padding:0 16px;box-shadow:0 18px 48px rgba(15,23,42,.34);font-weight:900;cursor:pointer">
