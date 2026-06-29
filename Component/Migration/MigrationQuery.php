@@ -168,6 +168,10 @@ class MigrationQuery
                 return false;
             }
 
+            if ($connection->getDriverName() === 'sqlite') {
+                return false;
+            }
+
             $row = $connection->selectOne(
                 'SELECT 1 AS found FROM information_schema.tables WHERE table_schema = ? AND table_name = ? LIMIT 1',
                 [$database, $physical],

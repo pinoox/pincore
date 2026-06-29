@@ -151,7 +151,7 @@ class MigrationToolkit
             $physical = DB::physicalTableName(Table::HISTORY, 'platform');
             $database = (string) $connection->getDatabaseName();
 
-            if ($database !== '' && $physical !== '') {
+            if ($database !== '' && $physical !== '' && $connection->getDriverName() !== 'sqlite') {
                 $row = $connection->selectOne(
                     'SELECT 1 AS found FROM information_schema.tables WHERE table_schema = ? AND table_name = ? LIMIT 1',
                     [$database, $physical],

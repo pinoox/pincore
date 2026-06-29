@@ -25,11 +25,11 @@ class DevelopmentServer
         'PINOOX_DEV_APP',
         'SERVER_APP',
         'PINX_DEV',
-        'PINX_STUDIO_ENABLED',
-        'PINX_STUDIO_ROUTE',
-        'PINX_STUDIO_ROUTER',
-        'PINX_STUDIO_WIDGET',
-        'PINX_STUDIO_PROJECT_ROOT',
+        'PINX_INSPECTOR_ENABLED',
+        'PINX_INSPECTOR_ROUTE',
+        'PINX_INSPECTOR_ROUTER',
+        'PINX_INSPECTOR_WIDGET',
+        'PINX_INSPECTOR_PROJECT_ROOT',
     ];
 
     private int $portOffset = 0;

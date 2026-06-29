@@ -6,7 +6,7 @@ use Closure;
 use Pinoox\Component\AppEvent\AppBootstrap;
 use Pinoox\Component\Helpers\Str;
 use Pinoox\Component\Kernel\Container\ServiceContainerBootstrap;
-use Pinoox\Component\Kernel\Listener\StudioWidgetListener;
+use Pinoox\Component\Kernel\Listener\InspectorWidgetListener;
 use Pinoox\Component\Kernel\SessionStarter;
 use Pinoox\Component\User\AuthConfig;
 use Pinoox\PinDoc\Api\AppApiServiceProvider;
@@ -137,8 +137,8 @@ class BootPipeline
 
     private function registerLegacyEvents(): void
     {
-        if ((string) getenv('PINX_STUDIO_WIDGET') === '1') {
-            $this->provider->eventDispatcher->addSubscriber(new StudioWidgetListener());
+        if ((string) getenv('PINX_INSPECTOR_WIDGET') === '1') {
+            $this->provider->eventDispatcher->addSubscriber(new InspectorWidgetListener());
         }
 
         $events = $this->context->app->get('event');
