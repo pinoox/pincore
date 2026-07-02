@@ -71,8 +71,18 @@
   "require-dev": {
     "nikic/php-parser": "^5.4",
     "pestphp/pest": "^2.36",
+    "pinoox/devdb": "^1.0",
     "nunomaduro/collision": "^8.5"
   },
+  "repositories": [
+    {
+      "type": "path",
+      "url": "../packages/devdb",
+      "options": {
+        "symlink": true
+      }
+    }
+  ],
   "scripts": {
     "test": "@php vendor/bin/pest --configuration=phpunit.xml",
     "test:ci": "@php vendor/bin/pest --configuration=phpunit.ci.xml",

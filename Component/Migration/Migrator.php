@@ -334,8 +334,7 @@ class Migrator
             $this->toolkit->package($this->package)->action('status')->load();
             $migrations = array_reverse($this->toolkit->getMigrations());
 
-            // Disable foreign key checks
-            DB::statement('SET FOREIGN_KEY_CHECKS=0');
+            $foreignKeyChecksDisabled = $this->disableForeignKeyChecks();
 
             try {
                 // Get all tables in the database
@@ -355,8 +354,9 @@ class Migrator
 
                 return ['Successfully reset all migrations for package: ' . $this->package];
             } finally {
-                // Re-enable foreign key checks
-                DB::statement('SET FOREIGN_KEY_CHECKS=1');
+                if ($foreignKeyChecksDisabled) {
+                    $this->enableForeignKeyChecks();
+                }
             }
         } catch (Exception $e) {
             throw new Exception("Failed to reset migrations: " . $e->getMessage());
@@ -412,8 +412,7 @@ class Migrator
         $skipped = [];
         
         try {
-            // Disable foreign key checks for this session when the driver supports it.
-            DB::statement('SET FOREIGN_KEY_CHECKS=0');
+            $foreignKeyChecksDisabled = $this->disableForeignKeyChecks();
             
             foreach ($migrations as $migration) {
                 $migrationName = $migration['fileName'];
@@ -456,8 +455,9 @@ class Migrator
             }
             
         } finally {
-            // Re-enable foreign key checks
-            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            if (!empty($foreignKeyChecksDisabled)) {
+                $this->enableForeignKeyChecks();
+            }
         }
         
         return [
@@ -585,6 +585,36 @@ class Migrator
         } catch (Exception $e) {
             $this->log('Error checking table ' . $table . ': ' . $e->getMessage(), 'warning');
 
+            return false;
+        }
+    }
+
+    private function disableForeignKeyChecks(): bool
+    {
+        if (!$this->usesMySqlForeignKeyChecks()) {
+            return false;
+        }
+
+        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+
+        return true;
+    }
+
+    private function enableForeignKeyChecks(): void
+    {
+        if ($this->usesMySqlForeignKeyChecks()) {
+            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        }
+    }
+
+    private function usesMySqlForeignKeyChecks(): bool
+    {
+        try {
+            $connection = DB::connection(DB::connectionNameForPackage($this->package));
+            $driver = strtolower((string) $connection->getDriverName());
+
+            return in_array($driver, ['mysql', 'mariadb'], true);
+        } catch (Exception) {
             return false;
         }
     }

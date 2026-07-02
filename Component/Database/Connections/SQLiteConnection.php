@@ -38,6 +38,45 @@ class SQLiteConnection extends BaseConnection
         return parent::statement($query, $bindings);
     }
 
+    public function select($query, $bindings = [], $useReadPdo = true)
+    {
+        if (preg_match('/information_schema\.tables/i', (string) $query) === 1) {
+            $table = $this->extractInformationSchemaTableName($query, $bindings);
+
+            if ($table === '') {
+                return [];
+            }
+
+            return parent::select(
+                "SELECT 1 AS found FROM sqlite_master WHERE type IN ('table', 'view') AND name = ? LIMIT 1",
+                [$table],
+                $useReadPdo,
+            );
+        }
+
+        return parent::select($query, $bindings, $useReadPdo);
+    }
+
+    /**
+     * @param array<int, mixed> $bindings
+     */
+    private function extractInformationSchemaTableName(string $query, array $bindings): string
+    {
+        if (isset($bindings[1]) && is_scalar($bindings[1])) {
+            return (string) $bindings[1];
+        }
+
+        if (isset($bindings[0]) && is_scalar($bindings[0]) && !str_contains((string) $bindings[0], DIRECTORY_SEPARATOR)) {
+            return (string) $bindings[0];
+        }
+
+        if (preg_match('/table_name\s*=\s*[\'"]([^\'"]+)[\'"]/i', $query, $matches) === 1) {
+            return (string) $matches[1];
+        }
+
+        return '';
+    }
+
     protected function queryGrammarClass(): string
     {
         return SQLiteGrammar::class;
