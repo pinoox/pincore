@@ -252,16 +252,296 @@ it('exposes DevDB status, inspect, and clear commands', function () {
         ->and((new \Pinoox\Component\Database\DevDB\DevDbStore($path))->status()['table_count'])->toBe(0);
 });
 
-it('reports unsupported advanced queries with a clear DevDB error', function () {
+it('translates common raw SQL into DevDB JSON operations', function () {
     $connection = new DevDbConnection(null, 'devdb', '', [
-        'path' => sys_get_temp_dir() . '/pinoox_devdb_unsupported_' . uniqid(),
+        'path' => sys_get_temp_dir() . '/pinoox_devdb_raw_sql_' . uniqid(),
     ]);
     $connection->getSchemaBuilder()->create('posts', function ($table) {
         $table->increments('id');
+        $table->string('title');
+        $table->string('status')->nullable();
+        $table->integer('views');
     });
 
-    expect(fn () => $connection->select('select * from posts'))
-        ->toThrow(\Pinoox\Component\Database\DevDB\DevDbException::class, 'raw select SQL');
+    expect($connection->insert(
+        'insert into posts (title, status, views) values (?, ?, ?), (?, ?, ?)',
+        ['First', 'draft', 10, 'Second', 'published', 25],
+    ))->toBeTrue();
+
+    $published = $connection->select(
+        'select id, title as headline from posts where status = ? and views >= ? order by views desc limit 1',
+        ['published', 20],
+    );
+
+    $count = $connection->selectOne('select count(*) as total, sum(views) as views from posts where id in (?, ?)', [1, 2]);
+    $updated = $connection->affectingStatement('update posts set status = ? where title like ?', ['published', 'First%']);
+    $deleted = $connection->affectingStatement('delete from posts where views < ?', [20]);
+
+    expect($published)->toHaveCount(1)
+        ->and($published[0]->headline)->toBe('Second')
+        ->and($count->total)->toBe(2)
+        ->and($count->views)->toBe(35.0)
+        ->and($updated)->toBe(1)
+        ->and($deleted)->toBe(1)
+        ->and($connection->selectOne('select * from posts where id = ?', [2])->title)->toBe('Second')
+        ->and(fn () => $connection->select('select * from missing_posts'))
+        ->toThrow(\Pinoox\Component\Database\DevDB\DevDbException::class, 'does not exist');
+});
+
+it('translates advanced raw SQL joins, boolean clauses, grouping, and aliases', function () {
+    $connection = new DevDbConnection(null, 'devdb', '', [
+        'path' => sys_get_temp_dir() . '/pinoox_devdb_raw_sql_advanced_' . uniqid(),
+    ]);
+    $connection->getSchemaBuilder()->create('users', function ($table) {
+        $table->increments('id');
+        $table->string('name');
+        $table->string('role');
+    });
+    $connection->getSchemaBuilder()->create('posts', function ($table) {
+        $table->increments('id');
+        $table->integer('user_id');
+        $table->string('title');
+        $table->string('status')->nullable();
+        $table->integer('views');
+    });
+    $connection->getSchemaBuilder()->create('comments', function ($table) {
+        $table->increments('id');
+        $table->integer('post_id');
+        $table->string('body');
+    });
+
+    $connection->insert(
+        'insert into users (id, name, role) values (?, ?, ?), (?, ?, ?), (?, ?, ?)',
+        [1, 'Ava', 'author', 2, 'Noah', 'editor', 3, 'Mina', 'author'],
+    );
+    $connection->insert(
+        'insert into posts (id, user_id, title, status, views) values (?, ?, ?, ?, ?), (?, ?, ?, ?, ?), (?, ?, ?, ?, ?), (?, ?, ?, ?, ?)',
+        [
+            1, 1, 'Intro', 'published', 10,
+            2, 1, 'Draft', 'draft', 5,
+            3, 2, 'Review', 'published', 30,
+            4, 3, 'Quiet', null, 1,
+        ],
+    );
+    $connection->insert(
+        'insert into comments (post_id, body) values (?, ?), (?, ?), (?, ?)',
+        [1, 'Nice', 1, 'Great', 3, 'Approved'],
+    );
+
+    $joined = $connection->select(
+        'select p.id as post_id, p.title, u.name as author from posts as p join users as u on u.id = p.user_id where (p.status = ? or p.views >= ?) and u.role <> ? order by p.views desc limit 3',
+        ['draft', 20, 'guest'],
+    );
+    $leftJoined = $connection->select(
+        'select p.title, c.body as comment_body from posts p left join comments c on c.post_id = p.id where p.id in (?, ?) order by p.id asc, c.id asc',
+        [2, 4],
+    );
+    $grouped = $connection->select(
+        'select u.role, count(*) as total_posts, sum(p.views) as total_views, max(p.views) as max_views from posts p join users u on u.id = p.user_id group by u.role having total_posts >= ? order by total_views desc',
+        [1],
+    );
+    $boolean = $connection->select(
+        'select id, title from posts where views between ? and ? and status not in (?, ?) and title not like ? order by id',
+        [1, 30, 'draft', 'archived', 'Quiet%'],
+    );
+
+    expect(array_map(fn ($row) => $row->post_id, $joined))->toBe([3, 2])
+        ->and($joined[0]->author)->toBe('Noah')
+        ->and($leftJoined)->toHaveCount(2)
+        ->and($leftJoined[0]->comment_body)->toBeNull()
+        ->and($grouped[0]->role)->toBe('editor')
+        ->and($grouped[0]->total_posts)->toBe(1)
+        ->and($grouped[0]->total_views)->toBe(30.0)
+        ->and($grouped[1]->role)->toBe('author')
+        ->and($grouped[1]->total_posts)->toBe(3)
+        ->and($grouped[1]->max_views)->toBe(10)
+        ->and(array_map(fn ($row) => $row->title, $boolean))->toBe(['Intro', 'Review'])
+        ->and(fn () => $connection->select('select id from posts union select id from users'))
+        ->toThrow(\Pinoox\Component\Database\DevDB\DevDbException::class, 'raw SELECT unions');
+});
+
+it('translates common raw SQL functions in select, where, group, and order clauses', function () {
+    $connection = new DevDbConnection(null, 'devdb', '', [
+        'path' => sys_get_temp_dir() . '/pinoox_devdb_raw_sql_functions_' . uniqid(),
+    ]);
+    $connection->getSchemaBuilder()->create('events', function ($table) {
+        $table->increments('id');
+        $table->string('title')->nullable();
+        $table->string('email');
+        $table->string('created_at');
+        $table->integer('amount');
+    });
+
+    $connection->insert(
+        'insert into events (title, email, created_at, amount) values (?, ?, ?, ?), (?, ?, ?, ?), (?, ?, ?, ?)',
+        [
+            ' Launch ', 'AVA@EXAMPLE.COM', '2026-06-29 10:15:00', 9,
+            null, 'noah@example.com', '2026-06-29 13:45:00', -4,
+            'Review', 'mina@example.com', '2026-06-30 08:00:00', 15,
+        ],
+    );
+
+    $daily = $connection->select(
+        "select date(created_at) as event_day, count(*) as total, sum(abs(amount)) as volume from events group by date(created_at) having total >= ? order by event_day",
+        [1],
+    );
+    $friendly = $connection->selectOne(
+        "select lower(email) as email, upper(trim(title)) as clean_title, coalesce(title, 'Untitled') as fallback, concat(substr(email, 1, 4), '-', year(created_at)) as token from events where date(created_at) = ? and lower(email) like ? order by length(email) desc",
+        ['2026-06-29', 'ava%'],
+    );
+    $filtered = $connection->select(
+        "select id from events where month(created_at) = ? and day(created_at) = ? and round(abs(amount), 0) >= ? order by id",
+        [6, 29, 4],
+    );
+
+    expect($daily)->toHaveCount(2)
+        ->and($daily[0]->event_day)->toBe('2026-06-29')
+        ->and($daily[0]->total)->toBe(2)
+        ->and($daily[0]->volume)->toBe(13.0)
+        ->and($friendly->email)->toBe('ava@example.com')
+        ->and($friendly->clean_title)->toBe('LAUNCH')
+        ->and($friendly->fallback)->toBe(' Launch ')
+        ->and($friendly->token)->toBe('AVA@-2026')
+        ->and(array_map(fn ($row) => $row->id, $filtered))->toBe([1, 2]);
+});
+
+it('can run DevDB as a standalone component without Pinoox app bootstrap', function () {
+    $database = \Pinoox\DevDB\DevDatabase::open(sys_get_temp_dir() . '/pinoox_devdb_standalone_' . uniqid());
+    $database->createTable('notes', [
+        'id' => ['type' => 'integer', 'primary' => true, 'auto_increment' => true],
+        'body' => 'string',
+        'created_at' => 'string',
+    ]);
+
+    expect($database->statement(
+        'insert into notes (body, created_at) values (?, ?), (?, ?)',
+        ['First', '2026-06-29 10:00:00', 'Second', '2026-06-30 10:00:00'],
+    ))->toBeTrue();
+
+    $row = $database->selectOne(
+        'select id, upper(body) as body, date(created_at) as day from notes where date(created_at) = ?',
+        ['2026-06-30'],
+    );
+
+    expect($row->id)->toBe(2)
+        ->and($row->body)->toBe('SECOND')
+        ->and($row->day)->toBe('2026-06-30')
+        ->and($database->execute('delete from notes where id = ?', [1]))->toBe(1);
+});
+
+it('translates raw SQL schema and introspection commands', function () {
+    $connection = new DevDbConnection(null, 'devdb', '', [
+        'path' => sys_get_temp_dir() . '/pinoox_devdb_raw_schema_' . uniqid(),
+    ]);
+
+    expect($connection->statement(
+        'create table users (id integer primary key auto_increment, name varchar(120) not null, email varchar(190) default null, created_at datetime, unique key users_email_unique (email))',
+    ))->toBeTrue();
+
+    $connection->statement('alter table users add column status varchar(20) default "active"');
+    $connection->statement('create index users_status_index on users (status)');
+    $connection->insert(
+        'insert into users (name, email, created_at) values (?, ?, ?)',
+        ['Ava', 'ava@example.com', '2026-06-29 09:00:00'],
+    );
+
+    $tables = $connection->select('show tables');
+    $columns = $connection->select('describe users');
+    $indexes = $connection->select('show index from users');
+    $row = $connection->selectOne('select id, name, status from users');
+
+    expect(array_map(fn ($item) => $item->table, $tables))->toBe(['users'])
+        ->and(array_map(fn ($item) => $item->Field, $columns))->toBe(['id', 'name', 'email', 'created_at', 'status'])
+        ->and($columns[0]->Key)->toBe('PRI')
+        ->and($columns[0]->Extra)->toBe('auto_increment')
+        ->and($columns[1]->Null)->toBe('NO')
+        ->and($row->id)->toBe(1)
+        ->and($row->status)->toBe('active')
+        ->and(array_map(fn ($item) => $item->Key_name, $indexes))->toContain('users_email_unique', 'users_status_index');
+
+    $connection->statement('alter table users rename column status to state');
+    expect(array_map(fn ($item) => $item->Field, $connection->select('desc users')))->toContain('state');
+
+    $connection->statement('drop index users_status_index on users');
+    expect(array_map(fn ($item) => $item->Key_name, $connection->select('show indexes from users')))->not->toContain('users_status_index');
+
+    expect($connection->affectingStatement('drop table if exists users'))->toBe(1)
+        ->and($connection->select('show tables'))->toBe([]);
+});
+
+it('accepts MySQL dump style setup, table options, enum columns, and BTREE indexes', function () {
+    $connection = new DevDbConnection(null, 'devdb', '', [
+        'path' => sys_get_temp_dir() . '/pinoox_devdb_mysql_dump_' . uniqid(),
+    ]);
+
+    expect($connection->statement('SET NAMES utf8mb4'))->toBeTrue()
+        ->and($connection->statement('SET FOREIGN_KEY_CHECKS = 0'))->toBeTrue()
+        ->and($connection->statement('DROP TABLE IF EXISTS `names`'))->toBeTrue();
+
+    $connection->statement(<<<'SQL'
+CREATE TABLE `names`  (
+  `id` int NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL DEFAULT NULL,
+  `age` int NULL DEFAULT NULL,
+  PRIMARY KEY (`id`) USING BTREE
+) ENGINE = InnoDB AUTO_INCREMENT = 5 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic
+SQL);
+
+    $connection->statement(<<<'SQL'
+CREATE TABLE `com_pindev_reservation_discount`  (
+  `discount_id` bigint(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `code` varchar(50) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `title` varchar(100) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL,
+  `description` text CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NULL,
+  `type` enum('percentage','fixed') CHARACTER SET utf8mb4 COLLATE utf8mb4_bin NOT NULL DEFAULT 'percentage',
+  `value` int(11) NOT NULL,
+  `max_discount` int(11) NULL DEFAULT NULL,
+  `max_usage` int(11) NULL DEFAULT NULL,
+  `used_count` int(11) NOT NULL DEFAULT 0,
+  `valid_from` date NULL DEFAULT NULL,
+  `valid_until` date NULL DEFAULT NULL,
+  `showtime_id` bigint(20) UNSIGNED NULL DEFAULT NULL,
+  `theater_id` int(10) UNSIGNED NULL DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NULL DEFAULT NULL,
+  `updated_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`discount_id`) USING BTREE,
+  UNIQUE INDEX `com_pindev_reservation_discount_code_unique`(`code`) USING BTREE,
+  INDEX `com_pindev_reservation_discount_showtime_id_foreign`(`showtime_id`) USING BTREE,
+  INDEX `com_pindev_reservation_discount_theater_id_foreign`(`theater_id`) USING BTREE,
+  INDEX `com_pindev_reservation_discount_code_is_active_index`(`code`, `is_active`) USING BTREE,
+  INDEX `com_pindev_reservation_discount_valid_from_valid_until_index`(`valid_from`, `valid_until`) USING BTREE,
+  CONSTRAINT `com_pindev_reservation_discount_showtime_id_foreign` FOREIGN KEY (`showtime_id`) REFERENCES `com_pindev_reservation_showtime` (`showtime_id`) ON DELETE CASCADE ON UPDATE CASCADE,
+  CONSTRAINT `com_pindev_reservation_discount_theater_id_foreign` FOREIGN KEY (`theater_id`) REFERENCES `com_pindev_reservation_theater` (`theater_id`) ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE = InnoDB AUTO_INCREMENT = 6 CHARACTER SET = utf8mb4 COLLATE = utf8mb4_bin ROW_FORMAT = Dynamic
+SQL);
+
+    $connection->insert(
+        'insert into names (name, age) values (?, ?)',
+        ['Ava', 28],
+    );
+    $connection->insert(
+        'insert into com_pindev_reservation_discount (code, title, value) values (?, ?, ?)',
+        ['SUMMER', 'Summer discount', 15],
+    );
+
+    $names = $connection->select('describe names');
+    $discountColumns = $connection->select('describe com_pindev_reservation_discount');
+    $discountIndexes = $connection->select('show indexes from com_pindev_reservation_discount');
+    $nameRow = $connection->selectOne('select id, name from names');
+    $discountRow = $connection->selectOne('select discount_id, code from com_pindev_reservation_discount');
+
+    expect($nameRow->id)->toBe(5)
+        ->and($discountRow->discount_id)->toBe(6)
+        ->and($names[0]->Key)->toBe('PRI')
+        ->and($names[0]->Extra)->toBe('auto_increment')
+        ->and(array_map(fn ($column) => $column->Field, $discountColumns))->toContain('type', 'is_active', 'valid_until')
+        ->and($discountColumns[4]->Type)->toBe('enum')
+        ->and(array_map(fn ($index) => $index->Key_name, $discountIndexes))->toContain(
+            'com_pindev_reservation_discount_code_unique',
+            'com_pindev_reservation_discount_code_is_active_index',
+            'com_pindev_reservation_discount_valid_from_valid_until_index',
+        );
 });
 
 it('supports DevDB v2 joins, advanced aggregates, grouped rows, nested OR queries, and transactions', function () {
@@ -423,6 +703,40 @@ it('uses an internal SQLite DevDB engine automatically when pdo sqlite is availa
         putenv($key . '=' . $value);
     }
     \Pinoox\Support\SystemConfig::clearCache();
+});
+
+it('keeps DevDB SQLite compatible with framework migration probes', function () {
+    if (!extension_loaded('pdo_sqlite')) {
+        expect(true)->toBeTrue();
+
+        return;
+    }
+
+    $manager = new DatabaseManager(new Illuminate\Container\Container());
+    $manager->addConnection([
+        'driver' => 'sqlite',
+        'database' => ':memory:',
+        'prefix' => '',
+        'devdb' => true,
+        'devdb_engine' => 'sqlite',
+    ], 'devdb_sqlite_probe');
+
+    $connection = $manager->getConnection('devdb_sqlite_probe');
+    $connection->getSchemaBuilder()->create('pinx_history', function ($table) {
+        $table->increments('id');
+        $table->string('migration')->nullable();
+    });
+
+    expect($connection->statement('SET FOREIGN_KEY_CHECKS=0'))->toBeTrue()
+        ->and($connection->statement('SET FOREIGN_KEY_CHECKS=1'))->toBeTrue()
+        ->and($connection->selectOne(
+            'SELECT 1 AS found FROM information_schema.tables WHERE table_schema = ? AND table_name = ? LIMIT 1',
+            [':memory:', 'pinx_history'],
+        )->found)->toBe(1)
+        ->and($connection->selectOne(
+            'SELECT 1 AS found FROM information_schema.tables WHERE table_schema = ? AND table_name = ? LIMIT 1',
+            [':memory:', 'missing_table'],
+        ))->toBeNull();
 });
 
 it('keeps the JSON DevDB engine available when requested explicitly', function () {

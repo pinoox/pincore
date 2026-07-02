@@ -115,6 +115,8 @@ HELP
             return $this->showStatus($package, $io);
         }
 
+        $foreignKeyChecksDisabled = false;
+
         try {
             if ($reset) {
                 $migrator = new Migrator($package);
@@ -123,9 +125,12 @@ HELP
                 return Command::SUCCESS;
             }
 
-            if ($ignoreFk) {
+            if ($ignoreFk && $this->supportsMySqlForeignKeyChecks($package)) {
                 DB::statement('SET FOREIGN_KEY_CHECKS=0');
+                $foreignKeyChecksDisabled = true;
                 $io->note('Foreign key checks are disabled for this migration run.');
+            } elseif ($ignoreFk) {
+                $io->note('Foreign key checks option is ignored for this connection driver.');
             }
 
             $migrator = new Migrator($package, 'run', ['force' => $force]);
@@ -141,14 +146,14 @@ HELP
 
             $this->printResult($io, $result);
 
-            if ($ignoreFk) {
-                DB::statement('SET FOREIGN_KEY_CHECKS=1');
-            }
-
             return Command::SUCCESS;
         } catch (\Exception $e) {
             $io->error($e->getMessage());
             return Command::FAILURE;
+        } finally {
+            if ($foreignKeyChecksDisabled) {
+                DB::statement('SET FOREIGN_KEY_CHECKS=1');
+            }
         }
     }
 
@@ -166,6 +171,18 @@ HELP
             ['Database' => $config['database'] ?? '-'],
             ['Table prefix' => $connection->getTablePrefix() ?: '(none)']
         );
+    }
+
+    private function supportsMySqlForeignKeyChecks(string $package): bool
+    {
+        try {
+            $connectionName = DB::connectionNameForPackage($package);
+            $driver = strtolower((string) DB::getConnection($connectionName)->getDriverName());
+
+            return in_array($driver, ['mysql', 'mariadb'], true);
+        } catch (\Throwable) {
+            return false;
+        }
     }
 
     private function displayConnectionName(string $package, string $connectionName): string

@@ -53,8 +53,8 @@ return new class extends MigrationBase {
      */
     public function down()
     {
-        $this->schema->getConnection()->statement('SET FOREIGN_KEY_CHECKS = 0');
+        $this->schema->disableForeignKeyConstraints();
         $this->schema->dropIfExists($this->table(Table::USER, 'platform'));
-        $this->schema->getConnection()->statement('SET FOREIGN_KEY_CHECKS = 1');
+        $this->schema->enableForeignKeyConstraints();
     }
 };

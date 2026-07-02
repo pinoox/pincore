@@ -53,6 +53,7 @@ class Terminal
     private function finds(): void
     {
         $this->loadTerminals(PINOOX_CORE_PATH);
+        $this->loadComposerTerminals();
 
         $packages = AppEngine::all();
         /**
@@ -61,6 +62,23 @@ class Terminal
 
         foreach ($packages as $app) {
             $this->loadTerminals($app->path(), $app->package());
+        }
+    }
+
+    private function loadComposerTerminals(): void
+    {
+        $commands = [
+            \Pinoox\Terminal\DevDB\DevDbStatusCommand::class,
+            \Pinoox\Terminal\DevDB\DevDbInspectCommand::class,
+            \Pinoox\Terminal\DevDB\DevDbClearCommand::class,
+            \Pinoox\Terminal\DevDB\DevDbExportCommand::class,
+            \Pinoox\Terminal\DevDB\DevDbSeedCommand::class,
+        ];
+
+        foreach ($commands as $command) {
+            if (class_exists($command)) {
+                $this->addCommand(new $command());
+            }
         }
     }
 
