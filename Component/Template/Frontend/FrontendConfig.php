@@ -19,6 +19,9 @@ class FrontendConfig
 
     public const VITE_MANIFEST = 'dist/.vite/manifest.json';
 
+    /** Default path (relative to theme/) where Vite writes the dev-server URL for HMR. */
+    public const DEFAULT_HOT_FILE = 'dist/hot';
+
     public const WEBPACK_MANIFEST = 'dist/mix-manifest.json';
 
     /**
@@ -180,6 +183,10 @@ class FrontendConfig
             $config['dev'] = array_replace([
                 'enabled' => (bool) _env('VITE_DEV', false),
                 'url' => rtrim((string) _env('VITE_DEV_SERVER', 'http://127.0.0.1:5173'), '/'),
+                'hot' => self::resolveHotPathFromEnv(),
+                'port' => self::resolveDevPortFromEnv(),
+                'prefer_manifest' => !self::envBool('VITE_DEV_FORCE', false),
+                'force' => self::envBool('VITE_DEV_FORCE', false),
             ], is_array($config['dev'] ?? null) ? $config['dev'] : []);
         } elseif (self::usesLegacyWebpack(['stack' => $stack])) {
             $config['manifest'] ??= self::WEBPACK_MANIFEST;
@@ -309,6 +316,104 @@ class FrontendConfig
     public static function isDevEnabled(array $config): bool
     {
         return !empty($config['dev']['enabled']);
+    }
+
+    /**
+     * Vite dev-server port for npm (env VITE_DEV_PORT, default 5173).
+     *
+     * @param array<string, mixed> $config
+     */
+    public static function devPort(array $config): int
+    {
+        $port = $config['dev']['port'] ?? null;
+
+        return is_numeric($port) && (int) $port > 0 ? (int) $port : 5173;
+    }
+
+    private static function resolveHotPathFromEnv(): string
+    {
+        $fromEnv = _env('VITE_HOT_FILE');
+
+        if (is_string($fromEnv) && trim($fromEnv) !== '') {
+            return ltrim(str_replace('\\', '/', trim($fromEnv)), '/');
+        }
+
+        return self::DEFAULT_HOT_FILE;
+    }
+
+    private static function resolveDevPortFromEnv(): int
+    {
+        $port = _env('VITE_DEV_PORT', 5173);
+
+        return is_numeric($port) && (int) $port > 0 ? (int) $port : 5173;
+    }
+
+    private static function envBool(string $key, bool $default = false): bool
+    {
+        $value = _env($key);
+
+        if ($value === null || $value === '') {
+            return $default;
+        }
+
+        return filter_var($value, FILTER_VALIDATE_BOOLEAN);
+    }
+
+    /**
+     * Relative hot-file path from theme root (frontend.config.php dev.hot).
+     *
+     * @param array<string, mixed> $config
+     */
+    public static function hotRelativePath(array $config): string
+    {
+        $hot = $config['dev']['hot'] ?? self::DEFAULT_HOT_FILE;
+
+        return is_string($hot) && $hot !== '' ? ltrim(str_replace('\\', '/', $hot), '/') : self::DEFAULT_HOT_FILE;
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    public static function hotAbsolutePath(string $themePath, array $config): string
+    {
+        return rtrim(str_replace('\\', '/', $themePath), '/') . '/' . self::hotRelativePath($config);
+    }
+
+    /**
+     * Resolve Vite dev-server URL: hot file → dev.url fallback → null (use manifest).
+     *
+     * @param array<string, mixed> $config
+     */
+    public static function resolveDevServerUrl(string $themePath, array $config, ?string $manifestRelative = null): ?string
+    {
+        $themePath = rtrim(str_replace('\\', '/', $themePath), '/');
+        $hotFile = self::hotAbsolutePath($themePath, $config);
+
+        if (is_file($hotFile)) {
+            $url = trim((string) file_get_contents($hotFile));
+
+            return $url !== '' ? rtrim($url, '/') : null;
+        }
+
+        if (!self::isDevEnabled($config)) {
+            return null;
+        }
+
+        $manifestRelative ??= self::manifestRelativePath($config);
+
+        if ($manifestRelative !== null) {
+            $manifestPath = $themePath . '/' . ltrim($manifestRelative, '/');
+            $force = !empty($config['dev']['force']);
+            $preferManifest = ($config['dev']['prefer_manifest'] ?? true);
+
+            if (is_file($manifestPath) && $preferManifest && !$force) {
+                return null;
+            }
+        }
+
+        $url = trim((string) ($config['dev']['url'] ?? ''));
+
+        return $url !== '' ? rtrim($url, '/') : null;
     }
 
     public static function isSsrEnabled(array $config): bool
