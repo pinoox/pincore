@@ -28,7 +28,17 @@ final class RequestAttributeValueResolver implements ArgumentValueResolverInterf
      */
     public function supports(Request $request, ArgumentMetadata $argument): bool
     {
-        return !$argument->isVariadic() && $request->attributes->has($argument->getName());
+        if ($argument->isVariadic()) {
+            return false;
+        }
+
+        $type = $argument->getType();
+
+        if ($type !== null && (Request::class === $type || is_subclass_of($type, Request::class))) {
+            return false;
+        }
+
+        return $request->attributes->has($argument->getName());
     }
 
     /**
@@ -36,7 +46,15 @@ final class RequestAttributeValueResolver implements ArgumentValueResolverInterf
      */
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
-        yield $request->attributes->get($argument->getName());
+        $type = $argument->getType();
+
+        if ($type !== null && (Request::class === $type || is_subclass_of($type, Request::class))) {
+            return;
+        }
+
+        if (!$argument->isVariadic() && $request->attributes->has($argument->getName())) {
+            yield $request->attributes->get($argument->getName());
+        }
     }
 }
 
