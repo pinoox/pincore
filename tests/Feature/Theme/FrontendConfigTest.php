@@ -67,6 +67,41 @@ test('FrontendConfig defaultStackForNewTheme is vue', function () {
     expect(FrontendConfig::defaultStackForNewTheme())->toBe('vue');
 });
 
+test('FrontendConfig resolves custom dev.hot path', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-theme-hot-path-' . uniqid();
+    mkdir($themePath . '/dist/custom', 0777, true);
+    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue', 'dev' => ['hot' => 'dist/custom/hot']];\n");
+    file_put_contents($themePath . '/dist/custom/hot', 'http://127.0.0.1:5199');
+
+    $config = FrontendConfig::forThemePath($themePath);
+
+    expect(FrontendConfig::hotRelativePath($config))->toBe('dist/custom/hot')
+        ->and(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5199');
+
+    @unlink($themePath . '/dist/custom/hot');
+    @rmdir($themePath . '/dist/custom');
+    @rmdir($themePath . '/dist');
+    @unlink($themePath . '/frontend.config.php');
+    @rmdir($themePath);
+});
+
+test('FrontendConfig prefer_manifest skips dev url when manifest exists', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-theme-prefer-manifest-' . uniqid();
+    mkdir($themePath . '/dist/.vite', 0777, true);
+    file_put_contents($themePath . '/dist/.vite/manifest.json', '{}');
+    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue', 'dev' => ['enabled' => true, 'url' => 'http://127.0.0.1:5173']];\n");
+
+    $config = FrontendConfig::forThemePath($themePath);
+
+    expect(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBeNull();
+
+    @unlink($themePath . '/dist/.vite/manifest.json');
+    @rmdir($themePath . '/dist/.vite');
+    @rmdir($themePath . '/dist');
+    @unlink($themePath . '/frontend.config.php');
+    @rmdir($themePath);
+});
+
 test('FrontendWebServerFixSync registers vite chunk paths and skips twig themes', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-fe-sync-' . uniqid();
     mkdir($themePath . '/dist/.vite', 0777, true);
