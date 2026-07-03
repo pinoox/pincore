@@ -13,7 +13,10 @@
 
 namespace Pinoox\Component\Helpers;
 
+use Pinoox\Component\Console\Output\RtlText;
+use Pinoox\Component\Console\Output\WindowsRtlConsoleOutput;
 use Symfony\Component\Console\Application;
+use Symfony\Component\Console\Output\OutputInterface;
 
 final class ConsoleApplication
 {
@@ -43,5 +46,16 @@ final class ConsoleApplication
         }
 
         $application->add($command);
+    }
+
+    public static function output(): ?OutputInterface
+    {
+        $stream = defined('STDOUT') ? STDOUT : null;
+
+        if (!RtlText::shouldUseVisualOrder($stream)) {
+            return null;
+        }
+
+        return new WindowsRtlConsoleOutput();
     }
 }

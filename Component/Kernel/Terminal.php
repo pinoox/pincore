@@ -44,7 +44,7 @@ class Terminal
         $this->finds();
         $this->bindCommands();
 
-        $this->application->run();
+        $this->application->run(null, ConsoleApplicationHelper::output());
     }
 
     public function addCommand(object $command): void
