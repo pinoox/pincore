@@ -5,6 +5,7 @@ namespace Pinoox\Component\Kernel\Debug;
 use Pinoox\Component\Kernel\Debug\Support\ExceptionContext;
 use Pinoox\Component\Kernel\Debug\Support\ExceptionHintResolver;
 use Symfony\Component\ErrorHandler\Exception\FlattenException;
+use Symfony\Component\Console\Exception\ExceptionInterface as ConsoleExceptionInterface;
 
 class PinooxCliErrorRenderer
 {
@@ -19,6 +20,10 @@ class PinooxCliErrorRenderer
 
     public function render(\Throwable $throwable): string
     {
+        if ($throwable instanceof ConsoleExceptionInterface) {
+            return $this->renderConsoleUsageError($throwable);
+        }
+
         $exception = FlattenException::createFromThrowable($throwable);
         $context = ExceptionContext::collect($exception);
         $hints = ExceptionHintResolver::resolve($exception, $context);
@@ -71,6 +76,78 @@ class PinooxCliErrorRenderer
         $lines[] = '';
 
         return implode(PHP_EOL, $lines);
+    }
+
+    private function renderConsoleUsageError(ConsoleExceptionInterface $throwable): string
+    {
+        $message = $throwable->getMessage() !== '' ? $throwable->getMessage() : 'Invalid command usage.';
+        $argv = array_values(array_map('strval', $_SERVER['argv'] ?? []));
+        $script = $this->scriptName($argv);
+        $command = $argv[1] ?? null;
+        $extra = $argv[2] ?? null;
+        $suggestions = $this->consoleUsageSuggestions($message, $script, $command, $extra);
+
+        $lines = [
+            '',
+            $this->line('Command usage error', '1;97', '43'),
+            $this->wrap($message, 2, '97'),
+            '',
+        ];
+
+        if ($command !== null && $command !== '') {
+            $lines[] = $this->field('Command', $command);
+        }
+
+        if ($extra !== null && $extra !== '') {
+            $lines[] = $this->field('Unexpected', $extra);
+        }
+
+        if ($suggestions !== []) {
+            $lines[] = '';
+            $lines[] = $this->section('Try');
+            foreach ($suggestions as $suggestion) {
+                $lines[] = '  - ' . $suggestion;
+            }
+        }
+
+        $lines[] = '';
+        $lines[] = $this->color('Run "' . $script . ' help ' . ($command ?: 'command') . '" for command-specific usage.', '2;37');
+        $lines[] = '';
+
+        return implode(PHP_EOL, $lines);
+    }
+
+    private function scriptName(array $argv): string
+    {
+        $script = str_replace('\\', '/', (string)($argv[0] ?? 'php pinoox'));
+
+        if (str_ends_with($script, '/pinoox') || $script === 'pinoox') {
+            return 'php pinoox';
+        }
+
+        return basename($script) ?: 'php pinoox';
+    }
+
+    private function consoleUsageSuggestions(string $message, string $script, ?string $command, ?string $extra): array
+    {
+        $suggestions = [];
+
+        if ($extra !== null && $extra !== '' && str_contains($message, 'No arguments expected')) {
+            if (str_contains($extra, ':')) {
+                $suggestions[] = $this->color($script . ' ' . $extra, '1;32') . ' if "' . $extra . '" is the command you wanted.';
+            }
+
+            if ($command !== null && $command !== '') {
+                $suggestions[] = $this->color($script . ' ' . $command, '1;32') . ' if you wanted to run "' . $command . '" without extra arguments.';
+                $suggestions[] = $this->color($script . ' help ' . $command, '1;32') . ' to see accepted options and arguments.';
+            }
+        }
+
+        if ($suggestions === []) {
+            $suggestions[] = $this->color($script . ' list', '1;32') . ' to list available commands.';
+        }
+
+        return $suggestions;
     }
 
     private function section(string $title): string
