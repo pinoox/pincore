@@ -30,6 +30,8 @@ class Terminal
 
     public function __construct()
     {
+        ConsoleApplicationHelper::bootUtf8();
+
         $this->application = new Application();
 
         if (RuntimeMode::bootDebugEnabled()) {
