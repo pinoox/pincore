@@ -81,7 +81,8 @@ Development (.env):
   VITE_DEV=true
   VITE_DEV_SERVER=http://127.0.0.1:5173
 
-When Vite dev is running, write the dev-server URL to theme/dist/hot for automatic HMR tags.
+HMR: fe dev/build/run auto-sync vite.pinoox.mjs and write theme/dist/hot on Vite start.
+Override hot path in frontend.config.php dev.hot or VITE_HOT_FILE.
 HELP
             )
             ->addArgument('target', InputArgument::OPTIONAL, 'App package (com_my_shop) or theme folder (spark). Leave empty to pick interactively.')
@@ -200,9 +201,16 @@ HELP
         string $action,
         string $targetInput = '',
     ): array {
-        $positional = $targetInput !== ''
-            ? $this->normalizePackageInput($targetInput)
-            : $this->readPackageInput($input, 'target', ['package', 'app']);
+        $rawTarget = strtolower(trim((string) $input->getArgument('target')));
+
+        if ($targetInput !== '') {
+            $positional = $this->normalizePackageInput($targetInput);
+        } elseif ($rawTarget !== '' && in_array($rawTarget, self::ACTIONS, true)) {
+            $positional = '';
+        } else {
+            $positional = $this->readPackageInput($input, 'target', ['package', 'app']);
+        }
+
         $themeOption = $this->readThemeInput($input);
 
         if ($positional !== '' && AppEngine::exists($positional)) {
@@ -348,6 +356,9 @@ HELP
             ['Recommended Twig' => (string) ($info['recommended_twig'] ?? '-')],
             ['Manifest' => ($info['manifest_exists'] ?? false) ? 'built' : 'missing — run fe build'],
             ['Dev' => !empty($info['dev_enabled']) ? (string) ($info['dev_url'] ?? 'on') : 'off'],
+            ['Dev port' => (string) ($info['dev_port'] ?? '-')],
+            ['Hot file' => ($info['hot_exists'] ?? false) ? (string) ($info['hot_relative'] ?? '-') : 'missing'],
+            ['vite.pinoox.mjs' => !empty($info['pinoox_bundle']) ? 'synced' : 'missing — run fe dev/build'],
             ['npm' => ($info['package_json'] ?? false)
                 ? (($info['needs_npm_install'] ?? false) ? 'install needed' : 'ready')
                 : 'none'],
@@ -426,7 +437,7 @@ HELP
 
         $io->note([
             'Live output streams below. Press Ctrl+C to stop.',
-            'Set VITE_DEV=true in .env or create theme/dist/hot with the Vite URL.',
+            'HMR hot file is auto-synced and written on Vite start (default dist/hot).',
             'Proxy API calls from vite.config.js to your Pinoox URL (see docs/pinoox-frontend.md).',
         ]);
 
