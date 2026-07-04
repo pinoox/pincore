@@ -438,9 +438,8 @@ HELP
         }
 
         $lines[] = '];';
-        $lines[] = '';
 
-        return implode("\n", $lines);
+        return implode("\n", $lines) . "\n";
     }
 
     private function resolveRouteFormat(InputInterface $input, ?string $file = null): string

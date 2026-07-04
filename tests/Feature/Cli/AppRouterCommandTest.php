@@ -73,14 +73,12 @@ it('formats route php arrays', function () {
         '/developer' => 'com_pinoox_developer',
     ]);
 
-    expect($php)->toBe(<<<'PHP'
-<?php
+    $expected = "<?php\n\nreturn [\n"
+        . "    '/' => 'com_pinoox_welcome',\n"
+        . "    '/developer' => 'com_pinoox_developer',\n"
+        . "];\n";
 
-return [
-    '/' => 'com_pinoox_welcome',
-    '/developer' => 'com_pinoox_developer',
-];
-PHP);
+    expect(str_replace("\r\n", "\n", $php))->toBe($expected);
 });
 
 it('decodes route json objects', function () {

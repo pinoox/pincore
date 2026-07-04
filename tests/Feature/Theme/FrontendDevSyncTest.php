@@ -3,9 +3,82 @@
 use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\FrontendDevSync;
 
+const FRONTEND_DEV_SYNC_ENV_KEYS = ['VITE_HOT_FILE', 'VITE_DEV_PORT', 'VITE_DEV', 'VITE_DEV_SERVER', 'VITE_DEV_FORCE'];
+
+function frontendDevSyncEnvSnapshot(): array
+{
+    $snapshot = [];
+
+    foreach (FRONTEND_DEV_SYNC_ENV_KEYS as $key) {
+        $snapshot[$key] = $_ENV[$key] ?? null;
+    }
+
+    return $snapshot;
+}
+
+function frontendDevSyncEnvRestore(array $snapshot): void
+{
+    foreach ($snapshot as $key => $value) {
+        if ($value === null) {
+            unset($_ENV[$key], $_SERVER[$key]);
+            putenv($key);
+        } else {
+            $_ENV[$key] = $value;
+            $_SERVER[$key] = $value;
+        }
+    }
+}
+
+function frontendDevSyncThemeDir(): string
+{
+    $path = sys_get_temp_dir() . '/pinoox-fe-sync-' . uniqid('', true);
+    mkdir($path, 0777, true);
+
+    return $path;
+}
+
+function frontendDevSyncRemoveThemeDir(string $path): void
+{
+    if (!is_dir($path)) {
+        return;
+    }
+
+    $iterator = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($path, FilesystemIterator::SKIP_DOTS),
+        RecursiveIteratorIterator::CHILD_FIRST,
+    );
+
+    foreach ($iterator as $item) {
+        if ($item->isDir()) {
+            @rmdir($item->getPathname());
+        } else {
+            @unlink($item->getPathname());
+        }
+    }
+
+    @rmdir($path);
+}
+
+beforeEach(function () {
+    $GLOBALS['__frontendDevSyncEnvSnapshot'] = frontendDevSyncEnvSnapshot();
+});
+
+afterEach(function () {
+    if (isset($GLOBALS['__frontendDevSyncThemePath'])) {
+        frontendDevSyncRemoveThemeDir($GLOBALS['__frontendDevSyncThemePath']);
+        unset($GLOBALS['__frontendDevSyncThemePath']);
+    }
+
+    if (isset($GLOBALS['__frontendDevSyncEnvSnapshot'])) {
+        frontendDevSyncEnvRestore($GLOBALS['__frontendDevSyncEnvSnapshot']);
+        unset($GLOBALS['__frontendDevSyncEnvSnapshot']);
+    }
+});
+
 test('FrontendDevSync copies hot plugin and seeds theme env', function () {
-    $themePath = sys_get_temp_dir() . '/pinoox-fe-sync-dev-' . uniqid();
-    mkdir($themePath, 0777, true);
+    $themePath = frontendDevSyncThemeDir();
+    $GLOBALS['__frontendDevSyncThemePath'] = $themePath;
+
     file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue'];\n");
     file_put_contents($themePath . '/.env.example', "VITE_DEV_PORT=5199\n");
 
@@ -19,30 +92,21 @@ test('FrontendDevSync copies hot plugin and seeds theme env', function () {
         ->and($result['hot_path'])->toBe('dist/hot')
         ->and(is_file($themePath . '/vite.pinoox.mjs'))->toBeTrue()
         ->and(is_file($themePath . '/.env'))->toBeTrue();
-
-    @unlink($themePath . '/vite.pinoox.mjs');
-    @unlink($themePath . '/.env');
-    @unlink($themePath . '/.env.example');
-    @unlink($themePath . '/frontend.config.php');
-    @rmdir($themePath);
 });
 
 test('FrontendConfig reads VITE_HOT_FILE and VITE_DEV_PORT from env', function () {
-    $themePath = sys_get_temp_dir() . '/pinoox-fe-env-hot-' . uniqid();
-    mkdir($themePath, 0777, true);
+    $themePath = frontendDevSyncThemeDir();
+    $GLOBALS['__frontendDevSyncThemePath'] = $themePath;
+
     file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue'];\n");
 
-    putenv('VITE_HOT_FILE=dist/custom/hot');
-    putenv('VITE_DEV_PORT=5199');
+    $_ENV['VITE_HOT_FILE'] = 'dist/custom/hot';
+    $_SERVER['VITE_HOT_FILE'] = 'dist/custom/hot';
+    $_ENV['VITE_DEV_PORT'] = '5199';
+    $_SERVER['VITE_DEV_PORT'] = '5199';
 
     $config = FrontendConfig::forThemePath($themePath);
 
     expect(FrontendConfig::hotRelativePath($config))->toBe('dist/custom/hot')
         ->and(FrontendConfig::devPort($config))->toBe(5199);
-
-    putenv('VITE_HOT_FILE');
-    putenv('VITE_DEV_PORT');
-
-    @unlink($themePath . '/frontend.config.php');
-    @rmdir($themePath);
 });
