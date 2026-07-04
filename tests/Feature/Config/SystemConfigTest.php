@@ -207,7 +207,7 @@ function restoreSystemConfigTestEnv(): void
     }
 
     if (!\Pinoox\Tests\Support\TestRuntime::usesProjectPaths()) {
-        \Pinoox\Tests\Support\TestRuntime::bootstrap(testProjectRoot());
+        \Pinoox\Tests\Support\TestRuntime::reapplyIsolatedRuntime(testProjectRoot());
     }
 }
 

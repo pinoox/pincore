@@ -2,6 +2,11 @@
 
 namespace Pinoox\Tests\Support;
 
+use Pinoox\Component\Kernel\Loader;
+use Pinoox\Portal\App\AppEngine;
+use Pinoox\Support\AppRegistry;
+use Pinoox\Support\SystemConfig;
+
 /**
  * Isolated apps/pinker/storage workspace for framework tests — never writes to project runtime dirs.
  */
@@ -19,6 +24,8 @@ final class TestRuntime
 
     private const ENV_PROJECT_REGISTRY = 'PINOOX_PROJECT_REGISTRY_PATH';
 
+    private const ENV_INCLUDE_PROJECT_APPS = 'PINOOX_TEST_INCLUDE_PROJECT_APPS';
+
     public static function bootstrap(string $platformRoot): void
     {
         if (self::usesProjectPaths()) {
@@ -30,11 +37,81 @@ final class TestRuntime
         self::writeProjectAppsRegistry($platformRoot);
     }
 
+    public static function reapplyIsolatedRuntime(string $platformRoot): void
+    {
+        if (self::usesProjectPaths()) {
+            return;
+        }
+
+        self::resetDevDbWorkspace();
+        self::bootstrap($platformRoot);
+        self::syncAppEngineRegistry($platformRoot);
+    }
+
+    /**
+     * Drop DevDB workspaces left by earlier tests in the same Pest process.
+     */
+    public static function resetDevDbWorkspace(): void
+    {
+        $root = self::devdbRoot();
+        if (!is_dir($root)) {
+            return;
+        }
+
+        foreach (scandir($root) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+
+            self::deleteTree($root . '/' . $entry);
+        }
+    }
+
+    private static function deleteTree(string $path): void
+    {
+        if (!file_exists($path)) {
+            return;
+        }
+
+        if (is_file($path) || is_link($path)) {
+            @unlink($path);
+
+            return;
+        }
+
+        try {
+            $items = new \RecursiveIteratorIterator(
+                new \RecursiveDirectoryIterator($path, \FilesystemIterator::SKIP_DOTS),
+                \RecursiveIteratorIterator::CHILD_FIRST,
+            );
+
+            foreach ($items as $item) {
+                if ($item->isDir()) {
+                    @rmdir($item->getPathname());
+                } else {
+                    @unlink($item->getPathname());
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        @rmdir($path);
+    }
+
     public static function usesProjectPaths(): bool
     {
         $flag = $_ENV[self::ENV_USE_PROJECT_PATHS]
             ?? $_SERVER[self::ENV_USE_PROJECT_PATHS]
             ?? getenv(self::ENV_USE_PROJECT_PATHS);
+
+        return $flag === '1' || $flag === 'true';
+    }
+
+    public static function includesProjectApps(): bool
+    {
+        $flag = $_ENV[self::ENV_INCLUDE_PROJECT_APPS]
+            ?? $_SERVER[self::ENV_INCLUDE_PROJECT_APPS]
+            ?? getenv(self::ENV_INCLUDE_PROJECT_APPS);
 
         return $flag === '1' || $flag === 'true';
     }
@@ -199,6 +276,47 @@ final class TestRuntime
             }
         }
 
+        if (self::includesProjectApps()) {
+            $packages = self::mergeProjectAppsRegistry($platformRoot, $packages);
+        }
+
+        return $packages;
+    }
+
+    /**
+     * Read-only registry entries for installed project apps (NonIsolated tests only).
+     *
+     * @param array<string, string> $packages
+     * @return array<string, string>
+     */
+    private static function mergeProjectAppsRegistry(string $platformRoot, array $packages): array
+    {
+        $projectApps = $platformRoot . '/apps';
+        if (!is_dir($projectApps)) {
+            return $packages;
+        }
+
+        foreach (scandir($projectApps) ?: [] as $entry) {
+            if ($entry === '.' || $entry === '..') {
+                continue;
+            }
+
+            if (!str_starts_with($entry, 'com_')) {
+                continue;
+            }
+
+            if (str_starts_with($entry, 'com_test_') || str_starts_with($entry, 'com_boot_')) {
+                continue;
+            }
+
+            $appFile = $projectApps . '/' . $entry . '/app.php';
+            if (!is_file($appFile)) {
+                continue;
+            }
+
+            $packages[$entry] = '~/apps/' . $entry;
+        }
+
         return $packages;
     }
 
@@ -267,5 +385,51 @@ final class TestRuntime
         putenv($key . '=' . $value);
         $_ENV[$key] = $value;
         $_SERVER[$key] = $value;
+    }
+
+    public static function enableProjectAppsRegistry(string $platformRoot): void
+    {
+        self::setEnv(self::ENV_INCLUDE_PROJECT_APPS, '1');
+        self::syncAppEngineRegistry($platformRoot);
+    }
+
+    public static function disableProjectAppsRegistry(string $platformRoot): void
+    {
+        putenv(self::ENV_INCLUDE_PROJECT_APPS);
+        unset($_ENV[self::ENV_INCLUDE_PROJECT_APPS], $_SERVER[self::ENV_INCLUDE_PROJECT_APPS]);
+        self::syncAppEngineRegistry($platformRoot);
+    }
+
+    /**
+     * Rewrite the isolated registry file and push resolved packages into AppEngine.
+     *
+     * AppEngine::__rebuild() clears cached config but keeps the original ArrayLoader;
+     * NonIsolated tests must overlay registry paths after the portal is first booted.
+     */
+    public static function syncAppEngineRegistry(string $platformRoot): void
+    {
+        self::writeProjectAppsRegistry($platformRoot);
+        SystemConfig::clearCache();
+
+        if (!class_exists(AppEngine::class, false)) {
+            return;
+        }
+
+        $packages = AppRegistry::load(
+            SystemConfig::path('system_registry'),
+            (string)Loader::getBasePath(),
+        );
+
+        foreach ($packages as $package => $path) {
+            try {
+                AppEngine::add($package, $path);
+            } catch (\Throwable) {
+            }
+        }
+
+        try {
+            AppEngine::__rebuild();
+        } catch (\Throwable) {
+        }
     }
 }

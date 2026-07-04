@@ -93,12 +93,12 @@ function deleteFakeApp(string $package): void
 
 function cleanupTestArtifacts(): void
 {
-    AppTestKit::cleanupTransientArtifacts();
+    AppTestKit::cleanupTransientArtifacts(false);
 
-if (!\Pinoox\Tests\Support\TestRuntime::usesProjectPaths()) {
-         \Pinoox\Tests\Support\TestRuntime::bootstrap(testProjectRoot());
+    if (!\Pinoox\Tests\Support\TestRuntime::usesProjectPaths()) {
+        \Pinoox\Tests\Support\TestRuntime::reapplyIsolatedRuntime(testProjectRoot());
         \Pinoox\Support\SystemConfig::clearCache();
-
+    } else {
         try {
             \Pinoox\Portal\App\AppEngine::__rebuild();
         } catch (\Throwable) {

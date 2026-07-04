@@ -4,6 +4,9 @@ namespace Feature;
 
 use PHPUnit\Framework\TestCase;
 use Pinoox\Component\Kernel\Debug\Support\ExceptionContext;
+use Pinoox\Portal\App\AppEngine;
+use Pinoox\Support\SystemConfig;
+use Pinoox\Tests\Support\TestRuntime;
 
 /**
  * @group non-isolated
@@ -22,7 +25,14 @@ class ExceptionContextTest extends TestCase
 
     public function test_app_version_reads_from_installer_app_file(): void
     {
-        $appFile = \Pinoox\Support\SystemConfig::resolvePath('~/apps/com_pinoox_installer/app.php');
+        if (!TestRuntime::includesProjectApps()) {
+            $this->markTestSkipped('Run with php pinoox test platform --with-non-isolated to include project app fixtures.');
+        }
+
+        SystemConfig::clearCache();
+        AppEngine::__rebuild();
+
+        $appFile = AppEngine::path('com_pinoox_installer', 'app.php');
         $this->assertFileExists($appFile);
 
         $config = include $appFile;
@@ -35,4 +45,3 @@ class ExceptionContextTest extends TestCase
         $this->assertSame($version['name'] . ' #' . $version['code'], $version['label']);
     }
 }
-

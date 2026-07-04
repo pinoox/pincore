@@ -96,6 +96,11 @@ foreach (Composer\Autoload\ClassLoader::getRegisteredLoaders() as $registeredLoa
 }
 
 if ($testClassLoader instanceof Composer\Autoload\ClassLoader) {
+    $appsAutoload = rtrim(str_replace('\\', '/', PINOOX_BASE_PATH), '/') . '/apps/';
+    if (is_dir($appsAutoload)) {
+        $testClassLoader->addPsr4('App\\', $appsAutoload, true);
+    }
+
     \Pinoox\Component\Kernel\Loader::set($testClassLoader, PINOOX_BASE_PATH);
 }
 

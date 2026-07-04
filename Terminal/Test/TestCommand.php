@@ -71,8 +71,10 @@ Isolation:
   Most tests use com_test_* apps and pincore/tests/Fixtures/sandbox (auto-cleaned).
   Tests tagged @group non-isolated may read local pinker/state or need MySQL/Redis.
   Use --exclude-group=non-isolated for a fast isolated CI run.
+  Add --with-non-isolated to include monorepo-only tests (read-only project apps).
 HELP)
             ->addArgument('package', InputArgument::OPTIONAL, 'App package, platform, or all. Leave empty to pick from the list.')
+            ->addOption('with-non-isolated', null, InputOption::VALUE_NONE, 'Include @group non-isolated tests (read-only project apps)')
             ->addOption('filter', 'f', InputOption::VALUE_REQUIRED, 'Run tests matching a name pattern')
             ->addOption('unit', 'u', InputOption::VALUE_NONE, 'Run only Unit tests')
             ->addOption('feature', null, InputOption::VALUE_NONE, 'Run only Feature tests')
@@ -246,6 +248,12 @@ HELP)
 
         if ($input->getOption('exclude-group')) {
             $parts[] = '--exclude-group=' . escapeshellarg((string) $input->getOption('exclude-group'));
+        } elseif (
+            ($package === 'platform' || $package === 'all')
+            && !$input->getOption('group')
+            && !$input->getOption('with-non-isolated')
+        ) {
+            $parts[] = '--exclude-group=' . escapeshellarg('non-isolated');
         }
 
         if ($input->getOption('coverage')) {
