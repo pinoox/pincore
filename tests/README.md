@@ -42,6 +42,7 @@ Most tests are **isolated** — they never touch production apps or project runt
 - Writable test apps live under `pincore/tests/Fixtures/runtime/apps/` (not project `apps/`).
 - Pinker and storage redirect to `pincore/tests/Fixtures/runtime/pinker/` and `.../storage/` (not project `pinker/` or `storage/`).
 - Project `apps/` is **never** scanned or registered during platform tests — only fixture stubs under `tests/Fixtures/system-apps/` and apps you create with `fakeApp()` / `com_test_*`.
+- Pinker bake/cache/state writes go to `pincore/tests/Fixtures/runtime/pinker/` — never `{project_root}/pinker/`.
 - Use `com_test_*` package names via `testPackage('suffix')` or `TestSandbox::packageName()`.
 - Other writable files go under `pincore/tests/Fixtures/sandbox/` via `testSandbox('path/to/file')`.
 - `cleanupTestArtifacts()` (before/after each test) removes transient runtime apps and sandbox files.
