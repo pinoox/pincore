@@ -205,6 +205,10 @@ function restoreSystemConfigTestEnv(): void
         putenv($key);
         unset($_ENV[$key], $_SERVER[$key]);
     }
+
+    if (!\Pinoox\Tests\Support\TestRuntime::usesProjectPaths()) {
+        \Pinoox\Tests\Support\TestRuntime::bootstrap(testProjectRoot());
+    }
 }
 
 function deleteSystemConfigTestDirectory(string $dir): void
