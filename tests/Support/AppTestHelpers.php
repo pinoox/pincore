@@ -146,6 +146,20 @@ function testRuntimeDevdb(string $relative = ''): string
     return \Pinoox\Tests\Support\TestRuntime::devdbPath($relative);
 }
 
+function bootstrapTestSodiumCompat(): void
+{
+    if (function_exists('sodium_crypto_sign_keypair')) {
+        return;
+    }
+
+    $corePath = rtrim(str_replace('\\', '/', defined('PINOOX_CORE_PATH') ? PINOOX_CORE_PATH : testCoreRoot()), '/');
+    $autoload = $corePath . '/vendor/paragonie/sodium_compat/autoload.php';
+
+    if (is_file($autoload)) {
+        require_once $autoload;
+    }
+}
+
 function testProjectRoot(): string
 {
     return str_replace('\\', '/', AppTestKit::projectRoot());

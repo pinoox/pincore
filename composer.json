@@ -68,11 +68,21 @@
       "Pinoox\\Tests\\": "tests/"
     }
   },
+  "repositories": [
+    {
+      "type": "path",
+      "url": "../packages/devdb",
+      "options": {
+        "symlink": true
+      }
+    }
+  ],
   "require-dev": {
     "nikic/php-parser": "^5.4",
+    "nunomaduro/collision": "^8.5",
+    "paragonie/sodium_compat": "^2.1",
     "pestphp/pest": "^2.36",
-    "pinoox/devdb": "^0.3 || ^1.0",
-    "nunomaduro/collision": "^8.5"
+    "pinoox/devdb": "dev-master"
   },
   "scripts": {
     "test": "@php vendor/bin/pest --configuration=phpunit.xml",

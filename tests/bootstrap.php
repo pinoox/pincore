@@ -73,6 +73,7 @@ Pinoox\Tests\Support\TestRuntime::bootstrap($platformRoot);
 // PHPUnit/Pest: test runtime overrides machine env (individual tests may override again).
 restoreTestDevDbEnvironment();
 bootstrapDevDbAutoload();
+bootstrapTestSodiumCompat();
 
 \Pinoox\Component\Helpers\EnvBootstrap::load(PINOOX_BASE_PATH);
 
