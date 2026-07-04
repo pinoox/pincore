@@ -11,7 +11,6 @@ use Pinoox\Portal\Database\DB;
 use Pinoox\Terminal\DevDB\DevDbClearCommand;
 use Pinoox\Terminal\DevDB\DevDbInspectCommand;
 use Pinoox\Terminal\DevDB\DevDbStatusCommand;
-use Symfony\Component\Console\Application;
 use Symfony\Component\Console\Tester\CommandTester;
 
 beforeEach(function () {
@@ -231,10 +230,11 @@ it('exposes DevDB status, inspect, and clear commands', function () {
     });
     $connection->table('notes')->insertGetId(['body' => 'CLI']);
 
-    $application = new Application();
-    $application->add(new DevDbStatusCommand());
-    $application->add(new DevDbInspectCommand());
-    $application->add(new DevDbClearCommand());
+    $application = cliApplication([
+        new DevDbStatusCommand(),
+        new DevDbInspectCommand(),
+        new DevDbClearCommand(),
+    ]);
 
     $status = new CommandTester($application->find('devdb:status'));
     $status->execute(['--json' => true]);
