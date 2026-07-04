@@ -6,12 +6,19 @@ use Pinoox\Component\Kernel\Container\IlluminateBridge;
 use Pinoox\Component\Kernel\Container\ServiceContainerBootstrap;
 use Pinoox\Component\Kernel\Loader;
 use Pinoox\Component\Test\AppTestKit;
+use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\App\AppProvider;
 use Pinoox\Portal\Kernel\Boot;
 
 beforeEach(function () {
     Loader::setBasePath(testProjectRoot());
     AppTestKit::boot();
+});
+
+afterEach(function () {
+    deleteFakeApp('com_test_kernel_ctrl');
+    deleteTestApp('com_test_kernel_container');
+    AppEngine::__rebuild();
 });
 
 it('exposes a deterministic boot pipeline', function () {
@@ -31,7 +38,9 @@ it('exposes a deterministic boot pipeline', function () {
 });
 
 it('keeps app container opt-in disabled by default', function () {
-    expect(ServiceContainerBootstrap::containerEnabled('com_pinoox_welcome'))->toBeFalse();
+    writeTestApp('com_test_kernel_container', []);
+
+    expect(ServiceContainerBootstrap::containerEnabled('com_test_kernel_container'))->toBeFalse();
 });
 
 it('registers bindings when container is enabled', function () {
@@ -47,9 +56,25 @@ it('registers bindings when container is enabled', function () {
 });
 
 it('discovers controller classes for an app package', function () {
-    $controllers = AppServiceContainer::discoverControllers('com_pinoox_welcome');
+    fakeApp('com_test_kernel_ctrl', [
+        'Controller/DemoController.php' => <<<'PHP'
+<?php
 
-    expect($controllers)->toBeArray();
+namespace App\com_test_kernel_ctrl\Controller;
+
+class DemoController
+{
+}
+PHP,
+    ]);
+    AppEngine::__rebuild();
+
+    $controllerFile = AppEngine::path('com_test_kernel_ctrl', 'Controller/DemoController.php');
+    expect($controllerFile)->toBeFile();
+    require_once $controllerFile;
+
+    expect(AppServiceContainer::discoverControllers('com_test_kernel_ctrl'))
+        ->toBe(['App\\com_test_kernel_ctrl\\Controller\\DemoController']);
 });
 
 it('builds boot pipeline for a context', function () {

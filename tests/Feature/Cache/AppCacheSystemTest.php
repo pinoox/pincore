@@ -25,7 +25,7 @@ it('registers app cache portal and helper', function () {
 });
 
 it('disables cache in development by default', function () {
-    $config = AppCacheConfig::resolve('com_pinoox_welcome');
+    $config = AppCacheConfig::resolve('com_test_cache_defaults');
 
     expect($config)->toHaveKeys(['enabled', 'mode', 'stores', 'build_stores'])
         ->and($config['mode'])->toBe('development')
