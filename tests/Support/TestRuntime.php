@@ -166,40 +166,30 @@ final class TestRuntime
         $platformRoot = rtrim(str_replace('\\', '/', $platformRoot), '/');
         $packages = [];
 
-        $projectRegistry = $platformRoot . '/config/apps.config.php';
-        if (is_file($projectRegistry)) {
-            $config = require $projectRegistry;
-            if (is_array($config)) {
-                $configured = $config['packages'] ?? $config['apps'] ?? [];
-                if (is_array($configured)) {
-                    $packages = array_merge($packages, $configured);
-                }
+        foreach ([
+            $platformRoot . '/config/apps.config.php',
+            $platformRoot . '/platform/apps.config.php',
+        ] as $projectRegistry) {
+            if (!is_file($projectRegistry)) {
+                continue;
             }
-        }
 
-        $projectApps = $platformRoot . '/apps';
-        if (is_dir($projectApps)) {
-            foreach (scandir($projectApps) ?: [] as $entry) {
-                if ($entry === '.' || $entry === '..') {
+            $config = require $projectRegistry;
+            if (!is_array($config)) {
+                continue;
+            }
+
+            $configured = $config['packages'] ?? $config['apps'] ?? [];
+            if (!is_array($configured)) {
+                continue;
+            }
+
+            foreach ($configured as $package => $path) {
+                if (!is_string($package) || self::isProjectAppsRegistryPath($path, $package)) {
                     continue;
                 }
 
-                if (!str_starts_with($entry, 'com_')) {
-                    continue;
-                }
-
-                if (str_starts_with($entry, 'com_test_') || str_starts_with($entry, 'com_boot_')) {
-                    continue;
-                }
-
-                $appFile = $projectApps . '/' . $entry . '/app.php';
-                if (!is_file($appFile)) {
-                    continue;
-                }
-
-                if (!isset($packages[$entry])) {
-                    $packages[$entry] = '~/apps/' . $entry;
-                }
+                $packages[$package] = $path;
             }
         }
 
@@ -210,6 +200,27 @@ final class TestRuntime
         }
 
         return $packages;
+    }
+
+    /**
+     * Skip registry entries that point at the project apps/ tree (real installed apps).
+     */
+    private static function isProjectAppsRegistryPath(mixed $path, string $package): bool
+    {
+        if (is_array($path)) {
+            $path = $path['path'] ?? '';
+        }
+
+        if (!is_string($path)) {
+            return false;
+        }
+
+        $path = str_replace('\\', '/', trim($path));
+
+        return $path === '~/apps/' . $package
+            || $path === 'apps/' . $package
+            || str_starts_with($path, '~/apps/')
+            || str_starts_with($path, 'apps/com_');
     }
 
     /**

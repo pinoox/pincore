@@ -5,6 +5,7 @@ use Pinoox\Component\Kernel\Listener\RouteEmptyListener;
 use Pinoox\Component\Kernel\Loader;
 use Pinoox\Support\AppPublicPath;
 use Pinoox\Support\StaticAssetRequest;
+use Pinoox\Support\SystemConfig;
 use Symfony\Component\HttpKernel\Event\ExceptionEvent;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -12,9 +13,7 @@ use Symfony\Component\Routing\Exception\ResourceNotFoundException;
 
 beforeEach(function () {
     Loader::setBasePath(testProjectRoot());
-    putenv('PINOOX_APPS_PATH=apps');
-    $_ENV['PINOOX_APPS_PATH'] = 'apps';
-    $_SERVER['PINOOX_APPS_PATH'] = 'apps';
+    SystemConfig::clearCache();
 });
 
 function staticAssetAppsRequestPath(string $suffix = 'com_demo_shop/theme/default/dist/main.css'): string

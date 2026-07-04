@@ -52,12 +52,8 @@ it('stores transient fake apps under tests/Fixtures/runtime/apps', function () {
     fakeApp('com_test_appkit');
 
     expect(appPath('com_test_appkit'))->toBe(testRuntimeApps() . '/com_test_appkit')
-        ->and(SystemConfig::path('apps'))->toBe(testRuntimeApps());
-
-    if (AppEngine::exists('com_pinoox_welcome')) {
-        expect(AppEngine::path('com_pinoox_welcome'))->toEndWith('com_pinoox_welcome')
-            ->and(AppEngine::path('com_pinoox_welcome'))->toBeDirectory();
-    }
+        ->and(SystemConfig::path('apps'))->toBe(testRuntimeApps())
+        ->and(SystemConfig::path('apps'))->not->toBe(testProjectRoot() . '/apps');
 });
 
 it('stores pinker and storage under tests/Fixtures/runtime', function () {

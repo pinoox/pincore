@@ -10,11 +10,10 @@ use Pinoox\Component\Path\Url;
 use Pinoox\Component\Store\Config\ConfigInterface;
 use Pinoox\Support\AppPublicPath;
 use Pinoox\Support\AppRegistry;
+use Pinoox\Support\SystemConfig;
 
 beforeEach(function () {
-    putenv('PINOOX_APPS_PATH=apps');
-    $_ENV['PINOOX_APPS_PATH'] = 'apps';
-    $_SERVER['PINOOX_APPS_PATH'] = 'apps';
+    SystemConfig::clearCache();
 });
 
 afterEach(function () {
