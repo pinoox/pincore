@@ -141,6 +141,11 @@ function testRuntimeStorage(): string
     return \Pinoox\Tests\Support\TestRuntime::storageRoot();
 }
 
+function testRuntimeDevdb(string $relative = ''): string
+{
+    return \Pinoox\Tests\Support\TestRuntime::devdbPath($relative);
+}
+
 function testProjectRoot(): string
 {
     return str_replace('\\', '/', AppTestKit::projectRoot());

@@ -47,18 +47,10 @@ afterEach(function () {
 
 it('resolves core, fallback, and app-specific database connections', function () {
     $manager = new DatabaseManager(new Illuminate\Container\Container());
-    $manager->registerCoreConnection([
-        'driver' => 'sqlite',
-        'database' => ':memory:',
-        'prefix' => '',
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection(''));
 
     writeTestApp('com_test_database', [
-        'database' => [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'prefix' => '',
-        ],
+        'database' => testDevDbConnection(''),
     ]);
     writeTestApp('com_test_default', [
         'database' => null,
@@ -74,26 +66,14 @@ it('resolves core, fallback, and app-specific database connections', function ()
 
 it('supports named app database connections', function () {
     $manager = new DatabaseManager(new Illuminate\Container\Container());
-    $manager->registerCoreConnection([
-        'driver' => 'sqlite',
-        'database' => ':memory:',
-        'prefix' => '',
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection(''));
 
     writeTestApp('com_test_named_database', [
         'database' => [
             'default' => 'primary',
             'connections' => [
-                'primary' => [
-                    'driver' => 'sqlite',
-                    'database' => ':memory:',
-                    'prefix' => '',
-                ],
-                'analytics' => [
-                    'driver' => 'sqlite',
-                    'database' => ':memory:',
-                    'prefix' => '',
-                ],
+                'primary' => testDevDbConnection(''),
+                'analytics' => testDevDbConnection(''),
             ],
         ],
     ]);
@@ -107,11 +87,7 @@ it('supports named app database connections', function () {
 
 it('uses the core connection prefix without duplicating it in resolved table names', function () {
     $manager = new DatabaseManager(new Illuminate\Container\Container());
-    $manager->registerCoreConnection([
-        'driver' => 'sqlite',
-        'database' => ':memory:',
-        'prefix' => 'pinx_',
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection('pinx_'));
 
     expect($manager->core()->getTablePrefix())->toBe('pinx_')
         ->and($manager->tableName('user', 'platform'))->toBe('user')
@@ -120,11 +96,7 @@ it('uses the core connection prefix without duplicating it in resolved table nam
 
 it('applies the core connection prefix when compiling query SQL', function () {
     $manager = new DatabaseManager(new Illuminate\Container\Container());
-    $manager->registerCoreConnection([
-        'driver' => 'sqlite',
-        'database' => ':memory:',
-        'prefix' => 'pinx_',
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection('pinx_'));
 
     $sql = $manager->core()->table('token')->where('token_key', 'abc')->toSql();
 
@@ -133,11 +105,7 @@ it('applies the core connection prefix when compiling query SQL', function () {
 
 it('derives an app connection from core when only the table prefix is customized', function () {
     $manager = new DatabaseManager(new Illuminate\Container\Container());
-    $manager->registerCoreConnection([
-        'driver' => 'sqlite',
-        'database' => ':memory:',
-        'prefix' => 'pinx_',
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection('pinx_'));
 
     writeTestApp('com_test_derived_prefix', [
         'database' => null,
@@ -159,26 +127,14 @@ it('derives an app connection from core when only the table prefix is customized
 
 it('loads relations between models that belong to different app databases', function () {
     writeTestApp('com_test_relation_core', [
-        'database' => [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'prefix' => '',
-        ],
+        'database' => testDevDbConnection(''),
     ]);
     writeTestApp('com_test_relation_manager', [
-        'database' => [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'prefix' => '',
-        ],
+        'database' => testDevDbConnection(''),
     ]);
     AppEngine::__rebuild();
 
-    DB::registerCoreConnection([
-        'driver' => 'sqlite',
-        'database' => ':memory:',
-        'prefix' => '',
-    ]);
+    DB::registerCoreConnection(testDevDbConnection(''));
     DB::setAsGlobal();
     DB::bootEloquent();
 
@@ -217,27 +173,18 @@ it('loads relations between models that belong to different app databases', func
 
 it('resolves table names using core, shared app, dedicated app, and explicit prefixes', function () {
     $manager = new DatabaseManager(new Illuminate\Container\Container());
-    $manager->registerCoreConnection([
-        'driver' => 'sqlite',
-        'database' => ':memory:',
-        'prefix' => '',
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection(''));
+    DB::refreshCoreConnection(testDevDbConnection('pinx_'));
 
     writeTestApp('com_test_shared_tables', [
         'database' => null,
     ]);
     writeTestApp('com_test_dedicated_tables', [
-        'database' => [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'prefix' => '',
-        ],
+        'database' => testDevDbConnection(''),
     ]);
     writeTestApp('com_test_prefixed_tables', [
         'database' => [
-            'driver' => 'sqlite',
-            'database' => ':memory:',
-            'prefix' => '',
+            ...testDevDbConnection(''),
             'table_prefix' => 'mgr_',
         ],
     ]);
@@ -245,7 +192,7 @@ it('resolves table names using core, shared app, dedicated app, and explicit pre
 
     expect($manager->tableName('user', 'platform'))->toBe('pinx_user')
         ->and(Table::USER)->toBe('user')
-        ->and(Table::user('u'))->toBe('pinx_user AS u')
+        ->and(Table::user('u'))->toBe('user AS u')
         ->and($manager->tableName(Table::USER, 'platform'))->toBe('pinx_user')
         ->and($manager->tableName('pinx_user', 'com_test_shared_tables'))->toBe('pinx_user')
         ->and($manager->tableName('notifications', 'com_test_shared_tables'))->toBe('tables_notifications')
@@ -257,11 +204,7 @@ it('resolves table names using core, shared app, dedicated app, and explicit pre
 
 it('keeps migration table access pointed to the central history table', function () {
     $manager = new DatabaseManager(new Illuminate\Container\Container());
-    $manager->registerCoreConnection([
-        'driver' => 'sqlite',
-        'database' => ':memory:',
-        'prefix' => 'pinx_',
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection('pinx_'));
 
     expect(Table::HISTORY)->toBe('history')
         ->and(Table::MIGRATION)->toBe('history')

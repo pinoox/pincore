@@ -63,6 +63,31 @@ final class TestRuntime
         return self::root() . '/storage';
     }
 
+    public static function devdbRoot(): string
+    {
+        return self::root() . '/devdb';
+    }
+
+    public static function devdbPath(string $relative = ''): string
+    {
+        $root = self::devdbRoot();
+        if (!is_dir($root)) {
+            mkdir($root, 0777, true);
+        }
+
+        $relative = ltrim(str_replace('\\', '/', $relative), '/');
+        if ($relative === '') {
+            return $root;
+        }
+
+        $path = $root . '/' . $relative;
+        if (!is_dir($path)) {
+            mkdir($path, 0777, true);
+        }
+
+        return $path;
+    }
+
     /**
      * Writable runtime directories created under {@see root()}.
      *
@@ -84,6 +109,7 @@ final class TestRuntime
             $pinker . '/wizard_tmp',
             $storage,
             $storage . '/pinion',
+            self::devdbRoot(),
         ];
     }
 

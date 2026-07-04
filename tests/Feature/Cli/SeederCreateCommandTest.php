@@ -1,6 +1,7 @@
 <?php
 
 use Pinoox\Component\Test\AppTestKit;
+use Pinoox\Support\SystemConfig;
 use Pinoox\Terminal\Seeder\SeederCreateCommand;
 use Symfony\Component\Console\Tester\CommandTester;
 
@@ -18,7 +19,8 @@ it('creates seeder files in database seeders directory', function () {
         'package' => $package,
     ], ['interactive' => false]);
 
-    $path = AppTestKit::path($package, 'database/seeders/DemoSeeder.php');
+    $seedPath = trim(SystemConfig::rawPath('app_seed', 'database/seeders'), '/\\');
+    $path = AppTestKit::path($package, $seedPath . '/DemoSeeder.php');
 
     expect($status)->toBe(0)
         ->and(is_file($path))->toBeTrue()

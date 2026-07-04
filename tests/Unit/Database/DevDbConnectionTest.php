@@ -43,7 +43,7 @@ afterEach(function () {
 });
 
 it('stores schema metadata and supports common CRUD queries', function () {
-    $path = sys_get_temp_dir() . '/pinoox_devdb_test_' . uniqid();
+    $path = testDevDbPath('crud');
     $connection = new DevDbConnection(null, 'devdb', '', ['path' => $path]);
 
     $connection->getSchemaBuilder()->create('posts', function ($table) {
@@ -79,7 +79,7 @@ it('stores schema metadata and supports common CRUD queries', function () {
 });
 
 it('supports Pinoox models, DB app tables, relations, pagination, and factories', function () {
-    $path = sys_get_temp_dir() . '/pinoox_devdb_model_' . uniqid();
+    $path = testDevDbPath('models');
     $_ENV['APP_ENV'] = 'local';
     $_SERVER['APP_ENV'] = 'local';
     putenv('APP_ENV=local');
@@ -210,11 +210,12 @@ it('resolves auto to DevDB only in local mode and rejects production fallback', 
         $_SERVER[$key] = (string) $value;
         putenv($key . '=' . $value);
     }
+    restoreTestDevDbEnvironment();
     \Pinoox\Support\SystemConfig::clearCache();
 });
 
 it('exposes DevDB status, inspect, and clear commands', function () {
-    $path = sys_get_temp_dir() . '/pinoox_devdb_cli_' . uniqid();
+    $path = testDevDbPath('cli');
     $_ENV['DEVDB_PATH'] = $path;
     $_SERVER['DEVDB_PATH'] = $path;
     putenv('DEVDB_PATH=' . $path);
@@ -254,7 +255,7 @@ it('exposes DevDB status, inspect, and clear commands', function () {
 
 it('translates common raw SQL into DevDB JSON operations', function () {
     $connection = new DevDbConnection(null, 'devdb', '', [
-        'path' => sys_get_temp_dir() . '/pinoox_devdb_raw_sql_' . uniqid(),
+        'path' => testDevDbPath('raw_sql'),
     ]);
     $connection->getSchemaBuilder()->create('posts', function ($table) {
         $table->increments('id');
@@ -290,7 +291,7 @@ it('translates common raw SQL into DevDB JSON operations', function () {
 
 it('translates advanced raw SQL joins, boolean clauses, grouping, and aliases', function () {
     $connection = new DevDbConnection(null, 'devdb', '', [
-        'path' => sys_get_temp_dir() . '/pinoox_devdb_raw_sql_advanced_' . uniqid(),
+        'path' => testDevDbPath('raw_sql_advanced'),
     ]);
     $connection->getSchemaBuilder()->create('users', function ($table) {
         $table->increments('id');
@@ -355,14 +356,16 @@ it('translates advanced raw SQL joins, boolean clauses, grouping, and aliases', 
         ->and($grouped[1]->role)->toBe('author')
         ->and($grouped[1]->total_posts)->toBe(3)
         ->and($grouped[1]->max_views)->toBe(10)
-        ->and(array_map(fn ($row) => $row->title, $boolean))->toBe(['Intro', 'Review'])
-        ->and(fn () => $connection->select('select id from posts union select id from users'))
-        ->toThrow(\Pinoox\Component\Database\DevDB\DevDbException::class, 'raw SELECT unions');
+        ->and(array_map(fn ($row) => $row->title, $boolean))->toBe(['Intro', 'Review']);
+
+    $union = $connection->select('select id from posts union select id from users order by id');
+
+    expect(array_map(fn ($row) => $row->id, $union))->toBe([1, 2, 3, 4]);
 });
 
 it('translates common raw SQL functions in select, where, group, and order clauses', function () {
     $connection = new DevDbConnection(null, 'devdb', '', [
-        'path' => sys_get_temp_dir() . '/pinoox_devdb_raw_sql_functions_' . uniqid(),
+        'path' => testDevDbPath('raw_sql_functions'),
     ]);
     $connection->getSchemaBuilder()->create('events', function ($table) {
         $table->increments('id');
@@ -406,7 +409,7 @@ it('translates common raw SQL functions in select, where, group, and order claus
 });
 
 it('can run DevDB as a standalone component without Pinoox app bootstrap', function () {
-    $database = \Pinoox\DevDB\DevDatabase::open(sys_get_temp_dir() . '/pinoox_devdb_standalone_' . uniqid());
+    $database = \Pinoox\DevDB\DevDatabase::open(testDevDbPath('standalone'));
     $database->createTable('notes', [
         'id' => ['type' => 'integer', 'primary' => true, 'auto_increment' => true],
         'body' => 'string',
@@ -431,7 +434,7 @@ it('can run DevDB as a standalone component without Pinoox app bootstrap', funct
 
 it('translates raw SQL schema and introspection commands', function () {
     $connection = new DevDbConnection(null, 'devdb', '', [
-        'path' => sys_get_temp_dir() . '/pinoox_devdb_raw_schema_' . uniqid(),
+        'path' => testDevDbPath('raw_schema'),
     ]);
 
     expect($connection->statement(
@@ -471,7 +474,7 @@ it('translates raw SQL schema and introspection commands', function () {
 
 it('accepts MySQL dump style setup, table options, enum columns, and BTREE indexes', function () {
     $connection = new DevDbConnection(null, 'devdb', '', [
-        'path' => sys_get_temp_dir() . '/pinoox_devdb_mysql_dump_' . uniqid(),
+        'path' => testDevDbPath('mysql_dump'),
     ]);
 
     expect($connection->statement('SET NAMES utf8mb4'))->toBeTrue()
@@ -546,7 +549,7 @@ SQL);
 
 it('supports DevDB v2 joins, advanced aggregates, grouped rows, nested OR queries, and transactions', function () {
     $connection = new DevDbConnection(null, 'devdb', '', [
-        'path' => sys_get_temp_dir() . '/pinoox_devdb_v2_' . uniqid(),
+        'path' => testDevDbPath('v2'),
     ]);
 
     $connection->getSchemaBuilder()->create('users', function ($table) {
@@ -634,7 +637,7 @@ it('uses an internal SQLite DevDB engine automatically when pdo sqlite is availa
         'DEVDB_ENGINE' => getenv('DEVDB_ENGINE'),
         'DEVDB_PATH' => getenv('DEVDB_PATH'),
     ];
-    $path = sys_get_temp_dir() . '/pinoox_devdb_sqlite_' . uniqid();
+    $path = testDevDbPath('sqlite_auto');
 
     $_ENV['APP_ENV'] = 'local';
     $_SERVER['APP_ENV'] = 'local';
@@ -754,7 +757,7 @@ it('keeps the JSON DevDB engine available when requested explicitly', function (
 
     $config = DatabaseConfig::normalizeConnectionDriver([
         'driver' => 'devdb',
-        'path' => sys_get_temp_dir() . '/pinoox_devdb_json_' . uniqid(),
+        'path' => testDevDbPath('json_engine'),
         'prefix' => '',
     ]);
 

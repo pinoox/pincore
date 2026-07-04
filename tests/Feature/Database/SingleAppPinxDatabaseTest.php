@@ -46,11 +46,7 @@ it('uses core DB_PREFIX for platform tables and app table.prefix for single app 
     singleAppPinxUseRoot($root);
 
     $manager = new DatabaseManager(new Container());
-    $manager->registerCoreConnection([
-        'driver' => 'sqlite',
-        'database' => ':memory:',
-        'prefix' => 'pinx_',
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection('pinx_'));
 
     $connectionName = $manager->connectionNameForPackage('com_test_single_pinx');
 
@@ -68,21 +64,14 @@ it('creates plain migration schema tables with the single app table prefix', fun
     singleAppPinxUseRoot($root);
 
     $manager = new DatabaseManager(new Container());
-    $manager->registerCoreConnection([
-        'driver' => 'sqlite',
-        'database' => ':memory:',
-        'prefix' => 'pinx_',
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection('pinx_'));
 
     $schema = $manager->app('com_test_single_pinx')->getSchemaBuilder();
     $schema->create('rolls', function ($table) {
         $table->increments('roll_id');
     });
 
-    $tables = array_map(
-        static fn ($row) => $row->name,
-        $manager->app('com_test_single_pinx')->select("select name from sqlite_master where type = 'table'")
-    );
+    $tables = array_keys($manager->app('com_test_single_pinx')->devDbStore()->schema()['tables'] ?? []);
 
     expect($tables)->toContain('notiq_rolls')
         ->not->toContain('pinx_notiq_rolls');
