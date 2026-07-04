@@ -2,8 +2,10 @@
 
 uses()->group('non-isolated');
 
+use Pinoox\Component\Template\Theme\ThemeStack;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\Path;
+use Pinoox\Portal\View;
 
 it('builds __PINOOX__ with framework url defaults', function () {
     pinooxBoot();
@@ -27,6 +29,9 @@ it('renders welcome scripts partial with a single __PINOOX__ bootstrap', functio
     pinooxBoot();
     App::___()->setLayer(new \Pinoox\Component\Package\AppLayer('/', 'com_pinoox_welcome'));
     Path::___();
+
+    $stack = ThemeStack::resolve('com_pinoox_welcome');
+    View::___()->setView($stack['paths'], '');
 
     $html = render('partials/scripts.twig', [
         'bootstrap' => [

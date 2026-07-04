@@ -193,6 +193,7 @@ class AppTestKit
         }
 
         AppEnvBridge::reset();
+        AppEngine::add($package, $dir);
         AppEngine::__rebuild();
 
         return $dir;
