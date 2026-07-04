@@ -71,12 +71,8 @@ require_once __DIR__ . '/TestCase.php';
 Pinoox\Tests\Support\TestRuntime::bootstrap($platformRoot);
 
 // PHPUnit/Pest: test runtime overrides machine env (individual tests may override again).
-putenv('APP_ENV=test');
-$_ENV['APP_ENV'] = 'test';
-$_SERVER['APP_ENV'] = 'test';
-putenv('DB_CONNECTION=sqlite');
-$_ENV['DB_CONNECTION'] = 'sqlite';
-$_SERVER['DB_CONNECTION'] = 'sqlite';
+restoreTestDevDbEnvironment();
+bootstrapDevDbAutoload();
 
 \Pinoox\Component\Helpers\EnvBootstrap::load(PINOOX_BASE_PATH);
 

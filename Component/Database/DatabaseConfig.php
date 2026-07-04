@@ -459,7 +459,16 @@ final class DatabaseConfig
 
     private static function isLocalRuntime(): bool
     {
-        return RuntimeMode::fromEnv() === RuntimeMode::DEVELOPMENT;
+        $appEnv = SystemConfig::env('APP_ENV');
+        $testing = filter_var(SystemConfig::env('PINOOX_TESTING', false), FILTER_VALIDATE_BOOL);
+
+        if (is_string($appEnv) && RuntimeMode::normalize($appEnv) === RuntimeMode::PRODUCTION) {
+            return false;
+        }
+
+        $runtime = RuntimeMode::fromEnv();
+
+        return $testing || in_array($runtime, [RuntimeMode::DEVELOPMENT, RuntimeMode::TEST], true);
     }
 
     /**

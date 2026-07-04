@@ -175,6 +175,13 @@ HELP)
         }
     }
 
+    private function pestBinary(): string
+    {
+        $corePest = SystemConfig::corePath('vendor/bin/pest');
+
+        return is_file($corePest) ? $corePest : path('~/vendor/bin/pest');
+    }
+
     private function resolveTestPath(string $package, InputInterface $input, string $suite): string
     {
         if ($suite !== '') {
@@ -203,7 +210,7 @@ HELP)
     {
         $parts = [
             escapeshellarg(PHP_BINARY),
-            escapeshellarg(path('~/vendor/bin/pest')),
+            escapeshellarg($this->pestBinary()),
             '--configuration=' . escapeshellarg(SystemConfig::corePath('phpunit.xml')),
             '--colors=always',
         ];
@@ -290,6 +297,7 @@ HELP)
             $runtime . '/pinker/wizard_tmp',
             $runtime . '/storage',
             $runtime . '/storage/pinion',
+            $runtime . '/devdb',
         ] as $directory) {
             if (!is_dir($directory)) {
                 @mkdir($directory, 0777, true);

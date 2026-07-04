@@ -19,11 +19,7 @@ afterEach(function () {
 
 it('keeps sql aliases short while prefixing table names only', function () {
     $manager = new DatabaseManager(new Illuminate\Container\Container());
-    $manager->registerCoreConnection([
-        'driver' => 'sqlite',
-        'database' => ':memory:',
-        'prefix' => 'pinx_',
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection('pinx_'));
 
     writeTestApp('com_test_sql_alias', [
         'database' => null,
@@ -40,11 +36,7 @@ it('keeps sql aliases short while prefixing table names only', function () {
 
 it('compiles from and raw clauses with short aliases under a prefixed connection', function () {
     $manager = new DatabaseManager(new Illuminate\Container\Container());
-    $manager->registerCoreConnection([
-        'driver' => 'sqlite',
-        'database' => ':memory:',
-        'prefix' => 'pinx_',
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection('pinx_'));
 
     writeTestApp('com_test_sql_alias', [
         'database' => null,
@@ -72,11 +64,7 @@ it('compiles from and raw clauses with short aliases under a prefixed connection
 
 it('prefixes logical table names through tableName but not sql aliases', function () {
     $manager = new DatabaseManager(new Illuminate\Container\Container());
-    $manager->registerCoreConnection([
-        'driver' => 'sqlite',
-        'database' => ':memory:',
-        'prefix' => 'pinx_',
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection('pinx_'));
 
     writeTestApp('com_test_sql_alias', [
         'database' => null,

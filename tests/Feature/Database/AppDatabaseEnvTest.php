@@ -80,6 +80,8 @@ afterEach(function () {
 
     }
 
+    restoreTestDevDbEnvironment();
+
 
 
     SystemConfig::clearCache();
@@ -98,25 +100,9 @@ function platformDatabaseFixture(): array
 
         'connections' => [
 
-            'mysql' => [
+            'mysql' => testDevDbConnection('pinx_'),
 
-                'driver' => 'sqlite',
-
-                'database' => ':memory:',
-
-                'prefix' => 'pinx_',
-
-            ],
-
-            'mariadb' => [
-
-                'driver' => 'sqlite',
-
-                'database' => ':memory:',
-
-                'prefix' => 'mar_',
-
-            ],
+            'mariadb' => testDevDbConnection('mar_'),
 
         ],
 
@@ -130,15 +116,7 @@ it('uses platform core connection when app database config is empty', function (
 
     $manager = new DatabaseManager(new Illuminate\Container\Container());
 
-    $manager->registerCoreConnection([
-
-        'driver' => 'sqlite',
-
-        'database' => ':memory:',
-
-        'prefix' => '',
-
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection(''));
 
 
 
@@ -164,29 +142,13 @@ it('registers a dedicated app connection from app.php database block', function 
 
     $manager = new DatabaseManager(new Illuminate\Container\Container());
 
-    $manager->registerCoreConnection([
-
-        'driver' => 'sqlite',
-
-        'database' => ':memory:',
-
-        'prefix' => '',
-
-    ]);
+    $manager->registerCoreConnection(testDevDbConnection(''));
 
 
 
     writeTestApp($package, [
 
-        'database' => [
-
-            'driver' => 'sqlite',
-
-            'database' => ':memory:',
-
-            'prefix' => 'shop_',
-
-        ],
+        'database' => testDevDbConnection('shop_'),
 
     ]);
 
@@ -228,7 +190,7 @@ it('reuses a named platform connection when database.use is set', function () {
 
     expect($resolved)->toHaveKey('default')
 
-        ->and($resolved['default']['driver'])->toBe('sqlite')
+        ->and($resolved['default']['driver'])->toBe('devdb')
 
         ->and($resolved['default']['prefix'])->toBe('mar_');
 
@@ -240,8 +202,7 @@ it('reuses a named platform connection when database.use is set', function () {
     writeTestApp($package, [
         'database' => [
             'use' => 'mariadb',
-            'driver' => 'sqlite',
-            'database' => ':memory:',
+            ...testDevDbConnection('mar_'),
             'prefix' => 'mar_',
         ],
     ]);
@@ -273,7 +234,7 @@ it('applies prefix override on a platform connection', function () {
 
     expect($resolved['default']['prefix'])->toBe('welcome_')
 
-        ->and($resolved['default']['driver'])->toBe('sqlite');
+        ->and($resolved['default']['driver'])->toBe('devdb');
 
 });
 
@@ -483,9 +444,13 @@ return [
 
     'data' => [
 
-        'database.driver' => 'sqlite',
+        'database.driver' => 'devdb',
 
-        'database.database' => ':memory:',
+        'database.database' => 'devdb',
+
+        'database.engine' => 'json',
+
+        'database.path' => testRuntimeDevdb('pinker_env_override'),
 
         'database.prefix' => 'envshop_',
 
@@ -515,7 +480,7 @@ PHP);
 
         expect($database)->toBeArray()
 
-            ->and($database['driver'] ?? null)->toBe('sqlite')
+            ->and($database['driver'] ?? null)->toBe('devdb')
 
             ->and($database['prefix'] ?? null)->toBe('envshop_');
 
@@ -523,15 +488,7 @@ PHP);
 
         $manager = new DatabaseManager(new Illuminate\Container\Container());
 
-        $manager->registerCoreConnection([
-
-            'driver' => 'sqlite',
-
-            'database' => ':memory:',
-
-            'prefix' => '',
-
-        ]);
+        $manager->registerCoreConnection(testDevDbConnection(''));
 
 
 
