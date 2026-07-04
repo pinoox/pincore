@@ -58,26 +58,9 @@ class ViteHelper
 
     protected function resolveDevServerUrl(): ?string
     {
-        $hotFile = $this->themePath . '/dist/hot';
-        if (is_file($hotFile)) {
-            $url = trim((string) file_get_contents($hotFile));
-
-            return $url !== '' ? rtrim($url, '/') : null;
-        }
-
         $config = FrontendConfig::forThemePath($this->themePath);
-        if (!FrontendConfig::isDevEnabled($config)) {
-            return null;
-        }
 
-        $manifestPath = $this->themePath . '/' . ltrim($this->fileManifest, '/');
-        if (is_file($manifestPath) && !(bool) _env('VITE_DEV_FORCE', false)) {
-            return null;
-        }
-
-        $url = trim((string) ($config['dev']['url'] ?? ''));
-
-        return $url !== '' ? rtrim($url, '/') : null;
+        return FrontendConfig::resolveDevServerUrl($this->themePath, $config, $this->fileManifest);
     }
 
     /**

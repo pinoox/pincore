@@ -37,8 +37,8 @@ class Resolver extends Portal
         ]);
  
         $resolvers = [
-            new RequestAttributeValueResolver(),
             new RequestValueResolver(),
+            new RequestAttributeValueResolver(),
             new FormRequestValueResolver(),
             new AppValueResolver(),
             new RouteValueResolver(),

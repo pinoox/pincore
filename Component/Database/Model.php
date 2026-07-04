@@ -27,6 +27,7 @@ use Illuminate\Database\Query\Builder as ObjectPortal10;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Support\Collection as ObjectPortal6;
 use Illuminate\Support\LazyCollection as ObjectPortal5;
+use Pinoox\Component\Database\Eloquent\Builder as PinooxEloquentBuilder;
 use Pinoox\Component\Database\Relation\JoinWith;
 use Pinoox\Component\Database\Factories\HasFactory;
 use Pinoox\Component\Database\Search\Searchable;
@@ -156,6 +157,50 @@ abstract class Model extends EloquentModel
     public function getConnectionName()
     {
         return parent::getConnectionName() ?? DB::connectionNameForModel(static::class);
+    }
+
+    public function newEloquentBuilder($query)
+    {
+        return new PinooxEloquentBuilder($query);
+    }
+
+    /**
+     * Connection applies the package prefix to FROM; strip logical/physical table
+     * prefixes from qualified columns so WHERE/SET use bare column names.
+     */
+    public function qualifyColumn($column)
+    {
+        $column = (string) $column;
+
+        if (!str_contains($column, '.')) {
+            return $column;
+        }
+
+        [$table, $name] = explode('.', $column, 2);
+        $logical = (string) ($this->table ?? '');
+
+        if ($logical === '') {
+            return $column;
+        }
+
+        $package = DB::packageNameForModel(static::class);
+        $physical = DB::physicalTableName($logical, $package);
+
+        if ($table === $logical || ($physical !== '' && $table === $physical)) {
+            return $name;
+        }
+
+        $resolved = $this->getTable();
+
+        if (preg_match('/\s+as\s+/i', $resolved)) {
+            [$resolved] = preg_split('/\s+as\s+/i', $resolved, 2);
+        }
+
+        if ($table === $resolved) {
+            return $name;
+        }
+
+        return $column;
     }
 
     /**

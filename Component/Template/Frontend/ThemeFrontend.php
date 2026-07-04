@@ -193,6 +193,7 @@ class ThemeFrontend
     public function install(): int
     {
         $this->assertFrontendProject();
+        $this->syncDev();
 
         return $this->runNpmInstall();
     }
@@ -200,12 +201,14 @@ class ThemeFrontend
     public function build(string $installMode = self::INSTALL_SKIP): int
     {
         $this->assertFrontendProject();
+        $this->syncDev();
         $this->ensureDependencies($installMode);
 
-        $code = $this->runNpm(['run', 'build']);
+        $code = $this->runNpm(['run', 'build'], extraEnv: $this->npmRunEnvironment());
 
         if ($code === 0) {
             FrontendWebServerFixSync::syncFromThemeConfig($this->package, $this->themePath, $this->config);
+            FrontendDevSync::removeHotFile($this->themePath, $this->config);
         }
 
         return $code;
@@ -214,9 +217,10 @@ class ThemeFrontend
     public function dev(string $installMode = self::INSTALL_SKIP): int
     {
         $this->assertFrontendProject();
+        $this->syncDev();
         $this->ensureDependencies($installMode);
 
-        return $this->runNpm(['run', 'dev'], longRunning: true);
+        return $this->runNpm(['run', 'dev'], longRunning: true, extraEnv: $this->npmRunEnvironment());
     }
 
     public function runScript(string $script, string $installMode = self::INSTALL_SKIP): int
@@ -231,9 +235,22 @@ class ThemeFrontend
         }
 
         $this->assertFrontendProject();
+        $this->syncDev();
         $this->ensureDependencies($installMode);
 
-        return $this->runNpm(['run', $script], longRunning: $this->isLongRunningScript($script));
+        return $this->runNpm(
+            ['run', $script],
+            longRunning: $this->isLongRunningScript($script),
+            extraEnv: $this->npmRunEnvironment(),
+        );
+    }
+
+    /**
+     * @return array{pinoox_bundle: bool, env_seeded: bool, hot_path: string}
+     */
+    public function syncDev(): array
+    {
+        return FrontendDevSync::sync($this->themePath, $this->config, FrontendDevSync::resolveCorePath());
     }
 
     /**
@@ -288,6 +305,10 @@ class ThemeFrontend
             'package_json' => $this->hasPackageJson(),
             'dev_enabled' => FrontendConfig::isDevEnabled($this->config),
             'dev_url' => $this->config['dev']['url'] ?? null,
+            'hot_relative' => FrontendConfig::hotRelativePath($this->config),
+            'hot_exists' => is_file(FrontendConfig::hotAbsolutePath($this->themePath, $this->config)),
+            'dev_port' => FrontendConfig::devPort($this->config),
+            'pinoox_bundle' => is_file($this->themePath . '/vite.pinoox.mjs'),
             'npm_scripts' => $this->npmScripts(),
             'node_modules' => is_dir($this->themePath . '/node_modules'),
             'needs_npm_install' => $this->hasPackageJson() && $this->needsNpmInstall(),
@@ -311,6 +332,41 @@ class ThemeFrontend
         }
 
         $this->copyStubTree($stubRoot, $this->themePath);
+        $this->syncDev();
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function npmRunEnvironment(): array
+    {
+        if (!FrontendConfig::usesViteAssets($this->config)) {
+            return [];
+        }
+
+        return FrontendDevSync::npmDevEnvironment(
+            $this->config,
+            FrontendDevSync::resolveCorePath(),
+            $this->package,
+        );
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private function inheritedEnvironment(array $extra = []): array
+    {
+        $base = getenv();
+
+        if (!is_array($base)) {
+            $base = [];
+        }
+
+        foreach ($extra as $key => $value) {
+            $base[$key] = (string) $value;
+        }
+
+        return $base;
     }
 
     private function ensureDependencies(string $installMode): void
@@ -366,16 +422,21 @@ class ThemeFrontend
     /**
      * @param list<string> $command
      */
-    private function runNpm(array $command, bool $longRunning = false, ?array $fallback = null): int
-    {
+    private function runNpm(
+        array $command,
+        bool $longRunning = false,
+        ?array $fallback = null,
+        array $extraEnv = [],
+    ): int {
         $binary = $this->npmBinary();
-        $process = new Process(array_merge([$binary], $command), $this->themePath, null, null, null);
+        $env = $extraEnv === [] ? null : $this->inheritedEnvironment($extraEnv);
+        $process = new Process(array_merge([$binary], $command), $this->themePath, $env, null, null);
         $process->run(function ($type, $buffer) {
             $this->emit($buffer);
         });
 
         if (!$process->isSuccessful() && $fallback !== null) {
-            $process = new Process(array_merge([$binary], $fallback), $this->themePath, null, null, null);
+            $process = new Process(array_merge([$binary], $fallback), $this->themePath, $env, null, null);
             $process->run(function ($type, $buffer) {
                 $this->emit($buffer);
             });
