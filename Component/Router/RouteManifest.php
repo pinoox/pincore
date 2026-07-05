@@ -75,7 +75,13 @@ class RouteManifest
      */
     public static function isManifest(array $value): bool
     {
-        return isset($value['routes']) && is_array($value['routes']);
+        if (!array_key_exists('routes', $value)) {
+            return false;
+        }
+
+        $routes = $value['routes'];
+
+        return is_array($routes) || is_string($routes);
     }
 
     /**
@@ -106,7 +112,7 @@ class RouteManifest
     public static function routes(array $manifest): array
     {
         if (self::isManifest($manifest)) {
-            return self::expandRoutes(array_values(array_filter($manifest['routes'], is_array(...))));
+            return self::expandRoutes(self::resolveRouteSources($manifest['routes']));
         }
 
         if (self::isRouteList($manifest)) {
@@ -114,6 +120,54 @@ class RouteManifest
         }
 
         return [];
+    }
+
+    /**
+     * Resolve route entries from paths, directories, nested manifests, groups, or lists.
+     *
+     * @return list<array<string, mixed>>
+     */
+    public static function resolveRouteSources(mixed $sources): array
+    {
+        if (is_string($sources)) {
+            if (is_dir($sources)) {
+                return self::resolveRouteSources(self::routeFilesInDirectory($sources));
+            }
+
+            if (is_file($sources)) {
+                return self::resolveRouteSources(require $sources);
+            }
+
+            return [];
+        }
+
+        if (!is_array($sources)) {
+            return [];
+        }
+
+        if (self::isEmbeddedManifest($sources)) {
+            return self::resolveEmbeddedManifest($sources);
+        }
+
+        if (self::isRouteGroup($sources)) {
+            return [$sources];
+        }
+
+        if (self::isRouteList($sources)) {
+            return $sources;
+        }
+
+        if (!array_is_list($sources)) {
+            return [];
+        }
+
+        $merged = [];
+
+        foreach ($sources as $source) {
+            $merged = array_merge($merged, self::resolveRouteSources($source));
+        }
+
+        return $merged;
     }
 
     /**
@@ -154,6 +208,62 @@ class RouteManifest
         }
 
         return !array_key_exists('action', $entry);
+    }
+
+    /**
+     * @param array<string, mixed> $value
+     */
+    public static function isEmbeddedManifest(array $value): bool
+    {
+        if (!isset($value['routes']) || !is_array($value['routes'])) {
+            return false;
+        }
+
+        return isset($value['flow'])
+            || isset($value['flows'])
+            || isset($value['middleware'])
+            || isset($value['version'])
+            || isset($value['docs'])
+            || isset($value['prefix'])
+            || isset($value['tags']);
+    }
+
+    /**
+     * @param array<string, mixed> $manifest
+     * @return list<array<string, mixed>>
+     */
+    private static function resolveEmbeddedManifest(array $manifest): array
+    {
+        return self::expandRoutes(
+            self::resolveRouteSources($manifest['routes']),
+            self::manifestContext($manifest),
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $manifest
+     * @return array<string, mixed>
+     */
+    private static function manifestContext(array $manifest): array
+    {
+        return [
+            'flow' => self::list($manifest['flow'] ?? $manifest['flows'] ?? $manifest['middleware'] ?? []),
+            'tags' => self::list($manifest['tags'] ?? []),
+            'defaults' => is_array($manifest['defaults'] ?? null) ? $manifest['defaults'] : [],
+            'filters' => is_array($manifest['filters'] ?? null) ? $manifest['filters'] : [],
+            'data' => is_array($manifest['data'] ?? null) ? $manifest['data'] : [],
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function routeFilesInDirectory(string $directory): array
+    {
+        $files = glob(rtrim($directory, '/\\') . DIRECTORY_SEPARATOR . '*.php') ?: [];
+        sort($files, SORT_STRING);
+
+        return array_values($files);
     }
 
     /**
