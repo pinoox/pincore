@@ -9,6 +9,9 @@ class RouteRegister
     /** @var list<array<string, mixed>> */
     private array $entries = [];
 
+    /** @var list<array<string, mixed>> */
+    private array $groupStack = [];
+
     public function __construct(private readonly ?Router $router = null)
     {
     }
@@ -68,10 +71,41 @@ class RouteRegister
     }
 
     /**
+     * @param array{
+     *     prefix?: string,
+     *     name?: string,
+     *     as?: string,
+     *     controller?: class-string,
+     *     flow?: string|list<string>,
+     *     flows?: list<string>,
+     *     middleware?: string|list<string>,
+     *     tags?: list<string>,
+     *     defaults?: array<string, mixed>,
+     *     filters?: array<string, string>,
+     *     data?: array<string, mixed>,
+     * } $attributes
+     */
+    public function group(array $attributes, callable $callback): void
+    {
+        $parent = $this->groupStack !== [] ? $this->groupStack[array_key_last($this->groupStack)] : [];
+        $this->groupStack[] = RouteManifest::mergeGroupContext($parent, $attributes);
+
+        try {
+            $callback($this);
+        } finally {
+            array_pop($this->groupStack);
+        }
+    }
+
+    /**
      * @param array<string, mixed> $entry
      */
     public function pushEntry(array $entry): void
     {
+        if ($this->groupStack !== []) {
+            $entry = RouteManifest::expandRoutes([$entry], $this->groupStack[array_key_last($this->groupStack)])[0];
+        }
+
         $this->entries[] = $entry;
     }
 

@@ -90,7 +90,13 @@ class RouteManifest
         $first = $value[0] ?? null;
 
         return is_array($first)
-            && (isset($first['path']) || isset($first['uri']) || isset($first['method']) || isset($first['methods']));
+            && (
+                isset($first['path'])
+                || isset($first['uri'])
+                || isset($first['method'])
+                || isset($first['methods'])
+                || self::isRouteGroup($first)
+            );
     }
 
     /**
@@ -100,14 +106,54 @@ class RouteManifest
     public static function routes(array $manifest): array
     {
         if (self::isManifest($manifest)) {
-            return array_values(array_filter($manifest['routes'], is_array(...)));
+            return self::expandRoutes(array_values(array_filter($manifest['routes'], is_array(...))));
         }
 
         if (self::isRouteList($manifest)) {
-            return $manifest;
+            return self::expandRoutes($manifest);
         }
 
         return [];
+    }
+
+    /**
+     * @param list<array<string, mixed>> $routes
+     * @param array<string, mixed> $context
+     * @return list<array<string, mixed>>
+     */
+    public static function expandRoutes(array $routes, array $context = []): array
+    {
+        $expanded = [];
+
+        foreach ($routes as $entry) {
+            if (!is_array($entry)) {
+                continue;
+            }
+
+            if (self::isRouteGroup($entry)) {
+                $expanded = array_merge(
+                    $expanded,
+                    self::expandRoutes($entry['routes'], self::mergeGroupContext($context, $entry)),
+                );
+                continue;
+            }
+
+            $expanded[] = self::applyGroupContext($entry, $context);
+        }
+
+        return $expanded;
+    }
+
+    /**
+     * @param array<string, mixed> $entry
+     */
+    public static function isRouteGroup(array $entry): bool
+    {
+        if (!isset($entry['routes']) || !is_array($entry['routes'])) {
+            return false;
+        }
+
+        return !array_key_exists('action', $entry);
     }
 
     /**
@@ -238,6 +284,155 @@ class RouteManifest
         }
 
         return is_array($value) ? array_values($value) : [$value];
+    }
+
+    /**
+     * @param array<string, mixed> $context
+     * @param array<string, mixed> $group
+     * @return array<string, mixed>
+     */
+    public static function mergeGroupContext(array $context, array $group): array
+    {
+        $prefix = self::groupPathPrefix($group, $context);
+        $namePrefix = self::groupNamePrefix($group, $context);
+        $controller = $group['controller'] ?? $context['controller'] ?? null;
+
+        return [
+            'prefix' => $prefix,
+            'name_prefix' => $namePrefix,
+            'controller' => is_string($controller) ? $controller : null,
+            'flow' => array_values(array_unique(array_merge(
+                self::list($context['flow'] ?? []),
+                self::list($group['flow'] ?? $group['flows'] ?? $group['middleware'] ?? []),
+            ))),
+            'tags' => array_values(array_unique(array_merge(
+                self::list($context['tags'] ?? []),
+                self::list($group['tags'] ?? []),
+            ))),
+            'defaults' => array_merge(
+                is_array($context['defaults'] ?? null) ? $context['defaults'] : [],
+                is_array($group['defaults'] ?? null) ? $group['defaults'] : [],
+            ),
+            'filters' => array_merge(
+                is_array($context['filters'] ?? null) ? $context['filters'] : [],
+                is_array($group['filters'] ?? null) ? $group['filters'] : [],
+            ),
+            'data' => array_merge(
+                is_array($context['data'] ?? null) ? $context['data'] : [],
+                is_array($group['data'] ?? null) ? $group['data'] : [],
+            ),
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $entry
+     * @param array<string, mixed> $context
+     * @return array<string, mixed>
+     */
+    private static function applyGroupContext(array $entry, array $context): array
+    {
+        $path = (string) ($entry['path'] ?? $entry['uri'] ?? '/');
+        $entry['uri'] = self::joinPath((string) ($context['prefix'] ?? ''), $path);
+        unset($entry['path']);
+
+        $name = (string) ($entry['name'] ?? '');
+        $namePrefix = (string) ($context['name_prefix'] ?? '');
+        if ($name !== '' || $namePrefix !== '') {
+            $entry['name'] = self::joinName($namePrefix, $name);
+        }
+
+        $controller = $context['controller'] ?? null;
+        if ($controller !== null && is_string($entry['action'] ?? null)) {
+            $entry['action'] = [$controller, (string) $entry['action']];
+        }
+
+        $entry['flow'] = array_values(array_unique(array_merge(
+            self::list($context['flow'] ?? []),
+            self::list($entry['flow'] ?? $entry['flows'] ?? []),
+        )));
+
+        $entry['tags'] = array_values(array_unique(array_merge(
+            self::list($context['tags'] ?? []),
+            self::list($entry['tags'] ?? []),
+        )));
+
+        if (!empty($context['defaults']) && is_array($context['defaults'])) {
+            $entry['defaults'] = array_merge(
+                $context['defaults'],
+                is_array($entry['defaults'] ?? null) ? $entry['defaults'] : [],
+            );
+        }
+
+        if (!empty($context['filters']) && is_array($context['filters'])) {
+            $entry['filters'] = array_merge(
+                $context['filters'],
+                is_array($entry['filters'] ?? null) ? $entry['filters'] : [],
+            );
+        }
+
+        if (!empty($context['data']) && is_array($context['data'])) {
+            $entry['data'] = array_merge(
+                $context['data'],
+                is_array($entry['data'] ?? null) ? $entry['data'] : [],
+            );
+        }
+
+        return $entry;
+    }
+
+    /**
+     * @param array<string, mixed> $group
+     * @param array<string, mixed> $context
+     */
+    private static function groupPathPrefix(array $group, array $context): string
+    {
+        $prefix = (string) ($group['prefix'] ?? '');
+
+        return self::joinPath((string) ($context['prefix'] ?? ''), $prefix);
+    }
+
+    /**
+     * @param array<string, mixed> $group
+     * @param array<string, mixed> $context
+     */
+    private static function groupNamePrefix(array $group, array $context): string
+    {
+        $prefix = (string) ($group['as'] ?? $group['name'] ?? $group['name_prefix'] ?? '');
+
+        return (string) ($context['name_prefix'] ?? '') . $prefix;
+    }
+
+    private static function joinPath(string $prefix, string $path): string
+    {
+        $prefix = trim($prefix);
+        $path = trim($path);
+
+        if ($path === '' || $path === '/') {
+            if ($prefix === '' || $prefix === '/') {
+                return '/';
+            }
+
+            return '/' . trim($prefix, '/');
+        }
+
+        if ($prefix === '' || $prefix === '/') {
+            return '/' . ltrim($path, '/');
+        }
+
+        return '/' . trim(trim($prefix, '/') . '/' . ltrim($path, '/'), '/');
+    }
+
+    private static function joinName(string $prefix, string $name): string
+    {
+        if ($prefix === '') {
+            return $name;
+        }
+
+        if ($name === '') {
+            return rtrim($prefix, '.');
+        }
+
+        return rtrim($prefix, '.') . '.' . ltrim($name, '.');
     }
 }
 
