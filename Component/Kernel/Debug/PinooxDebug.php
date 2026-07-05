@@ -9,14 +9,27 @@ use Symfony\Component\ErrorHandler\ErrorHandler;
 
 class PinooxDebug
 {
+    private static ?ErrorHandler $handler = null;
+
+    public static function isEnabled(): bool
+    {
+        return self::$handler !== null;
+    }
+
     public static function enable(): ErrorHandler
     {
+        if (self::$handler !== null) {
+            return self::$handler;
+        }
+
         error_reporting(\E_ALL & ~\E_DEPRECATED & ~\E_USER_DEPRECATED);
 
         if (!\in_array(\PHP_SAPI, ['cli', 'phpdbg', 'embed'], true)) {
             ini_set('display_errors', 0);
-        } elseif (!filter_var(\ini_get('log_errors'), \FILTER_VALIDATE_BOOL) || \ini_get('error_log')) {
-            ini_set('display_errors', 1);
+        } else {
+            ini_set('display_errors', '0');
+            ini_set('display_startup_errors', '0');
+            ini_set('log_errors', '0');
         }
 
         @ini_set('zend.assertions', 1);
@@ -26,7 +39,9 @@ class PinooxDebug
         DebugClassLoader::enable();
 
         $handler = ErrorHandler::register(new ErrorHandler(new BufferingLogger(), true));
-        $projectDir = ExceptionContext::collect()['project_root'];
+        $projectDir = defined('PINOOX_BASE_PATH')
+            ? rtrim(str_replace('\\', '/', (string) PINOOX_BASE_PATH), '/')
+            : ExceptionContext::collect()['project_root'];
 
         $handler->setExceptionHandler(static function (\Throwable $exception) use ($handler, $projectDir): void {
             if (\in_array(\PHP_SAPI, ['cli', 'phpdbg', 'embed'], true)) {
@@ -49,6 +64,8 @@ class PinooxDebug
             echo $exception->getAsString();
             exit(255);
         });
+
+        self::$handler = $handler;
 
         return $handler;
     }

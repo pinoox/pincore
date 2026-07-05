@@ -74,7 +74,7 @@ class AppProvider extends Portal
         SystemConfig::clearCache();
         ConfigStore::reloadEnvSensitive();
 
-        if (RuntimeMode::bootDebugEnabled()) {
+        if (RuntimeMode::bootDebugEnabled() && !PinooxDebug::isEnabled()) {
             PinooxDebug::enable();
         }
 
