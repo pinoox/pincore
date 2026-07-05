@@ -17,6 +17,7 @@ namespace Pinoox\Portal;
 use Closure;
 use Pinoox\Component\Router\RouteBuilder;
 use Pinoox\Component\Router\RouteEntryBuilder;
+use Pinoox\Component\Router\RouteGroupBuilder;
 use Pinoox\Component\Router\RouteRegistrar;
 use Pinoox\Component\Source\Portal;
 
@@ -70,9 +71,9 @@ class Route extends Portal
         return self::registrar()->match($methods, $path, $action);
     }
 
-    public static function group(array $attributes, callable $callback): void
+    public static function group(array|string|null $attributes = null, ?callable $callback = null): ?RouteGroupBuilder
     {
-        self::registrar()->group($attributes, $callback);
+        return self::registrar()->group($attributes, $callback);
     }
 
     /**

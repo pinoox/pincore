@@ -44,6 +44,7 @@ class RouteRegistrar
      *     prefix?: string,
      *     name?: string,
      *     as?: string,
+     *     controller?: class-string,
      *     flow?: string|list<string>,
      *     flows?: list<string>,
      *     middleware?: string|list<string>,
@@ -51,15 +52,44 @@ class RouteRegistrar
      *     defaults?: array<string, mixed>,
      *     filters?: array<string, string>,
      *     data?: array<string, mixed>,
-     * } $attributes
+     * }|string|null $attributes
      */
-    public function group(array $attributes, callable $callback): void
+    public function group(array|string|null $attributes = null, ?callable $callback = null): ?RouteGroupBuilder
     {
+        if (is_array($attributes) && $callback !== null) {
+            $this->applyGroup($attributes, $callback);
+
+            return null;
+        }
+
+        $builder = RouteGroupBuilder::make($this, $attributes);
+
+        if ($callback !== null) {
+            $builder->routes($callback);
+
+            return null;
+        }
+
+        return $builder;
+    }
+
+    /**
+     * @param array<string, mixed> $attributes
+     */
+    public function applyGroup(array $attributes, callable $callback): void
+    {
+        if (self::$context !== null) {
+            self::$context->group($attributes, $callback);
+
+            return;
+        }
+
         $router = $this->router();
 
         $router->collection(
             path: (string) ($attributes['prefix'] ?? ''),
             routes: $callback,
+            controller: $attributes['controller'] ?? null,
             prefixName: (string) ($attributes['name'] ?? $attributes['as'] ?? ''),
             flows: $this->flows($attributes),
             tags: $attributes['tags'] ?? [],

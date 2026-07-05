@@ -5,6 +5,7 @@ namespace Pinoox\Router;
 use Closure;
 use Pinoox\Component\Router\RouteBuilder;
 use Pinoox\Component\Router\RouteEntryBuilder;
+use Pinoox\Component\Router\RouteGroupBuilder;
 use Pinoox\Portal\Route as RouteFacade;
 use Pinoox\Portal\Router;
 
@@ -49,17 +50,33 @@ function route_match(array|string $methods, string $path, array|string|Closure $
     return RouteFacade::match($methods, $path, $action);
 }
 
-function group(array $attributes, callable $callback): void
+function group(array|string|null $attributes = null, ?callable $callback = null): ?RouteGroupBuilder
 {
-    RouteFacade::group($attributes, $callback);
+    return RouteFacade::group($attributes, $callback);
 }
 
 /**
- * @return list<array<string, mixed>>
+ * Collect route definitions from a fluent callback.
+ *
+ * collect(fn () => ...);                            // list of routes
+ * collect(['flow' => ['manager.auth']], fn () => ...); // manifest with shared attributes
+ *
+ * @param array<string, mixed>|callable $attributes
+ * @return array<string, mixed>|list<array<string, mixed>>
  */
-function collect(callable $callback): array
+function collect(array|callable $attributes, ?callable $callback = null): array
 {
-    return RouteFacade::collect($callback);
+    if ($callback === null) {
+        if (!is_callable($attributes)) {
+            throw new \InvalidArgumentException('collect() requires a callback.');
+        }
+
+        return RouteFacade::collect($attributes);
+    }
+
+    return array_merge($attributes, [
+        'routes' => RouteFacade::collect($callback),
+    ]);
 }
 
 /**
