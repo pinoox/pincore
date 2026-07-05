@@ -34,6 +34,7 @@ if ($loader instanceof Composer\Autoload\ClassLoader) {
 }
 
 \Pinoox\Component\Helpers\EnvBootstrap::load(PINOOX_BASE_PATH);
+\Pinoox\Component\Helpers\CliErrorReporting::boot();
 
 \Pinoox\Component\File::ensureStorageRootHtaccess(\Pinoox\Support\SystemConfig::path('storage'));
 \Pinoox\Support\SystemConfig::ensureProjectConfigFiles();
