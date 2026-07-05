@@ -65,3 +65,86 @@ it('merges manifest and group flows', function () {
 
     expect($manifest['routes'][0]['flow'])->toBe(['manager.auth', 'screen.lock']);
 });
+
+it('loads and merges route files from a directory', function () {
+    $directory = testSandbox('route_sources');
+    $publicFile = $directory . '/public.php';
+    $privateFile = $directory . '/private.php';
+
+    if (!is_dir($directory)) {
+        mkdir($directory, 0777, true);
+    }
+
+    file_put_contents($publicFile, <<<'PHP'
+<?php
+return [
+    ['method' => 'GET', 'uri' => '/open/ping', 'action' => ['App\\Demo\\OpenController', 'ping'], 'name' => 'open.ping'],
+];
+PHP);
+    file_put_contents($privateFile, <<<'PHP'
+<?php
+return [
+    'flow' => ['demo.auth'],
+    'routes' => [[
+        'prefix' => '/secure',
+        'as' => 'secure.',
+        'controller' => 'App\\Demo\\SecureController',
+        'routes' => [
+            ['method' => 'GET', 'uri' => '/profile', 'action' => 'profile', 'name' => 'profile'],
+        ],
+    ]],
+];
+PHP);
+
+    $manifest = RouteManifest::normalizeManifest([
+        'routes' => $directory,
+    ]);
+
+    expect($manifest['routes'])->toHaveCount(2)
+        ->and($manifest['routes'][0]['name'])->toBe('secure.profile')
+        ->and($manifest['routes'][0]['flow'])->toBe(['demo.auth'])
+        ->and($manifest['routes'][1]['name'])->toBe('open.ping')
+        ->and($manifest['routes'][1]['uri'])->toBe('/open/ping')
+        ->and($manifest['routes'][1]['flow'])->toBe([]);
+});
+
+it('loads explicit route file paths in order', function () {
+    $directory = testSandbox('route_source_files');
+    $publicFile = $directory . '/public.php';
+    $privateFile = $directory . '/private.php';
+
+    if (!is_dir($directory)) {
+        mkdir($directory, 0777, true);
+    }
+
+    file_put_contents($publicFile, <<<'PHP'
+<?php
+return [
+    ['method' => 'GET', 'uri' => '/open/ping', 'action' => ['App\\Demo\\OpenController', 'ping'], 'name' => 'open.ping'],
+];
+PHP);
+    file_put_contents($privateFile, <<<'PHP'
+<?php
+return [
+    'flow' => ['demo.auth'],
+    'routes' => [[
+        'prefix' => '/secure',
+        'as' => 'secure.',
+        'controller' => 'App\\Demo\\SecureController',
+        'routes' => [
+            ['method' => 'GET', 'uri' => '/profile', 'action' => 'profile', 'name' => 'profile'],
+        ],
+    ]],
+];
+PHP);
+
+    $manifest = RouteManifest::normalizeManifest([
+        'routes' => [
+            $privateFile,
+            $publicFile,
+        ],
+    ]);
+
+    expect($manifest['routes'][0]['name'])->toBe('secure.profile')
+        ->and($manifest['routes'][1]['name'])->toBe('open.ping');
+});

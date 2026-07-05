@@ -88,7 +88,32 @@ function route(string $name, array $parameters = [], bool $absolute = true): str
  * get('/')->actionName('home');
  * get('/')->named('home');
  * return routes([..., 'routes' => collect(fn () => ...)]);
+ * return routes([..., 'routes' => route_files('api')]);
+ * return routes([..., 'routes' => route_files(['api/public.php', 'api/private.php'])]);
  */
+function route_files(string|array $sources, ?string $from = null): string|array
+{
+    if ($from === null) {
+        $trace = debug_backtrace(\DEBUG_BACKTRACE_IGNORE_ARGS, 1);
+        $from = dirname($trace[0]['file'] ?? __DIR__);
+    }
+
+    if (is_array($sources)) {
+        return array_map(
+            static fn(string $source): string => route_files($source, $from),
+            $sources,
+        );
+    }
+
+    $sources = str_replace('\\', '/', $sources);
+
+    if ($sources !== '' && (is_file($sources) || is_dir($sources))) {
+        return $sources;
+    }
+
+    return rtrim(str_replace('\\', '/', $from), '/') . '/' . ltrim($sources, '/');
+}
+
 function routes(array|callable|null $definition = null): array|\Pinoox\Component\Router\RouteFile|null
 {
     if (is_array($definition)) {
