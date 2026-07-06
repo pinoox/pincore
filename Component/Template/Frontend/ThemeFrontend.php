@@ -252,11 +252,24 @@ class ThemeFrontend
 
     public function dev(string $installMode = self::INSTALL_SKIP): int
     {
+        $this->prepareDev($installMode);
+
+        return $this->runNpm(['run', 'dev'], longRunning: true, extraEnv: $this->npmRunEnvironment());
+    }
+
+    public function prepareDev(string $installMode = self::INSTALL_SKIP): void
+    {
         $this->assertFrontendProject();
         $this->syncDev();
         $this->ensureDependencies($installMode);
+    }
 
-        return $this->runNpm(['run', 'dev'], longRunning: true, extraEnv: $this->npmRunEnvironment());
+    /**
+     * @return array<string, string>
+     */
+    public function devNpmEnvironment(): array
+    {
+        return $this->npmRunEnvironment();
     }
 
     public function watch(string $installMode = self::INSTALL_SKIP): int
