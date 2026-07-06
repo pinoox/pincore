@@ -80,13 +80,6 @@ final class ServeAppBinding
             ];
         }
 
-        if (str_starts_with($binding, 'com_')) {
-            return [
-                'package' => $binding,
-                'path' => '/',
-            ];
-        }
-
         $routePath = AppRouteMatcher::normalize(
             str_starts_with($binding, '/') ? $binding : '/' . $binding,
         );
@@ -106,9 +99,16 @@ final class ServeAppBinding
             if ($package === $binding) {
                 return [
                     'package' => $package,
-                    'path' => self::normalizeRouteKey($path),
+                    'path' => self::preferPackageMountPath($package, $routes),
                 ];
             }
+        }
+
+        if (str_starts_with($binding, 'com_')) {
+            return [
+                'package' => $binding,
+                'path' => self::preferPackageMountPath($binding, $routes),
+            ];
         }
 
         $guessedPackage = str_contains($binding, '_')
@@ -118,11 +118,44 @@ final class ServeAppBinding
         if (str_starts_with($guessedPackage, 'com_')) {
             return [
                 'package' => $guessedPackage,
-                'path' => '/',
+                'path' => self::preferPackageMountPath($guessedPackage, $routes),
             ];
         }
 
         return null;
+    }
+
+    /**
+     * Prefer explicit mount paths (e.g. /manager) over root when multiple routes exist.
+     *
+     * @param array<string, string> $routes
+     */
+    public static function preferPackageMountPath(string $package, array $routes): string
+    {
+        $routes = AppRouteMatcher::normalizeRoutes($routes);
+        $candidates = [];
+
+        foreach ($routes as $path => $pkg) {
+            if (!is_string($pkg) || $pkg !== $package) {
+                continue;
+            }
+
+            $candidates[] = self::normalizeRouteKey($path);
+        }
+
+        if ($candidates === []) {
+            return '/';
+        }
+
+        $nonRoot = array_values(array_filter($candidates, static fn (string $path): bool => $path !== '/'));
+
+        if ($nonRoot !== []) {
+            usort($nonRoot, static fn (string $a, string $b): int => strlen($b) <=> strlen($a));
+
+            return $nonRoot[0];
+        }
+
+        return $candidates[0];
     }
 
     private static function normalizeRouteKey(string $path): string

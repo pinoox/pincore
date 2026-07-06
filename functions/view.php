@@ -63,7 +63,7 @@ if (!function_exists('pinoox_script')) {
 }
 
 if (!function_exists('vite')) {
-    function vite(string $name, ?string $fileManifest = null): void
+    function vite(string|array $name, ?string $fileManifest = null): void
     {
         ViteHelper::usePrintVite($name, $fileManifest);
     }
@@ -93,21 +93,40 @@ if (!function_exists('theme_ssr_html')) {
 }
 
 if (!function_exists('vite_tags')) {
-    function vite_tags(string $name, ?string $fileManifest = null): string
+    /**
+     * @param string|list<string> $name  Single entry or multiple (Laravel @vite array style)
+     */
+    function vite_tags(string|array $name, ?string $fileManifest = null): string
     {
         return ViteHelper::useViteTags($name, $fileManifest);
     }
 }
 
+if (!function_exists('vite_asset')) {
+    /**
+     * Versioned asset URL from the Vite manifest (Laravel Vite::asset style).
+     */
+    function vite_asset(string $path, ?string $fileManifest = null): ?string
+    {
+        return ViteHelper::useAsset($path, $fileManifest);
+    }
+}
+
 if (!function_exists('vite_css_tags')) {
-    function vite_css_tags(string $name, ?string $fileManifest = null): string
+    /**
+     * @param string|list<string> $name
+     */
+    function vite_css_tags(string|array $name, ?string $fileManifest = null): string
     {
         return ViteHelper::useCssTags($name, $fileManifest);
     }
 }
 
 if (!function_exists('vite_js_tags')) {
-    function vite_js_tags(string $name, ?string $fileManifest = null): string
+    /**
+     * @param string|list<string> $name
+     */
+    function vite_js_tags(string|array $name, ?string $fileManifest = null): string
     {
         return ViteHelper::useJsTags($name, $fileManifest);
     }
