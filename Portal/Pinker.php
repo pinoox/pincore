@@ -18,6 +18,7 @@ use Pinoox\Component\Kernel\Loader;
 use Pinoox\Component\Package\Reference\ReferenceInterface;
 use Pinoox\Component\Source\Portal;
 use Pinoox\Component\Store\Baker\Pinker as ObjectPortal1;
+use Pinoox\Support\AppPackagePath;
 use Pinoox\Support\SystemConfig;
 
 /**
@@ -105,7 +106,35 @@ class Pinker extends Portal
 			$relative = substr($sourceFile, strlen($basePath) + 1);
 		}
 
+		if (self::isAbsolutePath($relative)) {
+			$externalRelative = self::externalAppRelative($sourceFile);
+			if ($externalRelative !== null) {
+				$relative = $externalRelative;
+			}
+		}
+
 		return self::ds(SystemConfig::path('pinker') . '/' . ltrim($relative, '/'));
+	}
+
+	private static function externalAppRelative(string $sourceFile): ?string
+	{
+		$appFile = AppPackagePath::appFileForSource($sourceFile);
+		if ($appFile === null) {
+			return null;
+		}
+
+		$config = require $appFile;
+		$package = is_array($config) ? ($config['package'] ?? null) : null;
+		if (!is_string($package) || $package === '') {
+			return null;
+		}
+
+		$appRoot = rtrim(self::ds(dirname($appFile)), '/');
+		if (!str_starts_with($sourceFile, $appRoot . '/')) {
+			return null;
+		}
+
+		return 'apps/' . $package . '/' . substr($sourceFile, strlen($appRoot) + 1);
 	}
 
 	public static function rootPath(): string

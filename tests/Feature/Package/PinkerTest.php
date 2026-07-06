@@ -336,6 +336,31 @@ it('keeps test runtime sources inside the isolated pinker root', function () {
         ->and($bakedFile)->not->toContain('/pinker/pincore/tests/Fixtures/runtime/');
 });
 
+it('maps external registry app sources to pinker/apps/{package}', function () {
+    $package = 'com_test_pinker_external';
+    $externalApp = pinkerTestPath(dirname(testProjectRoot()) . '/pinoox_external_pinker_test/' . $package);
+
+    if (!is_dir($externalApp)) {
+        mkdir($externalApp, 0777, true);
+    }
+
+    file_put_contents($externalApp . '/app.php', "<?php\n\nreturn ['package' => '{$package}', 'name' => 'External Pinker'];\n");
+
+    $sourceFile = $externalApp . '/theme/ada/theme.php';
+    if (!is_dir(dirname($sourceFile))) {
+        mkdir(dirname($sourceFile), 0777, true);
+    }
+
+    file_put_contents($sourceFile, "<?php\n\nreturn ['name' => 'ada'];\n");
+
+    try {
+        expect(Pinker::bakedFileFromSource($sourceFile))
+            ->toBe(pinkerTestPinkerRoot() . '/apps/' . $package . '/theme/ada/theme.php');
+    } finally {
+        deletePinkerTestDirectory(dirname($externalApp));
+    }
+});
+
 function deletePinkerTestApp(string $package): void
 {
     AppTestKit::deleteFakeApp($package);

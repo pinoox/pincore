@@ -32,6 +32,15 @@ class AppPackagePath
         return is_file($fallback) ? $fallback : null;
     }
 
+    public static function appFileForSource(string $file): ?string
+    {
+        if ($file === '') {
+            return null;
+        }
+
+        return self::findAppFile(str_replace('\\', '/', $file));
+    }
+
     public static function fromDataFile(string $file): ?string
     {
         if ($file === '') {
