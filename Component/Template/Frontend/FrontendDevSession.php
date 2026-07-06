@@ -33,10 +33,11 @@ final class FrontendDevSession
         ?int $servePort = null,
         ?string $serveAppBinding = null,
         bool $withServe = true,
+        ?int $vitePort = null,
     ): self {
         $host = self::normalizeHost($serveHost ?? (string) _env('SERVER_HOST', '127.0.0.1'));
         $port = $servePort ?? (int) _env('SERVER_PORT', 8000);
-        $vitePort = FrontendConfig::devPort($config);
+        $vitePort = $vitePort ?? FrontendConfig::devPort($config);
         $binding = $withServe ? trim((string) ($serveAppBinding ?? $package)) : '';
         $locked = $withServe && $binding !== '';
 
