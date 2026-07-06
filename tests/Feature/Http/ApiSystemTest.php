@@ -45,6 +45,110 @@ it('normalizes app api route definitions', function () {
         ->and($entry['routes'][0]['permission'])->toBe('blog.posts.view');
 });
 
+it('normalizes filters and priority on api route definitions', function () {
+    $registry = new AppApiRegistry();
+
+    $entry = $registry->normalize('com_blog', 'Blog Team', [
+        'version' => 'v1',
+        'prefix' => '',
+        'routes' => [
+            [
+                'methods' => ['GET', 'PUT'],
+                'path' => '/items/{id}',
+                'action' => ['ItemController', 'show'],
+                'name' => 'items.show',
+                'filters' => ['id' => '\d+'],
+                'priority' => 10,
+            ],
+        ],
+    ]);
+
+    expect($entry['routes'])->toHaveCount(2)
+        ->and($entry['routes'][0]['method'])->toBe('GET')
+        ->and($entry['routes'][1]['method'])->toBe('PUT')
+        ->and($entry['routes'][0]['filters'])->toBe(['id' => '\d+'])
+        ->and($entry['routes'][0]['priority'])->toBe(10);
+});
+
+it('loads api routes with filters and priority into the router', function () {
+    $app = $this->createMock(PackageApp::class);
+    $app->method('package')->willReturn('com_blog');
+
+    $router = new RouterComponent(new RouteName(), $app);
+    $loader = new ApiRouteLoader(new class extends AppApiRegistry {
+        public function all(?string $app = null, ?string $version = null): array
+        {
+            return [
+                'com_blog' => [
+                    'app' => 'com_blog',
+                    'owner' => 'Blog Team',
+                    'version' => 'v1',
+                    'prefix' => '',
+                    'flow' => [],
+                    'routes' => [
+                        [
+                            'app' => 'com_blog',
+                            'owner' => 'Blog Team',
+                            'version' => 'v1',
+                            'method' => 'GET',
+                            'uri' => '/items/groups',
+                            'full_uri' => '/api/v1/items/groups',
+                            'action' => fn () => 'groups',
+                            'name' => 'items.groups',
+                            'flow' => [],
+                            'filters' => [],
+                            'priority' => 100,
+                            'permission' => null,
+                            'auth' => null,
+                            'rate_limit' => null,
+                            'request' => null,
+                            'resource' => null,
+                            'description' => '',
+                            'params' => [],
+                            'body' => [],
+                            'response' => [],
+                        ],
+                        [
+                            'app' => 'com_blog',
+                            'owner' => 'Blog Team',
+                            'version' => 'v1',
+                            'method' => 'GET',
+                            'uri' => '/items/{id}',
+                            'full_uri' => '/api/v1/items/{id}',
+                            'action' => fn () => 'show',
+                            'name' => 'items.show',
+                            'flow' => [],
+                            'filters' => ['id' => '\d+'],
+                            'priority' => 1,
+                            'permission' => null,
+                            'auth' => null,
+                            'rate_limit' => null,
+                            'request' => null,
+                            'resource' => null,
+                            'description' => '',
+                            'params' => [],
+                            'body' => [],
+                            'response' => [],
+                        ],
+                    ],
+                ],
+            ];
+        }
+    });
+
+    $loader->load($router);
+
+    $groupsRoute = $router->all()['api.v1.com_blog.items.groups'];
+    $showRoute = $router->all()['api.v1.com_blog.items.show'];
+
+    expect($groupsRoute->getRequirements())->toBe([])
+        ->and($showRoute->getRequirements())->toBe(['id' => '\d+'])
+        ->and($groupsRoute->getDefault('_router')->getPriority())->toBe(100)
+        ->and($showRoute->getDefault('_router')->getPriority())->toBe(1)
+        ->and($router->match('/api/v1/items/groups')['_route'])->toBe('api.v1.com_blog.items.groups')
+        ->and($router->match('/api/v1/items/15')['_route'])->toBe('api.v1.com_blog.items.show');
+});
+
 it('loads api routes into the current router', function () {
     $app = $this->createMock(PackageApp::class);
     $app->method('package')->willReturn('com_blog');
