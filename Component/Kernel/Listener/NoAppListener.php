@@ -12,6 +12,7 @@ use Pinoox\Portal\App\AppRouter;
 use Pinoox\Portal\Lang;
 use Pinoox\Portal\Path;
 use Pinoox\Portal\View;
+use Pinoox\Support\ProjectCli;
 use Pinoox\Support\StaticAssetRequest;
 use Pinoox\Support\SystemConfig;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
@@ -127,15 +128,15 @@ class NoAppListener implements EventSubscriberInterface
 
         return match ($resolution) {
             AppResolution::APP_MISSING => [
-                'php pinoox app:router',
-                'php pinoox app:router set ' . $path . ' com_vendor_myapp',
+                ProjectCli::format('app:router'),
+                ProjectCli::format('app:router set ' . $path . ' com_vendor_myapp'),
             ],
             AppResolution::APP_DISABLED => [
-                'php pinoox app:router',
+                ProjectCli::format('app:router'),
             ],
             default => [
-                'php pinoox app:router',
-                'php pinoox app:router set ' . $path . ' com_vendor_myapp',
+                ProjectCli::format('app:router'),
+                ProjectCli::format('app:router set ' . $path . ' com_vendor_myapp'),
             ],
         };
     }

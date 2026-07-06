@@ -3,6 +3,7 @@
 namespace Pinoox\Component\Template\Frontend;
 
 use Pinoox\Portal\App\App;
+use Pinoox\Support\ProjectCli;
 
 class FrontendConfig
 {
@@ -302,8 +303,8 @@ class FrontendConfig
 
         $next = [];
         if ($package !== '') {
-            $next[] = 'php pinoox fe ' . $package . ' install --theme=' . $themeName;
-            $next[] = 'php pinoox fe ' . $package . ' dev --theme=' . $themeName;
+            $next[] = ProjectCli::pinxFormat('fe ' . $package . ' install --theme=' . $themeName);
+            $next[] = ProjectCli::pinxFormat('fe ' . $package . ' dev --theme=' . $themeName);
         }
 
         return [

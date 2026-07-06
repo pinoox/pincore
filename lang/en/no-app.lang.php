@@ -1,5 +1,7 @@
 <?php
 
+use Pinoox\Support\ProjectCli;
+
 return [
     'meta' => [
         'dir' => 'ltr',
@@ -30,7 +32,7 @@ return [
         'quick_start_title' => 'How to fix',
         'steps' => [
             'not_configured' => [
-                'step1' => 'Run <code dir="ltr">php pinoox app:router</code> to see which URLs are mapped to which apps.',
+                'step1' => 'Run <code dir="ltr">' . ProjectCli::format('app:router') . '</code> to see which URLs are mapped to which apps.',
                 'step2' => 'Use the second command below to assign this address, or open <strong>Manager → Routes</strong>.',
             ],
             'app_missing' => [

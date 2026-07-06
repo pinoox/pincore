@@ -25,20 +25,19 @@ class ServeCommand extends Terminal
     protected function configure(): void
     {
         $this
-            ->setHelp(
-                <<<'HELP'
-Starts a local HTTP server for development — similar to Laravel's `php artisan serve`.
-
-Examples:
-  php pinoox serve
-  php pinoox serve --port=8080
-  php pinoox serve --host=0.0.0.0 --port=9000
-  php pinoox serve --app=com_pinoox_manager
-  php pinoox serve --app=/manager
-  php pinoox serve --app=manager
-  php pinoox serve --app=com_pinoox_manager@/manager
-  php pinoox serve --open
-
+            ->setHelp($this->cliHelp(
+                "Starts a local HTTP server for development — similar to Laravel's `php artisan serve`.",
+                [
+                    'serve',
+                    'serve --port=8080',
+                    'serve --host=0.0.0.0 --port=9000',
+                    'serve --app=com_pinoox_manager',
+                    'serve --app=/manager',
+                    'serve --app=manager',
+                    'serve --app=com_pinoox_manager@/manager',
+                    'serve --open',
+                ],
+                <<<'FOOTER'
 Environment (.env):
   SERVER_HOST=127.0.0.1
   SERVER_PORT=8000
@@ -46,8 +45,8 @@ Environment (.env):
 
 The server uses platform/launcher/server.php (or legacy launcher/server.php) as a router (same rules as .htaccess).
 With --app, Pinoox skips app-router matching and always boots the selected app.
-HELP
-            )
+FOOTER
+            ))
             ->addOption('host', null, InputOption::VALUE_OPTIONAL, 'Host address (default from SERVER_HOST or 127.0.0.1)')
             ->addOption('port', null, InputOption::VALUE_OPTIONAL, 'Port number (default from SERVER_PORT or 8000)')
             ->addOption('app', null, InputOption::VALUE_REQUIRED, 'Lock to one app (package, route path, alias, or package@path)')

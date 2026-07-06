@@ -7,6 +7,7 @@ use Pinoox\Component\Server\DevelopmentServer;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
 use Pinoox\Component\Terminal;
+use Pinoox\Support\ProjectCli;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Terminal\Concerns\SelectsPackage;
 use Pinoox\Terminal\Concerns\SelectsTheme;
@@ -36,9 +37,10 @@ class ThemeFrontendCommand extends Terminal
 
     protected function configure(): void
     {
+        $serve = ProjectCli::format('serve');
         $this
-            ->setHelp(
-                <<<'HELP'
+            ->setHelp($this->cliHelp(
+                <<<'INTRO'
 Manage frontend assets inside apps/{package}/theme/{theme}/.
 
 Actions:
@@ -51,27 +53,29 @@ Actions:
 
 Recommended assets in Twig: {{ vite_tags('src/main.js')|raw }} — entry/manifest/dev are auto-configured.
 
-Create a new theme: php pinoox theme:create {name}
-
-Examples:
-  php pinoox fe info
-  php pinoox fe spark dev
-  php pinoox fe spark build
-  php pinoox fe com_my_shop build
-  php pinoox fe com_my_shop dev --theme=admin
-  php pinoox fe spark run --script=preview
-  php pinoox fe spark install --install
-  php pinoox fe com_my_shop scaffold --stack=vue
-
+Create a new theme:
+INTRO
+                . '  ' . $this->cliFormat('theme:create {name}'),
+                [
+                    [ProjectCli::SCOPE_PINX, 'fe info'],
+                    [ProjectCli::SCOPE_PINX, 'fe spark dev'],
+                    [ProjectCli::SCOPE_PINX, 'fe spark build'],
+                    [ProjectCli::SCOPE_PINX, 'fe com_my_shop build'],
+                    [ProjectCli::SCOPE_PINX, 'fe com_my_shop dev --theme=admin'],
+                    [ProjectCli::SCOPE_PINX, 'fe spark run --script=preview'],
+                    [ProjectCli::SCOPE_PINX, 'fe spark install --install'],
+                    [ProjectCli::SCOPE_PINX, 'fe com_my_shop scaffold --stack=vue'],
+                ],
+                <<<FOOTER
 The first argument is an app package (com_my_shop) or theme folder (spark), then the action.
-Legacy order (action first) still works: php pinoox fe dev spark
+Legacy order (action first) still works: {$this->cliPinxFormat('fe dev spark')}
 
 If the theme name exists in one app only, the package is resolved automatically.
 If it exists in multiple apps, pick the package from a list.
 
 Target and action can be omitted — pick from a list interactively (defaults to info).
 
-dev also starts php pinoox serve for the resolved app (use --no-serve to skip).
+dev also starts {$serve} for the resolved app (use --no-serve to skip).
 
 build, dev, and run skip npm install by default (faster workflow).
 Use --install to install dependencies alongside the command when needed.
@@ -83,8 +87,8 @@ Development (.env):
 
 HMR: fe dev/build/run auto-sync vite.pinoox.mjs and write theme/dist/hot on Vite start.
 Override hot path in frontend.config.php dev.hot or VITE_HOT_FILE.
-HELP
-            )
+FOOTER
+            ))
             ->addArgument('target', InputArgument::OPTIONAL, 'App package (com_my_shop) or theme folder (spark). Leave empty to pick interactively.')
             ->addArgument('action', InputArgument::OPTIONAL, 'Action: info, install, build, dev, run, scaffold')
             ->addOption('stack', null, InputOption::VALUE_REQUIRED, 'Frontend stack for scaffold: twig, vite, vue, react (default: auto or vue)')
@@ -92,10 +96,10 @@ HELP
             ->addOption('script', null, InputOption::VALUE_REQUIRED, 'npm script name for the run action')
             ->addOption('install', null, InputOption::VALUE_NONE, 'Run npm install alongside the command (or force reinstall with the install action)')
             ->addOption('no-install', null, InputOption::VALUE_NONE, 'Skip npm install (default for build/dev/run)')
-            ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start php pinoox serve alongside dev')
+            ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start ' . ProjectCli::format('serve') . ' alongside dev')
             ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for the dev server (defaults to the resolved package)')
-            ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for php pinoox serve (default from SERVER_HOST or 127.0.0.1)')
-            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for php pinoox serve (default from SERVER_PORT or 8000)');
+            ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::format('serve') . ' (default from SERVER_HOST or 127.0.0.1)')
+            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::format('serve') . ' (default from SERVER_PORT or 8000)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -170,7 +174,7 @@ HELP
             }
 
             throw new \RuntimeException(
-                'Action is required. Example: php pinoox fe ' . $arg1 . ' dev',
+                'Action is required. Example: ' . $this->cliPinxFormat('fe ' . $arg1 . ' dev'),
             );
         }
 
@@ -187,7 +191,7 @@ HELP
         }
 
         throw new \RuntimeException(
-            'Could not parse arguments. Use: php pinoox fe spark dev (or php pinoox fe dev spark).',
+            'Could not parse arguments. Use: ' . $this->cliPinxFormat('fe spark dev') . ' (or ' . $this->cliPinxFormat('fe dev spark') . ').',
         );
     }
 
@@ -454,17 +458,14 @@ HELP
         OutputInterface $output,
         SymfonyStyle $io,
     ): Process {
-        $basePath = rtrim(str_replace('\\', '/', (string) PINOOX_BASE_PATH), '/');
-        $cli = $basePath . '/pinoox';
+        $basePath = ProjectCli::root();
         $serveApp = trim((string) ($input->getOption('serve-app') ?: $package));
 
-        $command = [
-            DevelopmentServer::phpBinary(),
-            $cli,
+        $command = ProjectCli::processCommand([
             'serve',
             '--app=' . $serveApp,
             '--no-reload',
-        ];
+        ], $basePath);
 
         $serveHost = $input->getOption('serve-host');
         if (is_string($serveHost) && trim($serveHost) !== '') {
@@ -479,7 +480,7 @@ HELP
         $process = new Process($command, $basePath, null, null, null);
         $process->setTimeout(null);
 
-        $io->writeln('<info>Starting Pinoox server</info> <fg=gray>(php pinoox serve --app=' . $serveApp . ')</>');
+        $io->writeln('<info>Starting Pinoox server</info> <fg=gray>(' . ProjectCli::format('serve --app=' . $serveApp, $basePath) . ')</>');
 
         $process->start(function (string $type, string $buffer) use ($output): void {
             foreach (preg_split("/\r\n|\n|\r/", $buffer) ?: [] as $line) {

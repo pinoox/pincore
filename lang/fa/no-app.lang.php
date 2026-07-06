@@ -1,5 +1,7 @@
 <?php
 
+use Pinoox\Support\ProjectCli;
+
 return [
     'meta' => [
         'dir' => 'rtl',
@@ -30,7 +32,7 @@ return [
         'quick_start_title' => 'چطور درستش کنم؟',
         'steps' => [
             'not_configured' => [
-                'step1' => 'دستور <code dir="ltr">php pinoox app:router</code> را بزنید تا ببینید هر آدرس به کدام اپ وصل شده است.',
+                'step1' => 'دستور <code dir="ltr">' . ProjectCli::format('app:router') . '</code> را بزنید تا ببینید هر آدرس به کدام اپ وصل شده است.',
                 'step2' => 'با دستور دوم زیر این آدرس را به یک اپ وصل کنید، یا از بخش «مسیرها» در مدیریت پینوکس استفاده کنید.',
             ],
             'app_missing' => [
