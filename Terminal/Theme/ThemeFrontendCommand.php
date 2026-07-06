@@ -586,11 +586,13 @@ HELP
         }
 
         $vitePorts = FrontendDevStack::allocateVitePorts($targets);
-        $sharedHost = is_string($serveHost) ? trim($serveHost) : null;
+        $sharedHost = is_string($serveHost) && trim($serveHost) !== '' ? trim($serveHost) : null;
+        $forceEnvKeys = FrontendDevSync::stackForceEnvKeys();
 
         foreach ($targets as $index => $target) {
             $frontend = ThemeFrontend::forPackageAndTheme($target['package'], $target['theme']);
             $frontend->setFixViteOnSync($fixVite);
+            $frontend->setForceDevEnvKeys($forceEnvKeys);
 
             if ($envFile !== null) {
                 $frontend->setDevEnvFile($envFile);
