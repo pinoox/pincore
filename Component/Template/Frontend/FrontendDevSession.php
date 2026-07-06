@@ -35,7 +35,11 @@ final class FrontendDevSession
         bool $withServe = true,
         ?int $vitePort = null,
     ): self {
-        $host = self::normalizeHost($serveHost ?? (string) _env('SERVER_HOST', '127.0.0.1'));
+        $host = self::normalizeHost(
+            ($serveHost !== null && trim((string) $serveHost) !== '')
+                ? trim((string) $serveHost)
+                : (string) _env('SERVER_HOST', '127.0.0.1'),
+        );
         $port = $servePort ?? (int) _env('SERVER_PORT', 8000);
         $vitePort = $vitePort ?? FrontendConfig::devPort($config);
         $binding = $withServe ? trim((string) ($serveAppBinding ?? $package)) : '';
@@ -81,10 +85,11 @@ final class FrontendDevSession
 
     /**
      * @param array<string, string> $themeEnv parsed theme `.env` (manual values win over auto)
+     * @param list<string>          $forceKeys  auto values that override theme `.env`
      *
      * @return array<string, string>
      */
-    public function npmEnvironment(array $config, array $themeEnv = [], string $themePath = ''): array
+    public function npmEnvironment(array $config, array $themeEnv = [], string $themePath = '', array $forceKeys = []): array
     {
         $env = [
             'VITE_HOT_FILE' => FrontendConfig::hotRelativePath($config),
@@ -108,7 +113,7 @@ final class FrontendDevSession
             }
         }
 
-        return FrontendDevSync::mergeThemeEnvOverrides($env, $themeEnv);
+        return FrontendDevSync::mergeThemeEnvOverrides($env, $themeEnv, $forceKeys);
     }
 
     /**
@@ -216,7 +221,7 @@ final class FrontendDevSession
             $url = \Pinoox\Portal\Url::appUrl($package);
 
             if (is_string($url) && $url !== '') {
-                return $url;
+                return self::normalizeAppUrl($url, $origin);
             }
         } catch (\Throwable) {
             // fall through
@@ -312,6 +317,19 @@ final class FrontendDevSession
         }
 
         return array_values(array_unique($prefixes));
+    }
+
+    private static function normalizeAppUrl(string $url, string $fallbackOrigin): string
+    {
+        $parts = parse_url($url);
+
+        if (!is_array($parts) || !isset($parts['host']) || trim((string) $parts['host']) === '') {
+            $path = is_array($parts) ? (string) ($parts['path'] ?? '') : '';
+
+            return rtrim($fallbackOrigin, '/') . ($path !== '' && $path !== '/' ? $path : '');
+        }
+
+        return rtrim($url, '/');
     }
 
     private static function normalizeHost(string $host): string

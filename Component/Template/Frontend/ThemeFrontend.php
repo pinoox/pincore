@@ -21,6 +21,9 @@ class ThemeFrontend
 
     private bool $fixViteOnSync = false;
 
+  /** @var list<string> */
+    private array $forceDevEnvKeys = [];
+
     private ?string $devEnvFile = null;
 
     public function __construct(
@@ -143,6 +146,14 @@ class ThemeFrontend
     public function setFixViteOnSync(bool $fix): void
     {
         $this->fixViteOnSync = $fix;
+    }
+
+    /**
+     * @param list<string> $keys
+     */
+    public function setForceDevEnvKeys(array $keys): void
+    {
+        $this->forceDevEnvKeys = array_values($keys);
     }
 
     public function setDevEnvFile(?string $envFile): void
@@ -435,6 +446,7 @@ class ThemeFrontend
             $this->devSession,
             $this->themePath,
             $this->devEnvFile(),
+            $this->forceDevEnvKeys,
         );
     }
 

@@ -14,7 +14,7 @@ use Symfony\Component\Process\Process;
 final class FrontendDevStack
 {
     /**
-     * @param list<array{package: string, theme: string, config: array<string, mixed>}> $targets
+     * @param list<array{package: string, theme: string, config: array<string, mixed>, themePath?: string}> $targets
      * @return list<int>
      */
     public static function allocateVitePorts(array $targets): array
@@ -23,8 +23,7 @@ final class FrontendDevStack
         $ports = [];
 
         foreach ($targets as $target) {
-            $config = is_array($target['config'] ?? null) ? $target['config'] : [];
-            $port = FrontendConfig::devPort($config);
+            $port = self::preferredPort($target);
 
             while (in_array($port, $used, true)) {
                 $port++;
@@ -35,6 +34,35 @@ final class FrontendDevStack
         }
 
         return $ports;
+    }
+
+    /**
+     * @param array{package?: string, theme?: string, config?: array<string, mixed>, themePath?: string} $target
+     */
+    private static function preferredPort(array $target): int
+    {
+        $config = is_array($target['config'] ?? null) ? $target['config'] : [];
+        $dev = is_array($config['dev'] ?? null) ? $config['dev'] : [];
+
+        if (isset($dev['port']) && is_numeric($dev['port']) && (int) $dev['port'] > 0) {
+            return (int) $dev['port'];
+        }
+
+        $themePath = trim((string) ($target['themePath'] ?? ''));
+
+        if ($themePath !== '') {
+            $configFile = rtrim(str_replace('\\', '/', $themePath), '/') . '/frontend.config.php';
+
+            if (is_file($configFile)) {
+                $raw = include $configFile;
+
+                if (is_array($raw) && isset($raw['dev']['port']) && is_numeric($raw['dev']['port']) && (int) $raw['dev']['port'] > 0) {
+                    return (int) $raw['dev']['port'];
+                }
+            }
+        }
+
+        return 5173;
     }
 
     /**
@@ -63,11 +91,12 @@ final class FrontendDevStack
                 $label = self::stackLabel($frontend->package());
                 $process = $this->startViteProcess($frontend, $label, $output);
                 $viteProcesses[] = ['label' => $label, 'process' => $process];
+                usleep(350_000);
             }
 
-            $this->waitUntilStopped($viteProcesses, $serveProcess);
+            $exitCode = $this->waitUntilStopped($viteProcesses, $serveProcess, $output);
 
-            return 0;
+            return $exitCode;
         } finally {
             $this->stopProcesses($viteProcesses, $serveProcess, $io);
         }
@@ -171,7 +200,7 @@ final class FrontendDevStack
     /**
      * @param list<array{label: string, process: Process}> $viteProcesses
      */
-    private function waitUntilStopped(array $viteProcesses, Process $serveProcess): void
+    private function waitUntilStopped(array $viteProcesses, Process $serveProcess, OutputInterface $output): int
     {
         if (function_exists('pcntl_signal')) {
             $stop = false;
@@ -182,6 +211,9 @@ final class FrontendDevStack
                 $stop = true;
             });
         }
+
+        /** @var array<string, true> $warned */
+        $warned = [];
 
         while (true) {
             if (isset($stop) && $stop) {
@@ -196,14 +228,51 @@ final class FrontendDevStack
                 break;
             }
 
+            $running = 0;
+
             foreach ($viteProcesses as $item) {
-                if (!$item['process']->isRunning()) {
-                    return;
+                if ($item['process']->isRunning()) {
+                    $running++;
+
+                    continue;
                 }
+
+                if (isset($warned[$item['label']])) {
+                    continue;
+                }
+
+                $warned[$item['label']] = true;
+                $exitCode = $item['process']->getExitCode();
+                $output->writeln(sprintf(
+                    '  <fg=red>[%s]</> Vite stopped (exit %s). Other apps keep running — fix ports or run <info>fe info %s</info>.',
+                    $item['label'],
+                    $exitCode === null ? '?' : (string) $exitCode,
+                    $item['label'],
+                ));
+            }
+
+            if ($running === 0) {
+                break;
             }
 
             usleep(200_000);
         }
+
+        return $warned === [] || $this->hasRunningVite($viteProcesses) ? 0 : 1;
+    }
+
+    /**
+     * @param list<array{label: string, process: Process}> $viteProcesses
+     */
+    private function hasRunningVite(array $viteProcesses): bool
+    {
+        foreach ($viteProcesses as $item) {
+            if ($item['process']->isRunning()) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

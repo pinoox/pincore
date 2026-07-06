@@ -349,17 +349,20 @@ final class FrontendDevSync
      *
      * @param array<string, string> $auto
      * @param array<string, string> $themeEnv
+     * @param list<string>          $forceKeys  auto values that override theme `.env` (dev:apps port allocation)
      *
      * @return array<string, string>
      */
-    public static function mergeThemeEnvOverrides(array $auto, array $themeEnv): array
+    public static function mergeThemeEnvOverrides(array $auto, array $themeEnv, array $forceKeys = []): array
     {
         $merged = [];
 
         foreach ($auto as $key => $value) {
             $fromTheme = $themeEnv[$key] ?? null;
 
-            if (is_string($fromTheme) && trim($fromTheme) !== '') {
+            if (!in_array($key, $forceKeys, true)
+                && is_string($fromTheme)
+                && trim($fromTheme) !== '') {
                 continue;
             }
 
@@ -529,11 +532,12 @@ final class FrontendDevSync
         ?FrontendDevSession $session = null,
         ?string $themePath = null,
         ?string $envFile = null,
+        array $forceEnvKeys = [],
     ): array {
         $themeEnv = $themePath !== null ? self::parseThemeEnv($themePath, $envFile) : [];
 
         if ($session !== null) {
-            return $session->npmEnvironment($config, $themeEnv, (string) $themePath);
+            return $session->npmEnvironment($config, $themeEnv, (string) $themePath, $forceEnvKeys);
         }
 
         $env = [
@@ -554,12 +558,25 @@ final class FrontendDevSync
             $env['VITE_DEV_PROXY'] = $proxy;
         }
 
-        return self::mergeThemeEnvOverrides($env, $themeEnv);
+        return self::mergeThemeEnvOverrides($env, $themeEnv, $forceEnvKeys);
     }
 
     /**
-     * Comma-separated mount paths for Vite dev proxy (app router + transport-linked apps).
+     * Keys forced during `fe dev:apps` so each theme uses its allocated Vite port.
+     *
+     * @return list<string>
      */
+    public static function stackForceEnvKeys(): array
+    {
+        return [
+            'VITE_DEV_PORT',
+            'VITE_DEV_SERVER',
+            'VITE_SERVER_URL',
+            'VITE_DEV_PROXY',
+            'VITE_HOT_FILE',
+        ];
+    }
+
     private static function resolveDevProxyPrefixes(?string $package): ?string
     {
         if ($package === null || $package === '') {
