@@ -5,6 +5,8 @@ namespace Pinoox\Terminal\Theme;
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Server\DevelopmentServer;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
+use Pinoox\Component\Template\Frontend\FrontendDevSession;
+use Pinoox\Component\Template\Frontend\FrontendDevSync;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
 use Pinoox\Component\Terminal;
 use Pinoox\Portal\App\AppEngine;
@@ -32,7 +34,7 @@ class ThemeFrontendCommand extends Terminal
     use SelectsTheme;
 
     /** @var list<string> */
-    private const ACTIONS = ['info', 'install', 'build', 'dev', 'run', 'scaffold'];
+    private const ACTIONS = ['info', 'install', 'build', 'dev', 'watch', 'run', 'scaffold'];
 
     protected function configure(): void
     {
@@ -45,11 +47,13 @@ Actions:
   info      Stack, recommended Twig line (vite_tags), npm scripts
   install   Install npm dependencies (skips when up to date; use --install to force)
   build     Run npm run build
-  dev       Run npm run dev (Vite HMR, live output)
+  dev       Run npm run dev (Vite HMR + Twig refresh, live output)
+  watch     Run npm run watch (rebuild assets on file changes)
   run       Run any npm script from package.json (--script=name)
   scaffold  Copy starter files (default stack: vue; auto-detect from package.json when possible)
 
-Recommended assets in Twig: {{ vite_tags('src/main.js')|raw }} — entry/manifest/dev are auto-configured.
+Recommended assets in Twig: {{ vite_tags('src/main.js')|raw }} — or multiple entries like Laravel @vite([...]).
+Built assets in Twig: {{ vite_asset('src/images/logo.png') }}
 
 Create a new theme: php pinoox theme:create {name}
 
@@ -57,6 +61,7 @@ Examples:
   php pinoox fe info
   php pinoox fe spark dev
   php pinoox fe spark build
+  php pinoox fe spark watch
   php pinoox fe com_my_shop build
   php pinoox fe com_my_shop dev --theme=admin
   php pinoox fe spark run --script=preview
@@ -72,6 +77,12 @@ If it exists in multiple apps, pick the package from a list.
 Target and action can be omitted — pick from a list interactively (defaults to info).
 
 dev also starts php pinoox serve for the resolved app (use --no-serve to skip).
+
+Dev auto-setup (no manual .env required):
+  - Syncs vite.pinoox.mjs (hot file + mount-aware proxy)
+  - Merges dev keys into theme .env (default) — use --env-file for a custom name
+  - Injects env into npm run dev (VITE_SERVER_URL, VITE_DEV_PROXY, …)
+  - Use --fix-vite to patch vite.config.js when pinooxHot/pinooxServer are missing
 
 build, dev, and run skip npm install by default (faster workflow).
 Use --install to install dependencies alongside the command when needed.
@@ -95,7 +106,9 @@ HELP
             ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start php pinoox serve alongside dev')
             ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for the dev server (defaults to the resolved package)')
             ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for php pinoox serve (default from SERVER_HOST or 127.0.0.1)')
-            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for php pinoox serve (default from SERVER_PORT or 8000)');
+            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for php pinoox serve (default from SERVER_PORT or 8000)')
+            ->addOption('fix-vite', null, InputOption::VALUE_NONE, 'Auto-wire vite.config.js with pinooxHot/pinooxServer when missing')
+            ->addOption('env-file', null, InputOption::VALUE_REQUIRED, 'Theme env file for fe dev auto-setup (default: .env)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -113,7 +126,7 @@ HELP
         }
 
         if (!in_array($action, self::ACTIONS, true)) {
-            $io->error('Unknown action "' . $action . '". Use info, install, build, dev, run, or scaffold.');
+            $io->error('Unknown action "' . $action . '". Use info, install, build, dev, watch, run, or scaffold.');
 
             return Command::FAILURE;
         }
@@ -140,6 +153,7 @@ HELP
                 'install' => $this->runInstall($io, $frontend, $installMode),
                 'build' => $this->runBuild($io, $frontend, $installMode),
                 'dev' => $this->runDev($io, $frontend, $installMode, $package, $input, $output),
+                'watch' => $this->runWatch($io, $frontend, $installMode),
                 'run' => $this->runScript($input, $output, $io, $frontend, $installMode),
                 'scaffold' => $this->runScaffold($io, $frontend, (string) $input->getOption('stack')),
             };
@@ -353,12 +367,17 @@ HELP
             ['Package' => $info['package']],
             ['Theme path' => $info['theme_path']],
             ['Stack' => $info['stack']],
+            ['Entries' => implode(', ', $info['entries'] ?? [])],
             ['Recommended Twig' => (string) ($info['recommended_twig'] ?? '-')],
             ['Manifest' => ($info['manifest_exists'] ?? false) ? 'built' : 'missing — run fe build'],
             ['Dev' => !empty($info['dev_enabled']) ? (string) ($info['dev_url'] ?? 'on') : 'off'],
             ['Dev port' => (string) ($info['dev_port'] ?? '-')],
             ['Hot file' => ($info['hot_exists'] ?? false) ? (string) ($info['hot_relative'] ?? '-') : 'missing'],
             ['vite.pinoox.mjs' => !empty($info['pinoox_bundle']) ? 'synced' : 'missing — run fe dev/build'],
+            ['vite.config wired' => !empty($info['vite_wired']) ? 'yes' : 'no — run fe dev --fix-vite'],
+            ['Theme .env' => !empty($info['env_autodev'])
+                ? (string) ($info['env_file'] ?? '.env') . ' (auto block present)'
+                : (string) ($info['env_file'] ?? '.env') . ' — runtime only; set ' . FrontendDevSync::ENV_SERVER_SYNC_KEY . '=true to persist'],
             ['npm' => ($info['package_json'] ?? false)
                 ? (($info['needs_npm_install'] ?? false) ? 'install needed' : 'ready')
                 : 'none'],
@@ -412,6 +431,17 @@ HELP
         return $code === 0 ? Command::SUCCESS : Command::FAILURE;
     }
 
+    private function runWatch(SymfonyStyle $io, ThemeFrontend $frontend, string $installMode): int
+    {
+        $io->section('Watching frontend for changes: ' . $frontend->themePath());
+        $this->noteInstallPlan($io, $frontend, $installMode);
+        $io->note('Rebuilds production assets on save. Use `fe dev` for HMR during development.');
+
+        $code = $frontend->watch($installMode);
+
+        return $code === 0 ? Command::SUCCESS : Command::FAILURE;
+    }
+
     private function runDev(
         SymfonyStyle $io,
         ThemeFrontend $frontend,
@@ -423,9 +453,36 @@ HELP
         $io->section('Starting frontend dev server: ' . $frontend->themePath());
         $this->noteInstallPlan($io, $frontend, $installMode);
 
+        $withServe = !(bool) $input->getOption('no-serve');
+        $serveHost = $input->getOption('serve-host');
+        $servePortOption = $input->getOption('serve-port');
+        $servePort = $servePortOption !== null && $servePortOption !== ''
+            ? (int) $servePortOption
+            : null;
+        $serveApp = trim((string) ($input->getOption('serve-app') ?: $package));
+
+        $session = FrontendDevSession::fromOptions(
+            $package,
+            $frontend->config(),
+            is_string($serveHost) ? trim($serveHost) : null,
+            $servePort,
+            $serveApp,
+            $withServe,
+        );
+
+        $frontend->setDevSession($session);
+        $frontend->setFixViteOnSync((bool) $input->getOption('fix-vite'));
+        $envFileOption = $input->getOption('env-file');
+        if (is_string($envFileOption) && trim($envFileOption) !== '') {
+            $frontend->setDevEnvFile(trim($envFileOption));
+        }
+
+        $sync = $frontend->syncDev();
+        $this->renderDevDiagnostics($io, $frontend, $sync);
+
         $serveProcess = null;
 
-        if (!(bool) $input->getOption('no-serve')) {
+        if ($withServe) {
             try {
                 $serveProcess = $this->startServeProcess($package, $input, $output, $io);
             } catch (\Throwable $e) {
@@ -435,16 +492,63 @@ HELP
             }
         }
 
-        $io->note([
-            'Live output streams below. Press Ctrl+C to stop.',
-            'HMR hot file is auto-synced and written on Vite start (default dist/hot).',
-            'Proxy API calls from vite.config.js to your Pinoox URL (see docs/pinoox-frontend.md).',
-        ]);
+        $this->renderDevApplicationUrl($io, $session, $withServe);
 
         try {
             return $frontend->dev($installMode) === 0 ? Command::SUCCESS : Command::FAILURE;
         } finally {
             $this->stopServeProcess($serveProcess, $io);
+        }
+    }
+
+    private function renderDevApplicationUrl(SymfonyStyle $io, FrontendDevSession $session, bool $withServe): void
+    {
+        $url = $session->phpAppUrl;
+
+        $io->writeln('');
+        $io->writeln('  <fg=green;options=bold>➜</>  <fg=cyan;options=bold>' . $url . '</>');
+        $io->writeln('  <fg=gray>Press Ctrl+C to stop' . ($withServe ? ' Vite and PHP server' : ' Vite') . '</>');
+        $io->writeln('');
+    }
+
+    /**
+     * @param array<string, mixed> $sync
+     */
+    private function renderDevDiagnostics(SymfonyStyle $io, ThemeFrontend $frontend, array $sync): void
+    {
+        $hasError = false;
+
+        foreach ($frontend->devDiagnostics() as $item) {
+            $level = $item['level'] ?? 'info';
+            $message = (string) ($item['message'] ?? '');
+
+            if ($message === '') {
+                continue;
+            }
+
+            match ($level) {
+                'error' => (function () use ($io, $message, &$hasError): void {
+                    $io->error($message);
+                    $hasError = true;
+                })(),
+                'warning' => $io->warning($message),
+                'comment' => $io->comment($message),
+                default => null,
+            };
+        }
+
+        if (!empty($sync['vite_wired'])) {
+            $io->writeln('<info>Vite config:</info> pinooxHot + pinooxServer wired');
+        } elseif (!empty($sync['vite_inspection']['patched'])) {
+            $io->writeln('<info>Vite config:</info> auto-wired with --fix-vite');
+        }
+
+        if (!empty($sync['env_autodev'])) {
+            $io->writeln('<info>Theme env:</info> ' . ($sync['env_file'] ?? '.env') . ' autogenerated block updated');
+        }
+
+        if ($hasError) {
+            throw new \RuntimeException('Fix the errors above before starting dev mode.');
         }
     }
 

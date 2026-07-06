@@ -104,6 +104,7 @@ class View implements ViewInterface
             'pinoox_script',
             'vite',
             'vite_tags',
+            'vite_asset',
             'vite_css_tags',
             'vite_js_tags',
             'seo_tags',
