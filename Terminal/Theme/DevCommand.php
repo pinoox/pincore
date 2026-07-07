@@ -2,6 +2,7 @@
 
 namespace Pinoox\Terminal\Theme;
 
+use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Terminal;
 use Pinoox\Support\ProjectCli;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -15,7 +16,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'dev',
-    description: 'Start PHP + Vite dev for an app theme (shortcut for fe dev)',
+    description: 'Start PHP + Vite dev with HMR for an app theme (shortcut for fe dev)',
 )]
 class DevCommand extends Terminal
 {
@@ -24,31 +25,37 @@ class DevCommand extends Terminal
         $serve = ProjectCli::platformFormat('serve');
         $this
             ->setHelp($this->cliHelp(
-                "One-command local development: starts {$serve} + npm run dev for a theme.\n\nSame as: "
-                . $this->cliFormat('fe {target} dev'),
+                "One-command local development: starts {$serve} + Vite HMR for a theme.\n\n"
+                . "Waits until Vite is ready, then prints the PHP URL to open (not the Vite port).\n\n"
+                . 'Same as: ' . $this->cliFormat('fe {target} dev'),
                 [
                     'dev',
+                    'dev com_pinoox_manager',
                     'dev spark',
-                    'dev com_pinoox_welcome',
                     'dev spark --no-serve',
                     'dev com_pinoox_manager --network',
+                    'dev spark --fix-vite --install',
                 ],
                 "Use MAMP or another PHP server:\n  " . $this->cliFormat('dev spark --no-serve')
                 . "\n\nLAN (phone/tablet on same Wi‑Fi):\n  " . $this->cliFormat('dev spark --network')
-                . "\n\nOpen the PHP app URL in your browser (not :5173). Vite HMR is injected via vite_tags().",
+                . "\n\nSingle-app dev mounts at / (package@/). For the platform router use "
+                . $this->cliFormat('fe dev:apps') . ".\n\n"
+                . "Built manifest assets only: use {$serve} — not dev.",
             ))
             ->addArgument('target', InputArgument::OPTIONAL, 'App package or theme folder (interactive when omitted)')
             ->addOption('theme', null, InputOption::VALUE_REQUIRED, 'Theme folder when target is a package')
             ->addOption('install', null, InputOption::VALUE_NONE, 'Run npm install when needed')
             ->addOption('no-install', null, InputOption::VALUE_NONE, 'Skip npm install')
-            ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start ' . ProjectCli::platformFormat('serve') . ' (MAMP, Docker, etc.)')
-            ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for ' . ProjectCli::platformFormat('serve'))
-            ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::platformFormat('serve'))
-            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve'))
+            ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start ' . $serve . ' (MAMP, Docker, etc.)')
+            ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for ' . $serve . ' (package@path or platform)')
+            ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . $serve)
+            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . $serve)
             ->addOption('network', 'N', InputOption::VALUE_NONE, 'Serve PHP app + Vite on LAN (same Wi‑Fi)')
             ->addOption('vite-host', null, InputOption::VALUE_REQUIRED, 'Vite bind host (default 127.0.0.1)')
             ->addOption('vite-network', null, InputOption::VALUE_NONE, 'Bind Vite to 0.0.0.0 for LAN access')
-            ->addOption('verbose-vite', null, InputOption::VALUE_NONE, 'Show full Vite startup URLs');
+            ->addOption('verbose-vite', null, InputOption::VALUE_NONE, 'Show full Vite startup URLs')
+            ->addOption('fix-vite', null, InputOption::VALUE_NONE, 'Auto-wire vite.config.js with pinooxHot/pinooxServer when missing')
+            ->addOption('env-file', null, InputOption::VALUE_REQUIRED, 'Theme env file for dev auto-setup (default: .env)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -62,6 +69,8 @@ class DevCommand extends Terminal
             $io->title('Pinoox dev');
             $io->writeln('Starting interactive theme frontend dev (fe dev)…');
         }
+
+        $this->activateViteHmrMode();
 
         $command = $this->getApplication()?->find('theme:frontend');
 
@@ -86,8 +95,17 @@ class DevCommand extends Terminal
             '--vite-host' => $input->getOption('vite-host'),
             '--vite-network' => $input->getOption('vite-network') ? true : null,
             '--verbose-vite' => $input->getOption('verbose-vite') ? true : null,
+            '--fix-vite' => $input->getOption('fix-vite') ? true : null,
+            '--env-file' => $input->getOption('env-file'),
         ], static fn ($value) => $value !== null && $value !== false && $value !== '');
 
         return $command->run(new ArrayInput($arguments), $output);
+    }
+
+    private function activateViteHmrMode(): void
+    {
+        putenv(FrontendConfig::VITE_HMR_ENV . '=1');
+        $_ENV[FrontendConfig::VITE_HMR_ENV] = '1';
+        $_SERVER[FrontendConfig::VITE_HMR_ENV] = '1';
     }
 }
