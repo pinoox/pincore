@@ -140,5 +140,6 @@ it('builds simple app input with twig-only defaults', function () {
 
 it('normalizes package names with com_ prefix', function () {
     expect(AppCreateScaffolder::normalizePackageName('my_shop'))->toBe('com_my_shop')
-        ->and(AppCreateScaffolder::normalizePackageName('com_acme_blog'))->toBe('com_acme_blog');
+        ->and(AppCreateScaffolder::normalizePackageName('com_acme_blog'))->toBe('com_acme_blog')
+        ->and(AppCreateScaffolder::normalizePackageName('io_yoosefap_ai'))->toBe('io_yoosefap_ai');
 });

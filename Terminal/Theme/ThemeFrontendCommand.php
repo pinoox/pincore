@@ -803,8 +803,9 @@ FOOTER
 
         if ($package === '' || !PackageName::isValid($package)) {
             throw new \RuntimeException(sprintf(
-                "Invalid package '%s'. Use full package names, e.g. com_pinoox_manager,io_yoosefap_ai.",
+                "Invalid package '%s'. Use full package names (%s), e.g. com_pinoox_manager,io_yoosefap_ai.",
                 $item,
+                PackageName::formatHint(),
             ));
         }
 

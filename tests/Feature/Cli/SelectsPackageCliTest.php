@@ -19,6 +19,8 @@ it('normalizes package input by stripping BOM and invalid prefixes', function ()
     expect(cliTraitInvoke($probe, 'normalizePackageInput', 'com_test_cli_select'))
         ->toBe('com_test_cli_select')
         ->and(cliTraitInvoke($probe, 'normalizePackageInput', "\xEF\xBB\xBFcom_test_cli_select"))
+        ->toBe('com_test_cli_select')
+        ->and(cliTraitInvoke($probe, 'normalizePackageInput', 'COM_TEST_CLI_SELECT'))
         ->toBe('com_test_cli_select');
 });
 

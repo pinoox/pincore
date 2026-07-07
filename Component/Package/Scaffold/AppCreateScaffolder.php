@@ -4,6 +4,7 @@ namespace Pinoox\Component\Package\Scaffold;
 
 use Pinoox\Component\Helpers\PhpFile\TestFile;
 use Pinoox\Component\Package\AppEnv\AppEnvExample;
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
 use Pinoox\Portal\FileSystem;
 use Pinoox\Portal\Pinker;
@@ -481,12 +482,14 @@ TWIG);
 
     public static function normalizePackageName(string $value): string
     {
-        $value = strtolower(trim($value));
-        $value = preg_replace('/[^a-z0-9_]+/', '_', $value) ?? $value;
-        $value = trim($value, '_');
+        $value = PackageName::normalize($value);
 
         if ($value === '') {
             return '';
+        }
+
+        if (PackageName::isValid($value)) {
+            return $value;
         }
 
         if (!str_starts_with($value, 'com_')) {
@@ -498,7 +501,7 @@ TWIG);
 
     public static function isValidPackageName(string $value): bool
     {
-        return (bool) preg_match('/^[a-z][a-z0-9_]*$/', $value);
+        return PackageName::isValid($value);
     }
 
     public static function displayNameFromPackage(string $package): string

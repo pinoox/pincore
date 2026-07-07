@@ -2,6 +2,7 @@
 
 namespace Pinoox\Terminal\Pincore;
 
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Package\Scaffold\AppCreateInput;
 use Pinoox\Component\Package\Scaffold\AppCreateScaffolder;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
@@ -391,7 +392,7 @@ HELP
     {
         if (!AppCreateScaffolder::isValidPackageName($package)) {
             throw new \InvalidArgumentException(
-                "Invalid package name '{$package}'. Use lowercase letters, numbers, and underscores.",
+                "Invalid package name '{$package}'. Use " . PackageName::formatHint() . ' (lowercase letters, numbers, underscores).',
             );
         }
     }

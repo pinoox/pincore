@@ -3,6 +3,7 @@
 namespace Pinoox\Terminal\Concerns;
 
 use Pinoox\Component\Package\AppManifest;
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Support\DevApp;
 use Pinoox\Support\SystemApp;
@@ -266,7 +267,7 @@ trait SelectsPackage
         $package = preg_replace('/^\xEF\xBB\xBF/', '', $package);
         $package = preg_replace('/^[^A-Za-z0-9_]+/', '', $package);
 
-        return trim($package);
+        return PackageName::normalize(trim($package));
     }
 
     protected function bindPackageOption(InputInterface $input, string $package): void
