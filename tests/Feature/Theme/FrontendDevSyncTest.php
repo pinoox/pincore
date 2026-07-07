@@ -91,6 +91,8 @@ test('FrontendDevSync copies hot plugin and seeds theme env', function () {
         ->and($result['env_seeded'])->toBeTrue()
         ->and($result['hot_path'])->toBe('dist/hot')
         ->and(is_file($themePath . '/vite.pinoox.mjs'))->toBeTrue()
+        ->and(is_file($themePath . '/vite-import-hot.mjs'))->toBeTrue()
+        ->and(is_file($themePath . '/vite-plugin-pinoox-hot.mjs'))->toBeTrue()
         ->and(is_file($themePath . '/.env'))->toBeTrue();
 });
 

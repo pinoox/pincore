@@ -45,6 +45,8 @@ class ApiRouteLoader
                         '_api_request' => $route['request'],
                         '_api_resource' => $route['resource'],
                     ],
+                    filters: is_array($route['filters'] ?? null) ? $route['filters'] : [],
+                    property: isset($route['priority']) ? (int) $route['priority'] : null,
                     data: ['api' => $route] + (!empty($route['permission']) ? ['permission' => $route['permission']] : []),
                     flows: $flows,
                     tags: ['api', 'app-api', $package, $route['version']],

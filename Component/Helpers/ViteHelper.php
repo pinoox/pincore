@@ -27,33 +27,78 @@ class ViteHelper
         return !empty($mainDirectory[0]) ? $mainDirectory[0] : 'dist';
     }
 
-    public function vite(string $name, ?string $fileManifest = null): array
+    /**
+     * @param string|list<string> $name
+     * @return list<string>
+     */
+    public function vite(string|array $name, ?string $fileManifest = null): array
     {
+        $entries = $this->normalizeEntries($name);
         $this->outputBuffer = [];
         $fileManifest = $fileManifest ?? $this->fileManifest;
 
         if ($devUrl = $this->resolveDevServerUrl()) {
-            return $this->devTags($devUrl, $name);
+            return $this->devTags($devUrl, $entries);
         }
 
         $manifest = $this->loadManifest($fileManifest);
         $mainDirectory = !empty($fileManifest) ? $this->findMainDirectory($fileManifest) : $this->mainDirectory;
 
-        if (!empty($manifest[$name])) {
-            $this->processFile($manifest[$name], $manifest, $mainDirectory);
+        foreach ($entries as $entry) {
+            if (!empty($manifest[$entry])) {
+                $this->processFile($manifest[$entry], $manifest, $mainDirectory);
+            }
         }
 
-        return $this->outputBuffer;
+        return $this->uniqueTags($this->outputBuffer);
     }
 
-    public function printVite(string $name, ?string $fileManifest = null): void
+    /**
+     * @param string|list<string> $name
+     */
+    public function printVite(string|array $name, ?string $fileManifest = null): void
     {
         $this->printOutputBuffer($this->vite($name, $fileManifest));
     }
 
-    public function tags(string $name, ?string $fileManifest = null): string
+    /**
+     * @param string|list<string> $name
+     */
+    public function tags(string|array $name, ?string $fileManifest = null): string
     {
         return implode("\n\t", $this->vite($name, $fileManifest));
+    }
+
+    /**
+     * Resolve a versioned asset URL from the Vite manifest (Laravel Vite::asset style).
+     */
+    public function asset(string $path, ?string $fileManifest = null): ?string
+    {
+        $path = ltrim(str_replace('\\', '/', $path), '/');
+        $fileManifest = $fileManifest ?? $this->fileManifest;
+
+        if ($devUrl = $this->resolveDevServerUrl()) {
+            return rtrim($devUrl, '/') . '/' . $path;
+        }
+
+        $manifest = $this->loadManifest($fileManifest);
+        $mainDirectory = $this->findMainDirectory($fileManifest);
+
+        if (!empty($manifest[$path]['file'])) {
+            return assets($mainDirectory . '/' . $manifest[$path]['file']);
+        }
+
+        foreach ($manifest as $chunk) {
+            if (!is_array($chunk) || empty($chunk['file'])) {
+                continue;
+            }
+
+            if ($chunk['file'] === $path || str_ends_with($chunk['file'], '/' . $path)) {
+                return assets($mainDirectory . '/' . $chunk['file']);
+            }
+        }
+
+        return null;
     }
 
     protected function resolveDevServerUrl(): ?string
@@ -64,16 +109,42 @@ class ViteHelper
     }
 
     /**
+     * @param list<string> $entries
      * @return list<string>
      */
-    protected function devTags(string $devUrl, string $entry): array
+    protected function devTags(string $devUrl, array $entries): array
     {
-        $entry = ltrim($entry, '/');
+        $devUrl = rtrim($devUrl, '/');
+        $tags = ['<script type="module" src="' . $devUrl . '/@vite/client"></script>'];
 
-        return [
-            '<script type="module" src="' . $devUrl . '/@vite/client"></script>',
-            '<script type="module" src="' . $devUrl . '/' . $entry . '"></script>',
-        ];
+        foreach ($entries as $entry) {
+            $tags[] = '<script type="module" src="' . $devUrl . '/' . ltrim($entry, '/') . '"></script>';
+        }
+
+        return $tags;
+    }
+
+    /**
+     * @param string|list<string> $name
+     * @return list<string>
+     */
+    protected function normalizeEntries(string|array $name): array
+    {
+        if (is_string($name)) {
+            return [ltrim(str_replace('\\', '/', $name), '/')];
+        }
+
+        $entries = [];
+
+        foreach ($name as $entry) {
+            if (!is_string($entry) || trim($entry) === '') {
+                continue;
+            }
+
+            $entries[] = ltrim(str_replace('\\', '/', trim($entry)), '/');
+        }
+
+        return $entries !== [] ? $entries : ['src/main.js'];
     }
 
     protected function loadManifest(string $fileManifest): array
@@ -100,7 +171,7 @@ class ViteHelper
         }
 
         if (!empty($fileData['file'])) {
-            $this->addFile($fileData['file'], $dir);
+            $this->addFile($fileData['file'], $dir, !empty($fileData['isEntry']));
         }
 
         if (!empty($fileData['css'])) {
@@ -110,7 +181,7 @@ class ViteHelper
         }
     }
 
-    protected function addFile(string $fileName, string $dir): void
+    protected function addFile(string $fileName, string $dir, bool $isEntry = false): void
     {
         $extension = pathinfo($fileName, PATHINFO_EXTENSION);
 
@@ -119,11 +190,25 @@ class ViteHelper
         }
 
         $url = assets($dir . '/' . $fileName);
+
+        if ($extension === 'js' && $isEntry) {
+            $this->outputBuffer[] = '<link rel="modulepreload" href="' . $url . '"/>';
+        }
+
         $this->outputBuffer[] = match ($extension) {
             'js' => '<script type="module" src="' . $url . '"></script>',
             'css' => '<link rel="stylesheet" href="' . $url . '"/>',
             default => $url,
         };
+    }
+
+    /**
+     * @param list<string> $tags
+     * @return list<string>
+     */
+    protected function uniqueTags(array $tags): array
+    {
+        return array_values(array_unique($tags));
     }
 
     protected function printOutputBuffer(array $output): void
@@ -143,23 +228,42 @@ class ViteHelper
         return new self(View::path()->current());
     }
 
-    public static function useVite(string $name, ?string $fileManifest = null): array
+    /**
+     * @param string|list<string> $name
+     * @return list<string>
+     */
+    public static function useVite(string|array $name, ?string $fileManifest = null): array
     {
         return self::forActiveTheme()->vite($name, $fileManifest);
     }
 
-    public static function usePrintVite(string $name, ?string $fileManifest = null): void
+    /**
+     * @param string|list<string> $name
+     */
+    public static function usePrintVite(string|array $name, ?string $fileManifest = null): void
     {
         self::forActiveTheme()->printVite($name, $fileManifest);
     }
 
-    public static function useViteTags(string $name, ?string $fileManifest = null): string
+    /**
+     * @param string|list<string> $name
+     */
+    public static function useViteTags(string|array $name, ?string $fileManifest = null): string
     {
         return self::forActiveTheme()->tags($name, $fileManifest);
     }
 
-    public function cssTags(string $name, ?string $fileManifest = null): string
+    public static function useAsset(string $path, ?string $fileManifest = null): ?string
     {
+        return self::forActiveTheme()->asset($path, $fileManifest);
+    }
+
+    /**
+     * @param string|list<string> $name
+     */
+    public function cssTags(string|array $name, ?string $fileManifest = null): string
+    {
+        $entries = $this->normalizeEntries($name);
         $fileManifest = $fileManifest ?? $this->fileManifest;
 
         if ($this->resolveDevServerUrl() !== null) {
@@ -167,38 +271,47 @@ class ViteHelper
         }
 
         $manifest = $this->loadManifest($fileManifest);
-        if (empty($manifest[$name]['css'])) {
-            return '';
-        }
-
         $mainDirectory = $this->findMainDirectory($fileManifest);
         $tags = [];
 
-        foreach ($manifest[$name]['css'] as $css) {
-            $tags[] = '<link rel="stylesheet" href="' . assets($mainDirectory . '/' . $css) . '"/>';
+        foreach ($entries as $entry) {
+            if (empty($manifest[$entry]['css'])) {
+                continue;
+            }
+
+            foreach ($manifest[$entry]['css'] as $css) {
+                $tags[] = '<link rel="stylesheet" href="' . assets($mainDirectory . '/' . $css) . '"/>';
+            }
         }
 
-        return implode("\n\t", $tags);
+        return implode("\n\t", $this->uniqueTags($tags));
     }
 
-    public function jsTags(string $name, ?string $fileManifest = null): string
+    /**
+     * @param string|list<string> $name
+     */
+    public function jsTags(string|array $name, ?string $fileManifest = null): string
     {
+        $entries = $this->normalizeEntries($name);
         $fileManifest = $fileManifest ?? $this->fileManifest;
 
         if ($devUrl = $this->resolveDevServerUrl()) {
-            return implode("\n\t", $this->devTags($devUrl, ltrim($name, '/')));
+            $tags = $this->devTags($devUrl, $entries);
+
+            return implode("\n\t", $this->filterTagsByType($tags, 'js'));
         }
 
         $manifest = $this->loadManifest($fileManifest);
-        if (empty($manifest[$name])) {
-            return '';
-        }
-
         $mainDirectory = $this->findMainDirectory($fileManifest);
         $this->outputBuffer = [];
-        $this->processFile($manifest[$name], $manifest, $mainDirectory);
 
-        return implode("\n\t", $this->filterTagsByType($this->outputBuffer, 'js'));
+        foreach ($entries as $entry) {
+            if (!empty($manifest[$entry])) {
+                $this->processFile($manifest[$entry], $manifest, $mainDirectory);
+            }
+        }
+
+        return implode("\n\t", $this->filterTagsByType($this->uniqueTags($this->outputBuffer), 'js'));
     }
 
     /**
@@ -215,14 +328,19 @@ class ViteHelper
         ));
     }
 
-    public static function useCssTags(string $name, ?string $fileManifest = null): string
+    /**
+     * @param string|list<string> $name
+     */
+    public static function useCssTags(string|array $name, ?string $fileManifest = null): string
     {
         return self::forActiveTheme()->cssTags($name, $fileManifest);
     }
 
-    public static function useJsTags(string $name, ?string $fileManifest = null): string
+    /**
+     * @param string|list<string> $name
+     */
+    public static function useJsTags(string|array $name, ?string $fileManifest = null): string
     {
         return self::forActiveTheme()->jsTags($name, $fileManifest);
     }
 }
-

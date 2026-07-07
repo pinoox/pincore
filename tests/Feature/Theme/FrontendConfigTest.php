@@ -58,7 +58,7 @@ test('FrontendConfig recommendations prefer vite_tags for vite stacks', function
 
     expect($hints['twig'])->toBe("{{ vite_tags('src/main.js')|raw }}")
         ->and($hints['assets_hint'])->toContain('pinoox_bootstrap')
-        ->and($hints['next_steps'])->toHaveCount(2)
+        ->and($hints['next_steps'])->toHaveCount(3)
         ->and($hints['next_steps'][0])->toContain('com_acme_shop')
         ->and($hints['next_steps'][0])->toContain('--theme=panel');
 });
@@ -97,6 +97,41 @@ test('FrontendConfig prefer_manifest skips dev url when manifest exists', functi
 
     @unlink($themePath . '/dist/.vite/manifest.json');
     @rmdir($themePath . '/dist/.vite');
+    @rmdir($themePath . '/dist');
+    @unlink($themePath . '/frontend.config.php');
+    @rmdir($themePath);
+});
+
+test('FrontendConfig ignores hot file and dev url when runtime is production', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-theme-prod-hot-' . uniqid();
+    mkdir($themePath . '/dist', 0777, true);
+    file_put_contents($themePath . '/dist/hot', 'http://127.0.0.1:5173');
+    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue', 'dev' => ['enabled' => true, 'url' => 'http://127.0.0.1:5173']];\n");
+
+    $previous = $_ENV['APP_ENV'] ?? null;
+    $_ENV['APP_ENV'] = 'production';
+    $_SERVER['APP_ENV'] = 'production';
+    putenv('APP_ENV=production');
+    \Pinoox\Support\SystemConfig::clearCache();
+
+    $config = FrontendConfig::forThemePath($themePath);
+
+    expect(FrontendConfig::viteDevAllowed())->toBeFalse()
+        ->and(FrontendConfig::isDevEnabled($config))->toBeFalse()
+        ->and(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBeNull();
+
+    if ($previous === null) {
+        unset($_ENV['APP_ENV'], $_SERVER['APP_ENV']);
+        putenv('APP_ENV');
+    } else {
+        $_ENV['APP_ENV'] = $previous;
+        $_SERVER['APP_ENV'] = $previous;
+        putenv('APP_ENV=' . $previous);
+    }
+
+    \Pinoox\Support\SystemConfig::clearCache();
+
+    @unlink($themePath . '/dist/hot');
     @rmdir($themePath . '/dist');
     @unlink($themePath . '/frontend.config.php');
     @rmdir($themePath);

@@ -6,7 +6,7 @@ use Pinoox\Component\Runtime\RuntimeMode;
 use Pinoox\Support\SystemConfig;
 
 /**
- * Laravel-style database config: default connection + named connections.
+ * database config: default connection + named connections.
  *
  * Legacy mode profiles (development/production/…) are normalized on read.
  */

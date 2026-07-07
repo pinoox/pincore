@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Template\Frontend;
 
+use Pinoox\Component\Runtime\RuntimeMode;
 use Pinoox\Portal\App\App;
 use Pinoox\Support\ProjectCli;
 
@@ -178,6 +179,8 @@ class FrontendConfig
 
         if (self::usesViteAssets(['stack' => $stack])) {
             $config['entry'] ??= self::defaultEntry($stack);
+            $config['entries'] ??= [self::defaultEntry($stack)];
+            $config['refresh'] ??= self::defaultRefreshPaths();
             $config['manifest'] ??= self::VITE_MANIFEST;
             $config['mount'] ??= '#app';
             $config['pinoox'] ??= 'pinoox';
@@ -276,6 +279,126 @@ class FrontendConfig
     }
 
     /**
+     * @param array<string, mixed> $config
+     * @return list<string>
+     */
+    public static function entries(array $config): array
+    {
+        if (!empty($config['entries']) && is_array($config['entries'])) {
+            $entries = array_values(array_filter(
+                $config['entries'],
+                static fn ($entry): bool => is_string($entry) && trim($entry) !== '',
+            ));
+
+            if ($entries !== []) {
+                return $entries;
+            }
+        }
+
+        $entry = $config['entry'] ?? null;
+
+        if (is_string($entry) && trim($entry) !== '') {
+            return [ltrim(str_replace('\\', '/', trim($entry)), '/')];
+        }
+
+        $stack = (string) ($config['stack'] ?? self::STACK_VITE);
+
+        return [match ($stack) {
+            'react' => 'src/main.jsx',
+            'next' => 'src/app/page.tsx',
+            'nuxt' => 'src/main.js',
+            default => 'src/main.js',
+        }];
+    }
+
+    /**
+     * Twig paths watched for full-page reload during `fe dev` (Laravel refresh-style).
+     *
+     * @return list<string>
+     */
+    public static function defaultRefreshPaths(): array
+    {
+        return [
+            '**/*.twig',
+            'partials/**/*.twig',
+            'layouts/**/*.twig',
+            'views/**/*.twig',
+        ];
+    }
+
+    /**
+     * Absolute globs for app PHP that affects rendered pages (Flow, routes, controllers).
+     * Passed via VITE_DEV_REFRESH during `fe dev` for full-page reload in the browser.
+     *
+     * @return list<string>
+     */
+    public static function appBackendRefreshGlobs(string $themePath): array
+    {
+        $appPath = dirname(dirname(rtrim(str_replace('\\', '/', $themePath), '/')));
+
+        return array_merge(
+            self::directoryRefreshGlobs($appPath . '/Flow'),
+            self::directoryRefreshGlobs($appPath . '/routes'),
+            self::directoryRefreshGlobs($appPath . '/Controller'),
+        );
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function flowRefreshGlobs(string $themePath): array
+    {
+        return self::appBackendRefreshGlobs($themePath);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function directoryRefreshGlobs(string $dir): array
+    {
+        if (!is_dir($dir)) {
+            return [];
+        }
+
+        $resolved = realpath($dir);
+
+        if ($resolved === false) {
+            return [];
+        }
+
+        $base = rtrim(str_replace('\\', '/', $resolved), '/');
+
+        return [
+            $base . '/*.php',
+            $base . '/**/*.php',
+        ];
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     * @return list<string>
+     */
+    public static function refreshPaths(array $config): array
+    {
+        $refresh = $config['refresh'] ?? null;
+
+        if ($refresh === false) {
+            return [];
+        }
+
+        if (is_array($refresh)) {
+            $paths = array_values(array_filter(
+                $refresh,
+                static fn ($path): bool => is_string($path) && trim($path) !== '',
+            ));
+
+            return $paths !== [] ? $paths : self::defaultRefreshPaths();
+        }
+
+        return self::defaultRefreshPaths();
+    }
+
+    /**
      * Default stack when creating a new theme (npm + vite_tags scaffold).
      */
     public static function defaultStackForNewTheme(): string
@@ -299,24 +422,37 @@ class FrontendConfig
             ];
         }
 
-        $entry = (string) ($config['entry'] ?? self::defaultEntry((string) ($config['stack'] ?? self::STACK_VITE)));
+        $entries = self::entries($config);
+        $entry = $entries[0];
+        $twig = count($entries) === 1
+            ? "{{ vite_tags('" . $entry . "')|raw }}"
+            : "{{ vite_tags(['" . implode("', '", $entries) . "'])|raw }}";
 
         $next = [];
         if ($package !== '') {
             $next[] = ProjectCli::pinxFormat('fe ' . $package . ' install --theme=' . $themeName);
             $next[] = ProjectCli::pinxFormat('fe ' . $package . ' dev --theme=' . $themeName);
+            $next[] = ProjectCli::pinxFormat('fe ' . $package . ' watch --theme=' . $themeName . '  # rebuild on file changes');
         }
 
         return [
-            'twig' => "{{ vite_tags('" . $entry . "')|raw }}",
-            'assets_hint' => 'partials/scripts.twig must include pinoox_bootstrap() before vite_tags — AJAX uses __PINOOX__.url.APP.',
+            'twig' => $twig,
+            'assets_hint' => 'partials/scripts.twig: pinoox_bootstrap() then vite_tags(). Twig, Flow, routes, and Controller edits auto-refresh in dev (pinooxRefresh).',
             'next_steps' => $next,
         ];
     }
 
     public static function isDevEnabled(array $config): bool
     {
-        return !empty($config['dev']['enabled']);
+        return self::viteDevAllowed() && !empty($config['dev']['enabled']);
+    }
+
+    /**
+     * Vite HMR is only active in non-production runtime (ignores hot file in production).
+     */
+    public static function viteDevAllowed(): bool
+    {
+        return RuntimeMode::normalize(RuntimeMode::fromEnv()) !== RuntimeMode::PRODUCTION;
     }
 
     /**
@@ -387,6 +523,10 @@ class FrontendConfig
      */
     public static function resolveDevServerUrl(string $themePath, array $config, ?string $manifestRelative = null): ?string
     {
+        if (!self::viteDevAllowed()) {
+            return null;
+        }
+
         $themePath = rtrim(str_replace('\\', '/', $themePath), '/');
         $hotFile = self::hotAbsolutePath($themePath, $config);
 

@@ -3,14 +3,14 @@
 use Pinoox\Component\Package\Routing\AppRouteMatcher;
 use Pinoox\Component\Server\ServeAppBinding;
 
-it('resolves package names to root mount path', function () {
+it('resolves package names to their router mount path', function () {
     $routes = [
         '/' => 'com_pinoox_welcome',
         '/manager' => 'com_pinoox_manager',
     ];
 
     expect(ServeAppBinding::resolveBinding('com_pinoox_manager', $routes))
-        ->toBe(['package' => 'com_pinoox_manager', 'path' => '/']);
+        ->toBe(['package' => 'com_pinoox_manager', 'path' => '/manager']);
 });
 
 it('resolves route paths from the router map', function () {
@@ -36,6 +36,16 @@ it('guesses com_pinoox_* package from short aliases', function () {
         ->toBe(['package' => 'com_pinoox_manager', 'path' => '/']);
 });
 
+it('prefers explicit mount paths when a package has multiple router entries', function () {
+    $routes = [
+        '/' => 'com_pinoox_demo',
+        '/demo' => 'com_pinoox_demo',
+    ];
+
+    expect(ServeAppBinding::preferPackageMountPath('com_pinoox_demo', $routes))
+        ->toBe('/demo');
+});
+
 it('builds app layer when serve env binding is active', function () {
     putenv(ServeAppBinding::ENV . '=com_pinoox_manager');
 
@@ -47,7 +57,7 @@ it('builds app layer when serve env binding is active', function () {
 
         expect($layer)->not->toBeNull()
             ->and($layer->getPackageName())->toBe('com_pinoox_manager')
-            ->and($layer->getPath())->toBe('/')
+            ->and($layer->getPath())->toBe('/manager')
             ->and($layer->matchedBy())->toBe('serve_app');
     } finally {
         putenv(ServeAppBinding::ENV);

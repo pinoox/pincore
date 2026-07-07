@@ -5,6 +5,9 @@ namespace Pinoox\Terminal\Theme;
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Server\DevelopmentServer;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
+use Pinoox\Component\Template\Frontend\FrontendDevSession;
+use Pinoox\Component\Template\Frontend\FrontendDevStack;
+use Pinoox\Component\Template\Frontend\FrontendDevSync;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
 use Pinoox\Component\Terminal;
 use Pinoox\Support\ProjectCli;
@@ -33,7 +36,10 @@ class ThemeFrontendCommand extends Terminal
     use SelectsTheme;
 
     /** @var list<string> */
-    private const ACTIONS = ['info', 'install', 'build', 'dev', 'run', 'scaffold'];
+    private const ACTIONS = ['info', 'install', 'build', 'dev', 'dev:apps', 'watch', 'run', 'scaffold'];
+
+    /** @var list<string> */
+    private const DEPRECATED_ACTIONS = ['dev-stack'];
 
     protected function configure(): void
     {
@@ -47,11 +53,17 @@ Actions:
   info      Stack, recommended Twig line (vite_tags), npm scripts
   install   Install npm dependencies (skips when up to date; use --install to force)
   build     Run npm run build
-  dev       Run npm run dev (Vite HMR, live output)
+  dev       Run npm run dev (Vite HMR + Twig refresh, live output)
+  dev:apps  One shared 
+INTRO
+                . $serve . <<<'INTRO'
+ + Vite for multiple apps (pick packages interactively)
+  watch     Run npm run watch (rebuild assets on file changes)
   run       Run any npm script from package.json (--script=name)
   scaffold  Copy starter files (default stack: vue; auto-detect from package.json when possible)
 
-Recommended assets in Twig: {{ vite_tags('src/main.js')|raw }} — entry/manifest/dev are auto-configured.
+Recommended assets in Twig: {{ vite_tags('src/main.js')|raw }} — or multiple entries like Laravel @vite([...]).
+Built assets in Twig: {{ vite_asset('src/images/logo.png') }}
 
 Create a new theme:
 INTRO
@@ -59,7 +71,11 @@ INTRO
                 [
                     [ProjectCli::SCOPE_PINX, 'fe info'],
                     [ProjectCli::SCOPE_PINX, 'fe spark dev'],
+                    [ProjectCli::SCOPE_PINX, 'fe dev:apps'],
+                    [ProjectCli::SCOPE_PINX, 'fe dev:apps com_pinoox_manager,com_pinoox_welcome'],
+                    [ProjectCli::SCOPE_PINX, 'fe dev:apps --apps=com_pinoox_manager,com_pinoox_welcome'],
                     [ProjectCli::SCOPE_PINX, 'fe spark build'],
+                    [ProjectCli::SCOPE_PINX, 'fe spark watch'],
                     [ProjectCli::SCOPE_PINX, 'fe com_my_shop build'],
                     [ProjectCli::SCOPE_PINX, 'fe com_my_shop dev --theme=admin'],
                     [ProjectCli::SCOPE_PINX, 'fe spark run --script=preview'],
@@ -77,6 +93,14 @@ Target and action can be omitted — pick from a list interactively (defaults to
 
 dev also starts {$serve} for the resolved app (use --no-serve to skip).
 
+dev:apps starts one shared {$serve} plus Vite for multiple apps. Use full package names (com_*).
+
+Dev auto-setup (no manual .env required):
+  - Syncs vite.pinoox.mjs (hot file + mount-aware proxy)
+  - Merges dev keys into theme .env (default) — use --env-file for a custom name
+  - Injects env into npm run dev (VITE_SERVER_URL, VITE_DEV_PROXY, …)
+  - Use --fix-vite to patch vite.config.js when pinooxHot/pinooxServer are missing
+
 build, dev, and run skip npm install by default (faster workflow).
 Use --install to install dependencies alongside the command when needed.
 The install action runs npm install; add --install to force reinstall.
@@ -90,16 +114,19 @@ Override hot path in frontend.config.php dev.hot or VITE_HOT_FILE.
 FOOTER
             ))
             ->addArgument('target', InputArgument::OPTIONAL, 'App package (com_my_shop) or theme folder (spark). Leave empty to pick interactively.')
-            ->addArgument('action', InputArgument::OPTIONAL, 'Action: info, install, build, dev, run, scaffold')
+            ->addArgument('action', InputArgument::OPTIONAL, 'Action: info, install, build, dev, dev:apps, run, scaffold')
             ->addOption('stack', null, InputOption::VALUE_REQUIRED, 'Frontend stack for scaffold: twig, vite, vue, react (default: auto or vue)')
             ->addOption('theme', null, InputOption::VALUE_REQUIRED, 'Theme folder name (defaults to app.php theme or interactive pick)')
             ->addOption('script', null, InputOption::VALUE_REQUIRED, 'npm script name for the run action')
             ->addOption('install', null, InputOption::VALUE_NONE, 'Run npm install alongside the command (or force reinstall with the install action)')
             ->addOption('no-install', null, InputOption::VALUE_NONE, 'Skip npm install (default for build/dev/run)')
             ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start ' . ProjectCli::format('serve') . ' alongside dev')
+            ->addOption('apps', null, InputOption::VALUE_REQUIRED, 'Comma-separated package names for dev:apps (e.g. com_pinoox_manager,com_pinoox_welcome)')
             ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for the dev server (defaults to the resolved package)')
             ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::format('serve') . ' (default from SERVER_HOST or 127.0.0.1)')
-            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::format('serve') . ' (default from SERVER_PORT or 8000)');
+            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::format('serve') . ' (default from SERVER_PORT or 8000)')
+            ->addOption('fix-vite', null, InputOption::VALUE_NONE, 'Auto-wire vite.config.js with pinooxHot/pinooxServer when missing')
+            ->addOption('env-file', null, InputOption::VALUE_REQUIRED, 'Theme env file for fe dev auto-setup (default: .env)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -117,9 +144,19 @@ FOOTER
         }
 
         if (!in_array($action, self::ACTIONS, true)) {
-            $io->error('Unknown action "' . $action . '". Use info, install, build, dev, run, or scaffold.');
+            $io->error('Unknown action "' . $action . '". Use info, install, build, dev, dev:apps, watch, run, or scaffold.');
 
             return Command::FAILURE;
+        }
+
+        if ($action === 'dev:apps') {
+            try {
+                return $this->runDevApps($io, $input, $output, $target);
+            } catch (\Throwable $e) {
+                $io->error($e->getMessage());
+
+                return Command::FAILURE;
+            }
         }
 
         try {
@@ -144,6 +181,7 @@ FOOTER
                 'install' => $this->runInstall($io, $frontend, $installMode),
                 'build' => $this->runBuild($io, $frontend, $installMode),
                 'dev' => $this->runDev($io, $frontend, $installMode, $package, $input, $output),
+                'watch' => $this->runWatch($io, $frontend, $installMode),
                 'run' => $this->runScript($input, $output, $io, $frontend, $installMode),
                 'scaffold' => $this->runScaffold($io, $frontend, (string) $input->getOption('stack')),
             };
@@ -161,15 +199,15 @@ FOOTER
     {
         $arg1 = trim((string) $input->getArgument('target'));
         $arg2 = trim((string) $input->getArgument('action'));
-        $first = strtolower($arg1);
-        $second = strtolower($arg2);
+        $first = $this->normalizeAction($arg1);
+        $second = $this->normalizeAction($arg2);
 
         if ($arg1 === '' && $arg2 === '') {
             return ['', 'info'];
         }
 
         if ($arg1 !== '' && $arg2 === '') {
-            if (in_array($first, self::ACTIONS, true)) {
+            if ($this->isKnownAction($first)) {
                 return ['', $first];
             }
 
@@ -178,21 +216,38 @@ FOOTER
             );
         }
 
-        if (in_array($first, self::ACTIONS, true) && !in_array($second, self::ACTIONS, true)) {
+        if ($this->isKnownAction($first) && !$this->isKnownAction($second)) {
             return [$arg2, $first];
         }
 
-        if (in_array($second, self::ACTIONS, true)) {
+        if ($this->isKnownAction($second)) {
             return [$arg1, $second];
         }
 
-        if (in_array($first, self::ACTIONS, true)) {
+        if ($this->isKnownAction($first)) {
             return ['', $first];
         }
 
         throw new \RuntimeException(
             'Could not parse arguments. Use: ' . $this->cliPinxFormat('fe spark dev') . ' (or ' . $this->cliPinxFormat('fe dev spark') . ').',
         );
+    }
+
+    private function normalizeAction(string $action): string
+    {
+        $action = strtolower(trim($action));
+
+        if ($action === 'dev-stack') {
+            return 'dev:apps';
+        }
+
+        return $action;
+    }
+
+    private function isKnownAction(string $action): bool
+    {
+        return in_array($action, self::ACTIONS, true)
+            || in_array($action, self::DEPRECATED_ACTIONS, true);
     }
 
     /**
@@ -357,12 +412,17 @@ FOOTER
             ['Package' => $info['package']],
             ['Theme path' => $info['theme_path']],
             ['Stack' => $info['stack']],
+            ['Entries' => implode(', ', $info['entries'] ?? [])],
             ['Recommended Twig' => (string) ($info['recommended_twig'] ?? '-')],
             ['Manifest' => ($info['manifest_exists'] ?? false) ? 'built' : 'missing — run fe build'],
             ['Dev' => !empty($info['dev_enabled']) ? (string) ($info['dev_url'] ?? 'on') : 'off'],
             ['Dev port' => (string) ($info['dev_port'] ?? '-')],
             ['Hot file' => ($info['hot_exists'] ?? false) ? (string) ($info['hot_relative'] ?? '-') : 'missing'],
             ['vite.pinoox.mjs' => !empty($info['pinoox_bundle']) ? 'synced' : 'missing — run fe dev/build'],
+            ['vite.config wired' => !empty($info['vite_wired']) ? 'yes' : 'no — run fe dev --fix-vite'],
+            ['Theme .env' => !empty($info['env_autodev'])
+                ? (string) ($info['env_file'] ?? '.env') . ' (auto block present)'
+                : (string) ($info['env_file'] ?? '.env') . ' — runtime only; set ' . FrontendDevSync::ENV_SERVER_SYNC_KEY . '=true to persist'],
             ['npm' => ($info['package_json'] ?? false)
                 ? (($info['needs_npm_install'] ?? false) ? 'install needed' : 'ready')
                 : 'none'],
@@ -416,6 +476,17 @@ FOOTER
         return $code === 0 ? Command::SUCCESS : Command::FAILURE;
     }
 
+    private function runWatch(SymfonyStyle $io, ThemeFrontend $frontend, string $installMode): int
+    {
+        $io->section('Watching frontend for changes: ' . $frontend->themePath());
+        $this->noteInstallPlan($io, $frontend, $installMode);
+        $io->note('Rebuilds production assets on save. Use `fe dev` for HMR during development.');
+
+        $code = $frontend->watch($installMode);
+
+        return $code === 0 ? Command::SUCCESS : Command::FAILURE;
+    }
+
     private function runDev(
         SymfonyStyle $io,
         ThemeFrontend $frontend,
@@ -427,9 +498,36 @@ FOOTER
         $io->section('Starting frontend dev server: ' . $frontend->themePath());
         $this->noteInstallPlan($io, $frontend, $installMode);
 
+        $withServe = !(bool) $input->getOption('no-serve');
+        $serveHost = $input->getOption('serve-host');
+        $servePortOption = $input->getOption('serve-port');
+        $servePort = $servePortOption !== null && $servePortOption !== ''
+            ? (int) $servePortOption
+            : null;
+        $serveApp = trim((string) ($input->getOption('serve-app') ?: $package));
+
+        $session = FrontendDevSession::fromOptions(
+            $package,
+            $frontend->config(),
+            is_string($serveHost) ? trim($serveHost) : null,
+            $servePort,
+            $serveApp,
+            $withServe,
+        );
+
+        $frontend->setDevSession($session);
+        $frontend->setFixViteOnSync((bool) $input->getOption('fix-vite'));
+        $envFileOption = $input->getOption('env-file');
+        if (is_string($envFileOption) && trim($envFileOption) !== '') {
+            $frontend->setDevEnvFile(trim($envFileOption));
+        }
+
+        $sync = $frontend->syncDev();
+        $this->renderDevDiagnostics($io, $frontend, $sync);
+
         $serveProcess = null;
 
-        if (!(bool) $input->getOption('no-serve')) {
+        if ($withServe) {
             try {
                 $serveProcess = $this->startServeProcess($package, $input, $output, $io);
             } catch (\Throwable $e) {
@@ -439,16 +537,347 @@ FOOTER
             }
         }
 
-        $io->note([
-            'Live output streams below. Press Ctrl+C to stop.',
-            'HMR hot file is auto-synced and written on Vite start (default dist/hot).',
-            'Proxy API calls from vite.config.js to your Pinoox URL (see docs/pinoox-frontend.md).',
-        ]);
+        $this->renderDevApplicationUrl($io, $session, $withServe);
 
         try {
             return $frontend->dev($installMode) === 0 ? Command::SUCCESS : Command::FAILURE;
         } finally {
             $this->stopServeProcess($serveProcess, $io);
+        }
+    }
+
+    private function runDevApps(
+        SymfonyStyle $io,
+        InputInterface $input,
+        OutputInterface $output,
+        string $targetList = '',
+    ): int {
+        $packages = $this->resolveDevAppsPackages($input, $output, $io, $targetList);
+
+        if ($packages === []) {
+            $io->error('Select at least one app for dev:apps.');
+
+            return Command::FAILURE;
+        }
+
+        $installMode = $this->resolveInstallMode($input, 'dev');
+        $serveHost = $input->getOption('serve-host');
+        $servePortOption = $input->getOption('serve-port');
+        $servePort = $servePortOption !== null && $servePortOption !== ''
+            ? (int) $servePortOption
+            : null;
+        $envFileOption = $input->getOption('env-file');
+        $envFile = is_string($envFileOption) && trim($envFileOption) !== ''
+            ? trim($envFileOption)
+            : null;
+        $fixVite = (bool) $input->getOption('fix-vite');
+
+        $targets = [];
+        $frontends = [];
+        $sessions = [];
+
+        foreach ($packages as $package) {
+            $themeName = $this->resolveThemeForPackage($input, $output, $io, $package, 'dev', '');
+            $frontend = ThemeFrontend::forPackageAndTheme($package, $themeName);
+            $frontend->setFixViteOnSync($fixVite);
+
+            if ($envFile !== null) {
+                $frontend->setDevEnvFile($envFile);
+            }
+
+            $targets[] = [
+                'package' => $package,
+                'theme' => $themeName,
+                'config' => $frontend->config(),
+            ];
+        }
+
+        $vitePorts = FrontendDevStack::allocateVitePorts($targets);
+        $sharedHost = is_string($serveHost) && trim($serveHost) !== '' ? trim($serveHost) : null;
+        $forceEnvKeys = FrontendDevSync::stackForceEnvKeys();
+
+        foreach ($targets as $index => $target) {
+            $frontend = ThemeFrontend::forPackageAndTheme($target['package'], $target['theme']);
+            $frontend->setFixViteOnSync($fixVite);
+            $frontend->setForceDevEnvKeys($forceEnvKeys);
+
+            if ($envFile !== null) {
+                $frontend->setDevEnvFile($envFile);
+            }
+
+            $session = FrontendDevSession::fromOptions(
+                $target['package'],
+                $target['config'],
+                $sharedHost !== '' ? $sharedHost : null,
+                $servePort,
+                null,
+                false,
+                $vitePorts[$index],
+            );
+
+            $frontend->setDevSession($session);
+            $sync = $frontend->syncDev();
+            $this->renderDevDiagnostics($io, $frontend, $sync);
+
+            $frontends[] = $frontend;
+            $sessions[] = $session;
+        }
+
+        $io->section('Starting frontend dev:apps');
+
+        return (new FrontendDevStack())->run($io, $output, $frontends, $sessions, $sharedHost, $servePort) === 0
+            ? Command::SUCCESS
+            : Command::FAILURE;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function resolveDevAppsPackages(
+        InputInterface $input,
+        OutputInterface $output,
+        SymfonyStyle $io,
+        string $targetList = '',
+    ): array {
+        $appsOption = trim((string) $input->getOption('apps'));
+
+        if ($appsOption !== '') {
+            return $this->resolveDevAppsPackageList($this->parsePackageList($appsOption));
+        }
+
+        if (trim($targetList) !== '') {
+            return $this->resolveDevAppsPackageList($this->parsePackageList($targetList));
+        }
+
+        $candidates = $this->frontendPackageCandidates();
+
+        if ($candidates === []) {
+            throw new \RuntimeException('No apps with frontend themes were found.');
+        }
+
+        if (!$this->shouldPromptForDevApps($input)) {
+            throw new \RuntimeException(
+                'Package list is required in non-interactive mode. Use --apps=com_pinoox_manager,com_pinoox_welcome.',
+            );
+        }
+
+        if ($input instanceof \Symfony\Component\Console\Input\Input) {
+            $input->setInteractive(true);
+        }
+
+        return $this->askDevAppsPackages($input, $output, $io, $candidates);
+    }
+
+    private function shouldPromptForDevApps(InputInterface $input): bool
+    {
+        if ($input->hasOption('no-interaction') && $input->getOption('no-interaction')) {
+            return false;
+        }
+
+        if ($input->isInteractive()) {
+            return true;
+        }
+
+        return function_exists('stream_isatty') && defined('STDIN') && @stream_isatty(STDIN);
+    }
+
+    /**
+     * @param array<string, string> $candidates
+     * @return list<string>
+     */
+    private function askDevAppsPackages(
+        InputInterface $input,
+        OutputInterface $output,
+        SymfonyStyle $io,
+        array $candidates,
+    ): array {
+        $packages = array_keys($candidates);
+
+        if (count($packages) === 1) {
+            $only = $packages[0];
+            $io->note('Using the only available package: ' . $only);
+
+            return [$only];
+        }
+
+        $io->section('Apps with frontend themes');
+        $rows = [];
+
+        foreach ($packages as $index => $package) {
+            $rows[] = [$index, $package, $candidates[$package]];
+        }
+
+        $io->table(['#', 'Package', 'Name'], $rows);
+        $io->writeln([
+            '<comment>Enter one or more packages:</comment>',
+            '  • numbers: <info>1,7</info>',
+            '  • package names: <info>com_pinoox_manager,com_pinoox_welcome</info>',
+            '  • all apps: <info>all</info>',
+        ]);
+
+        $question = new Question('Select packages: ');
+        $question->setAutocompleterValues(array_merge(['all'], $packages));
+        $question->setValidator(function (mixed $answer) use ($packages): array {
+            return $this->parseDevAppsSelection((string) $answer, $packages);
+        });
+
+        /** @var list<string> */
+        return $this->getHelper('question')->ask($input, $output, $question);
+    }
+
+    /**
+     * @param list<string> $packages
+     * @return list<string>
+     */
+    private function parseDevAppsSelection(string $raw, array $packages): array
+    {
+        $raw = trim($raw);
+
+        if ($raw === '') {
+            throw new \RuntimeException('Select at least one package.');
+        }
+
+        if (strtolower($raw) === 'all') {
+            return $packages;
+        }
+
+        $tokens = preg_split('/\s*,\s*/', $raw) ?: [];
+        $resolved = [];
+
+        foreach ($tokens as $token) {
+            $token = trim($token);
+
+            if ($token === '') {
+                continue;
+            }
+
+            if (in_array($token, $packages, true)) {
+                $resolved[] = $token;
+
+                continue;
+            }
+
+            if (ctype_digit($token)) {
+                $resolved[] = $packages[(int) $token] ?? throw new \RuntimeException("App #$token was not found.");
+
+                continue;
+            }
+
+            $resolved[] = $this->assertDevAppsPackage($token);
+        }
+
+        $resolved = array_values(array_unique($resolved));
+
+        if ($resolved === []) {
+            throw new \RuntimeException('Select at least one package.');
+        }
+
+        return $resolved;
+    }
+
+    /**
+     * @param list<string> $inputs
+     * @return list<string>
+     */
+    private function resolveDevAppsPackageList(array $inputs): array
+    {
+        $packages = [];
+
+        foreach ($inputs as $item) {
+            $packages[] = $this->assertDevAppsPackage($item);
+        }
+
+        return array_values(array_unique($packages));
+    }
+
+    private function assertDevAppsPackage(string $item): string
+    {
+        $item = trim($item);
+
+        if ($item === '') {
+            throw new \RuntimeException('Package name cannot be empty.');
+        }
+
+        $package = $this->normalizePackageInput($item);
+
+        if ($package === '' || !str_starts_with($package, 'com_')) {
+            throw new \RuntimeException(sprintf(
+                "Invalid package '%s'. Use full package names, e.g. com_pinoox_manager,com_pinoox_welcome.",
+                $item,
+            ));
+        }
+
+        if (!AppEngine::exists($package)) {
+            throw new \RuntimeException(sprintf("Package '%s' was not found.", $package));
+        }
+
+        $candidates = $this->frontendPackageCandidates();
+
+        if (!isset($candidates[$package])) {
+            throw new \RuntimeException(sprintf("Package '%s' has no frontend theme.", $package));
+        }
+
+        return $package;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function parsePackageList(string $raw): array
+    {
+        $parts = preg_split('/\s*,\s*/', trim($raw)) ?: [];
+
+        return array_values(array_filter(array_map(static fn (string $part): string => trim($part), $parts), static fn (string $part): bool => $part !== ''));
+    }
+
+    private function renderDevApplicationUrl(SymfonyStyle $io, FrontendDevSession $session, bool $withServe): void
+    {
+        $url = $session->phpAppUrl;
+
+        $io->writeln('');
+        $io->writeln('  <fg=green;options=bold>➜</>  <fg=cyan;options=bold>' . $url . '</>');
+        $io->writeln('  <fg=gray>Press Ctrl+C to stop' . ($withServe ? ' Vite and PHP server' : ' Vite') . '</>');
+        $io->writeln('');
+    }
+
+    /**
+     * @param array<string, mixed> $sync
+     */
+    private function renderDevDiagnostics(SymfonyStyle $io, ThemeFrontend $frontend, array $sync): void
+    {
+        $hasError = false;
+
+        foreach ($frontend->devDiagnostics() as $item) {
+            $level = $item['level'] ?? 'info';
+            $message = (string) ($item['message'] ?? '');
+
+            if ($message === '') {
+                continue;
+            }
+
+            match ($level) {
+                'error' => (function () use ($io, $message, &$hasError): void {
+                    $io->error($message);
+                    $hasError = true;
+                })(),
+                'warning' => $io->warning($message),
+                'comment' => $io->comment($message),
+                default => null,
+            };
+        }
+
+        if (!empty($sync['vite_wired'])) {
+            $io->writeln('<info>Vite config:</info> pinooxHot + pinooxServer wired');
+        } elseif (!empty($sync['vite_inspection']['patched'])) {
+            $io->writeln('<info>Vite config:</info> auto-wired with --fix-vite');
+        }
+
+        if (!empty($sync['env_autodev'])) {
+            $io->writeln('<info>Theme env:</info> ' . ($sync['env_file'] ?? '.env') . ' autogenerated block updated');
+        }
+
+        if ($hasError) {
+            throw new \RuntimeException('Fix the errors above before starting dev mode.');
         }
     }
 

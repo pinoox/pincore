@@ -15,11 +15,19 @@ return View::render('pages/home', ['title' => 'Home']);
 | Goal | Command | Twig |
 |------|---------|------|
 | Server HTML only | `theme:create my-theme --stack=twig` | `assets('assets/app.css')` |
-| Vue / React / Vite (default) | `theme:create my-theme` or `--stack=vue` | `vite_tags('src/main.js')` in `partials/scripts.twig` |
+| Vue / React / Vite (default) | `theme:create my-theme` or `--stack=vue` | `vite_tags('src/main.js')` or `vite_tags(['src/main.js', 'src/admin.js'])` |
+
+Built assets: `{{ vite_asset('src/images/logo.png') }}`
+
+`php pinoox fe dev` — HMR + Twig full-page refresh (Laravel-style).  
+`php pinoox fe watch` — rebuild production assets on save.  
+`php pinoox fe build` — one-off production build.
 
 Include `{{ pinoox_bootstrap(bootstrap|default({}))|raw }}` before Vite tags so `window.__PINOOX__.url.APP` is available for theme AJAX (`fetch`, no jQuery). The vite stack ships `src/api.js` + `data-ajax` forms as an example.
 
 `frontend.config.php` only needs `stack` and `profile` — entry, manifest, and dev server settings are applied automatically.
+
+Vite helpers live in `stubs/frontend/shared/` (`vite.pinoox.mjs` with `createPinooxViteConfig`, `pinooxHot`, `pinooxServer`, `pinooxRefresh`) and are synced into each theme on `fe dev` / `fe build`.
 
 After scaffold: `php pinoox fe {{package}} install --theme=default` then `dev`.
 
