@@ -11,6 +11,7 @@ use Pinoox\Component\Template\Frontend\FrontendDevStack;
 use Pinoox\Component\Template\Frontend\FrontendDevSync;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
 use Pinoox\Component\Terminal;
+use Pinoox\Support\CliText;
 use Pinoox\Support\ProjectCli;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Terminal\Concerns\SelectsPackage;
@@ -940,7 +941,7 @@ FOOTER
         $rows = [];
 
         foreach ($packages as $index => $package) {
-            $rows[] = [$index, $package, $candidates[$package]];
+            $rows[] = [$index, $package, CliText::isolateRtl($candidates[$package])];
         }
 
         $io->table(['#', 'Package', 'Name'], $rows);

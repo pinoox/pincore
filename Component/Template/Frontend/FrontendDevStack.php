@@ -134,16 +134,17 @@ final class FrontendDevStack
         }
 
         $io->writeln('');
-        $io->writeln('  <fg=gray>Open in browser</>');
+        $io->writeln('  <fg=gray>Open in browser</>  <fg=gray>(app-router paths)</>');
 
         $rows = [];
 
         foreach ($frontends as $index => $frontend) {
             $session = $sessions[$index];
-            $rows[] = [
-                self::stackLabel($frontend->package()),
-                $session->displayAppUrl(),
-            ];
+            $label = self::stackLabel($frontend->package());
+
+            foreach ($session->displayAppUrls() as $url) {
+                $rows[] = [$label, $url];
+            }
         }
 
         $io->table(['App', 'URL'], $rows);

@@ -5,6 +5,7 @@ namespace Pinoox\Terminal\Concerns;
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Package\PackageName;
 use Pinoox\Portal\App\AppEngine;
+use Pinoox\Support\CliText;
 use Pinoox\Support\DevApp;
 use Pinoox\Support\SystemApp;
 use Symfony\Component\Console\Input\InputInterface;
@@ -207,7 +208,7 @@ trait SelectsPackage
         $rows = [];
 
         foreach ($packages as $package => $name) {
-            $row = [count($rows), $package, $name];
+            $row = [count($rows), $package, CliText::isolateRtl($name)];
 
             if ($includeTestColumn) {
                 $row[] = method_exists($this, 'testPath') && is_dir($this->testPath($package)) ? 'yes' : 'no';

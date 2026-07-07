@@ -116,14 +116,91 @@ final class FrontendDevSession
 
     public function displayAppUrl(): string
     {
+        return $this->displayAppUrls()[0];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public function displayAppUrls(): array
+    {
+        $routerUrls = self::appRouterUrlsForPackage($this->package, $this->serveHost, $this->servePort);
+
+        if ($routerUrls !== []) {
+            return $routerUrls;
+        }
+
         $origin = rtrim($this->phpOrigin(), '/');
         $url = rtrim($this->phpAppUrl, '/');
 
         if ($url !== $origin) {
-            return $this->phpAppUrl;
+            return [$this->phpAppUrl];
         }
 
-        return self::resolvePublicAppUrl($this->package, $this->serveHost, $this->servePort);
+        return [self::resolvePublicAppUrl($this->package, $this->serveHost, $this->servePort)];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function appRouterPathsForPackage(string $package): array
+    {
+        if (!PackageName::looksLike($package)) {
+            return [];
+        }
+
+        try {
+            $canonical = PackageName::canonical($package);
+            $routes = \Pinoox\Portal\App\AppRouter::routes();
+            $paths = [];
+
+            foreach ($routes as $routePath => $routePackage) {
+                if (!is_string($routePackage) || !PackageName::equals($routePackage, $canonical)) {
+                    continue;
+                }
+
+                $normalized = AppRouteMatcher::normalize((string) $routePath);
+                $paths[] = $normalized === '' ? '/' : $normalized;
+            }
+
+            $paths = array_values(array_unique($paths));
+            usort($paths, static function (string $a, string $b): int {
+                if ($a === '/') {
+                    return -1;
+                }
+
+                if ($b === '/') {
+                    return 1;
+                }
+
+                return strcmp($a, $b);
+            });
+
+            return $paths;
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function appRouterUrlsForPackage(string $package, string $serveHost, int $servePort): array
+    {
+        $origin = rtrim('http://' . self::publicHostForUrl($serveHost) . ':' . $servePort, '/');
+        $paths = self::appRouterPathsForPackage($package);
+
+        if ($paths === []) {
+            return [];
+        }
+
+        $urls = [];
+
+        foreach ($paths as $path) {
+            $urls[] = rtrim($origin, '/') . ($path === '/' ? '' : $path);
+        }
+
+        return array_values(array_unique($urls));
     }
 
     public static function resolvePublicAppUrl(string $package, string $serveHost, int $servePort): string
@@ -291,6 +368,14 @@ final class FrontendDevSession
 
     private static function resolveRouterAppUrl(string $package, string $origin): string
     {
+        $paths = self::appRouterPathsForPackage($package);
+
+        if ($paths !== []) {
+            $primary = self::primaryAppRouterPath($paths);
+
+            return rtrim($origin, '/') . ($primary === '/' ? '' : $primary);
+        }
+
         try {
             $url = \Pinoox\Portal\Url::appUrl($package);
 
@@ -314,21 +399,27 @@ final class FrontendDevSession
             // fall through
         }
 
-        $paths = self::mountPathsForPackage($package);
-
-        if ($paths !== []) {
-            return rtrim($origin, '/') . $paths[0];
-        }
-
-        if (PackageName::looksLike($package)) {
-            $short = PackageName::shortLabel($package);
-
-            if ($short !== '' && $short !== 'app') {
-                return rtrim($origin, '/') . '/' . $short;
-            }
-        }
-
         return rtrim($origin, '/');
+    }
+
+    /**
+     * @param list<string> $paths
+     */
+    private static function primaryAppRouterPath(array $paths): string
+    {
+        $nonRoot = array_values(array_filter($paths, static fn (string $path): bool => $path !== '/'));
+
+        if (count($nonRoot) === 1) {
+            return $nonRoot[0];
+        }
+
+        if ($nonRoot !== []) {
+            usort($nonRoot, static fn (string $a, string $b): int => strlen($b) <=> strlen($a));
+
+            return $nonRoot[0];
+        }
+
+        return '/';
     }
 
     /**
@@ -336,24 +427,17 @@ final class FrontendDevSession
      */
     private static function mountPathsForPackage(string $package): array
     {
-        try {
-            $routes = \Pinoox\Portal\App\AppRouter::getByPackage($package);
-            $paths = [];
+        $paths = self::appRouterPathsForPackage($package);
 
-            foreach (array_keys($routes) as $routePath) {
-                $normalized = AppRouteMatcher::normalize((string) $routePath);
-
-                if ($normalized !== '/') {
-                    $paths[] = $normalized;
-                }
-            }
-
-            $paths = array_values(array_unique($paths));
-
-            return $paths;
-        } catch (\Throwable) {
+        if ($paths === []) {
             return [];
         }
+
+        if (count($paths) === 1 && $paths[0] === '/') {
+            return [];
+        }
+
+        return array_values(array_filter($paths, static fn (string $path): bool => $path !== '/'));
     }
 
     /**
