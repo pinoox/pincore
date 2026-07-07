@@ -61,7 +61,10 @@ FOOTER
 
         $io = new SymfonyStyle($input, $output);
         $host = $this->resolveHost((string) ($input->getOption('host') ?: _env('SERVER_HOST', '127.0.0.1')));
-        $port = $this->normalizePort($input->getOption('port') ?? _env('SERVER_PORT'));
+        $portOption = $input->getOption('port');
+        $explicitPort = ($portOption !== null && $portOption !== '')
+            ? $this->normalizePort($portOption)
+            : null;
         $tries = max(1, (int) $input->getOption('tries'));
         $documentRoot = rtrim(str_replace('\\', '/', (string) PINOOX_BASE_PATH), '/');
         $router = DevelopmentServer::defaultRouterScript();
@@ -85,7 +88,7 @@ FOOTER
 
         $server = new DevelopmentServer(
             host: $host,
-            explicitPort: $port,
+            explicitPort: $explicitPort,
             maxTries: $tries,
             noReload: (bool) $input->getOption('no-reload'),
             documentRoot: $documentRoot,

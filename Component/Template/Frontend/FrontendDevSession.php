@@ -4,7 +4,7 @@ namespace Pinoox\Component\Template\Frontend;
 
 use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Package\Routing\AppRouteMatcher;
-use Pinoox\Component\Server\ServeAppBinding;
+use Pinoox\Component\Server\ServerPort;
 
 /**
  * Resolved PHP + Vite dev targets for theme:frontend dev (serve host/port, app URL, proxy prefixes).
@@ -48,8 +48,8 @@ final class FrontendDevSession
                 ? trim((string) $serveHost)
                 : (string) _env('SERVER_HOST', '127.0.0.1'),
         );
-        $port = $servePort ?? (int) _env('SERVER_PORT', 8000);
-        $vitePort = $vitePort ?? FrontendConfig::devPort($config);
+        $port = self::resolveServePort($servePort, $host);
+        $vitePort = self::resolveVitePort($vitePort, $config, $viteHost ?? '127.0.0.1');
         $viteHost = $viteHost ?? FrontendConfig::devHost($config);
         $viteQuiet = $viteQuiet ?? FrontendConfig::devQuiet($config);
         $bindingInput = trim((string) ($serveAppBinding ?? ($withServe ? $package : '')));
@@ -516,6 +516,23 @@ final class FrontendDevSession
         $host = trim($host);
 
         return $host !== '' ? $host : '127.0.0.1';
+    }
+
+    private static function resolveServePort(?int $explicit, string $host): int
+    {
+        return ServerPort::resolve($explicit, $host, ServerPort::preferredServePort());
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private static function resolveVitePort(?int $explicit, array $config, string $host): int
+    {
+        if ($explicit !== null && $explicit > 0) {
+            return ServerPort::resolve($explicit, $host, null);
+        }
+
+        return ServerPort::resolve(null, $host, FrontendConfig::devPort($config));
     }
 
     /**

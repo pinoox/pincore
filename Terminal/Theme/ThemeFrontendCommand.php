@@ -5,6 +5,7 @@ namespace Pinoox\Terminal\Theme;
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Server\DevelopmentServer;
+use Pinoox\Component\Server\ServerPort;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\FrontendDevSession;
 use Pinoox\Component\Template\Frontend\FrontendDevStack;
@@ -715,17 +716,25 @@ FOOTER
 
         $viteOpts = $this->resolveViteDevOptions($input, $frontend->config());
 
-        $session = FrontendDevSession::fromOptions(
-            $package,
-            $frontend->config(),
-            $this->resolveServeHost($input),
-            $servePort,
-            $serveApp,
-            $withServe,
-            null,
-            $viteOpts['host'],
-            $viteOpts['quiet'],
-        );
+        try {
+            $session = FrontendDevSession::fromOptions(
+                $package,
+                $frontend->config(),
+                $this->resolveServeHost($input),
+                $servePort,
+                $serveApp,
+                $withServe,
+                null,
+                $viteOpts['host'],
+                $viteOpts['quiet'],
+            );
+        } catch (\RuntimeException $e) {
+            $io->error($e->getMessage());
+
+            return Command::FAILURE;
+        }
+
+        $this->noteResolvedServePort($io, $session->servePort, $servePort !== null);
 
         if ($this->isNetworkMode($input)) {
             $this->renderNetworkDevNote($io, $session);
@@ -745,7 +754,7 @@ FOOTER
 
         if ($withServe) {
             try {
-                $serveProcess = $this->startServeProcess($package, $input, $output, $io, $platformServe, $serveApp);
+                $serveProcess = $this->startServeProcess($package, $input, $output, $io, $platformServe, $serveApp, $session->servePort);
             } catch (\Throwable $e) {
                 $io->error('Could not start Pinoox server: ' . $e->getMessage());
 
@@ -857,8 +866,15 @@ FOOTER
         }
 
         $stackServeHost = $this->isNetworkMode($input) ? '0.0.0.0' : $sharedHost;
+        $resolvedServePort = ($servePort !== null && $servePort > 0)
+            ? $servePort
+            : ($sessions[0]->servePort ?? ServerPort::preferredServePort());
 
-        return (new FrontendDevStack())->run($io, $output, $frontends, $sessions, $stackServeHost, $servePort) === 0
+        if ($servePort === null && $sessions !== []) {
+            $this->noteResolvedServePort($io, $resolvedServePort, false);
+        }
+
+        return (new FrontendDevStack())->run($io, $output, $frontends, $sessions, $stackServeHost, $resolvedServePort) === 0
             ? Command::SUCCESS
             : Command::FAILURE;
     }
@@ -1189,6 +1205,21 @@ FOOTER
         }
     }
 
+    private function noteResolvedServePort(SymfonyStyle $io, int $resolvedPort, bool $explicit): void
+    {
+        if ($explicit) {
+            return;
+        }
+
+        $preferred = ServerPort::preferredServePort();
+
+        if ($resolvedPort === $preferred) {
+            return;
+        }
+
+        $io->note(sprintf('Port %d is in use — using %d for PHP serve.', $preferred, $resolvedPort));
+    }
+
     private function startServeProcess(
         string $package,
         InputInterface $input,
@@ -1196,6 +1227,7 @@ FOOTER
         SymfonyStyle $io,
         bool $platformServe = false,
         ?string $serveApp = null,
+        int $servePort = ServerPort::DEFAULT_SERVE_PORT,
     ): Process {
         $basePath = ProjectCli::root();
         $serveApp = trim((string) ($serveApp ?? $input->getOption('serve-app') ?: $package));
@@ -1214,10 +1246,7 @@ FOOTER
             $command[] = '--host=' . trim($serveHost);
         }
 
-        $servePort = $input->getOption('serve-port');
-        if ($servePort !== null && $servePort !== '') {
-            $command[] = '--port=' . (int) $servePort;
-        }
+        $command[] = '--port=' . $servePort;
 
         $process = new Process($command, $basePath, null, null, null);
         $process->setTimeout(null);
