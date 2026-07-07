@@ -3,6 +3,7 @@
 namespace Pinoox\Component\Template\Frontend;
 
 use Pinoox\Component\Package\AppManifest;
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\Path;
@@ -171,6 +172,43 @@ class ThemeFrontend
 
             $packages[] = $package;
         }
+
+        sort($packages);
+
+        return $packages;
+    }
+
+    public static function isAppRouterPackage(string $package): bool
+    {
+        if (!AppEngine::exists($package)) {
+            return false;
+        }
+
+        try {
+            $canonical = PackageName::canonical($package);
+            $routes = \Pinoox\Portal\App\AppRouter::routes();
+
+            foreach ($routes as $routePackage) {
+                if (is_string($routePackage) && PackageName::equals($routePackage, $canonical)) {
+                    return true;
+                }
+            }
+        } catch (\Throwable) {
+            return false;
+        }
+
+        return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function packagesWithViteDevForPlatform(): array
+    {
+        $packages = array_values(array_filter(
+            self::packagesWithViteDev(),
+            static fn (string $package): bool => self::isAppRouterPackage($package),
+        ));
 
         sort($packages);
 

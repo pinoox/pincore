@@ -420,15 +420,23 @@ FOOTER
             return $this->resolveAutoViteDevTarget($input, $output, $io);
         }
 
+        $platformCandidates = $this->frontendPlatformViteCandidates();
+
+        if ($platformCandidates === []) {
+            throw new \RuntimeException(
+                'No routed apps with Vite HMR support were found. Add apps to app-router.config.php first.',
+            );
+        }
+
         $viteCandidates = [
-            self::VITE_HMR_AUTO => 'All Vite apps (auto-detect HMR)',
-        ] + $candidates;
+            self::VITE_HMR_AUTO => 'All routed Vite apps (auto-detect HMR)',
+        ] + $platformCandidates;
 
         $selected = count($viteCandidates) === 1
             ? array_key_first($viteCandidates)
             : $this->resolvePackageFromCandidates($input, $output, $io, $viteCandidates, [
-                'sectionTitle' => 'Vite HMR for',
-                'emptyMessage' => 'No apps with frontend themes were found.',
+                'sectionTitle' => 'Vite HMR for (app-router)',
+                'emptyMessage' => 'No routed apps with Vite HMR support were found.',
                 'invalidMessage' => "Package '%s' was not found.",
                 'argument' => 'target',
                 'resolvedInput' => '',
@@ -456,10 +464,12 @@ FOOTER
         OutputInterface $output,
         SymfonyStyle $io,
     ): array {
-        $packages = ThemeFrontend::packagesWithViteDev();
+        $packages = ThemeFrontend::packagesWithViteDevForPlatform();
 
         if ($packages === []) {
-            throw new \RuntimeException('No apps with Vite HMR support were found.');
+            throw new \RuntimeException(
+                'No routed apps with Vite HMR support were found. Add apps to app-router.config.php first.',
+            );
         }
 
         $this->devAppsAuto = true;
@@ -555,6 +565,22 @@ FOOTER
                 continue;
             }
 
+            $candidates[$package] = AppManifest::displayName($package);
+        }
+
+        return $candidates;
+    }
+
+    /**
+     * Routed apps in app-router.config.php that support Vite HMR.
+     *
+     * @return array<string, string>
+     */
+    private function frontendPlatformViteCandidates(): array
+    {
+        $candidates = [];
+
+        foreach (ThemeFrontend::packagesWithViteDevForPlatform() as $package) {
             $candidates[$package] = AppManifest::displayName($package);
         }
 
