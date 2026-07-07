@@ -12,7 +12,7 @@
     "vue": "^3.5.0"
   },
   "devDependencies": {
-    "@pinoox/vite-plugin": "^1.5.0",
+    "@pinoox/vite-plugin": "^1.6.0",
     "@vitejs/plugin-vue": "^5.2.0",
     "vite": "^6.0.0"
   }
