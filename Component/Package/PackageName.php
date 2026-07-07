@@ -83,6 +83,34 @@ final class PackageName
     }
 
     /**
+     * Recommended table-prefix base (same slug as route names). Database layer adds trailing "_".
+     */
+    public static function suggestedTablePrefix(string $package): string
+    {
+        return self::appSlug($package);
+    }
+
+    /**
+     * Longer fallback when the route slug prefix is already used by another app.
+     *
+     * @return list<string>
+     */
+    public static function tablePrefixFallbacks(string $package): array
+    {
+        $canonical = self::canonical($package);
+        $segments = self::segments($canonical);
+        $candidates = [self::appSlug($canonical)];
+
+        if (count($segments) >= 3) {
+            $candidates[] = $segments[1] . '_' . implode('_', array_slice($segments, 2));
+        }
+
+        $candidates[] = $canonical;
+
+        return array_values(array_unique(array_filter($candidates, static fn (string $value): bool => $value !== '')));
+    }
+
+    /**
      * @return list<string>
      */
     public static function segments(string $package): array
@@ -99,5 +127,40 @@ final class PackageName
     public static function formatHint(): string
     {
         return '{scope}_{owner}_{app} or {scope}_{owner}_{app}_{module}';
+    }
+
+    public static function validationError(string $packageName): ?string
+    {
+        $raw = trim($packageName);
+        $canonical = self::normalize($packageName);
+
+        if ($raw === '' || $canonical === '') {
+            return 'Package name cannot be empty.';
+        }
+
+        if (strlen($canonical) > self::MAX_LENGTH) {
+            return sprintf('Package name exceeds %d characters.', self::MAX_LENGTH);
+        }
+
+        if (preg_match(self::VALID_PATTERN, $canonical) !== 1) {
+            return sprintf(
+                "Invalid package name '%s'. Expected: %s (scope %d–%d chars, lowercase a-z, 0-9, _).",
+                $raw,
+                self::formatHint(),
+                self::SCOPE_MIN,
+                self::SCOPE_MAX,
+            );
+        }
+
+        return null;
+    }
+
+    public static function assertValid(string $packageName): void
+    {
+        $error = self::validationError($packageName);
+
+        if ($error !== null) {
+            throw new \InvalidArgumentException($error);
+        }
     }
 }

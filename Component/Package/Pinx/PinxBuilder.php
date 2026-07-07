@@ -5,6 +5,7 @@ namespace Pinoox\Component\Package\Pinx;
 use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Package\AppComposerVendor;
 use Pinoox\Component\Package\Engine\AppEngine;
+use Pinoox\Component\Package\PackageName;
 use ZipArchive;
 
 class PinxBuilder
@@ -31,6 +32,26 @@ class PinxBuilder
 
         $build = PinxBuildConfig::resolve($this->engine, $package);
         $appConfig = PinxBuildConfig::appConfigArray($this->engine, $package);
+        $appPackage = (string) ($appConfig['package'] ?? $package);
+
+        if ($build['type'] === PinxManifest::TYPE_APP) {
+            $error = PackageName::validationError($appPackage);
+
+            if ($error !== null) {
+                throw new Exception('Cannot build package: ' . $error);
+            }
+        }
+
+        $targetApp = (string) ($build['target_app'] ?? $appPackage);
+
+        if ($build['type'] === PinxManifest::TYPE_THEME) {
+            $error = PackageName::validationError($targetApp);
+
+            if ($error !== null) {
+                throw new Exception('Cannot build theme package: invalid target app. ' . $error);
+            }
+        }
+
         $manifest = PinxManifest::fromAppConfig($appConfig, $build['type'], [
             'target_app' => $build['target_app'],
             'theme_name' => $build['theme_name'],
@@ -137,6 +158,8 @@ class PinxBuilder
                 PinxIcon::enrichManifest($manifest->toArray(), $appConfig, $payloadFiles),
             );
         }
+
+        $manifest->validate();
 
         $outputPath ??= $this->defaultOutputPath($package, $manifest);
         $outputDir = dirname($outputPath);

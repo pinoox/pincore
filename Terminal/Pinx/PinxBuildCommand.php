@@ -76,6 +76,7 @@ class PinxBuildCommand extends Terminal
                 (string) ($build['type'] ?? PinxManifest::TYPE_APP),
                 $build,
             );
+            $previewManifest->validate();
             $io->text([
                 'Package: <info>' . $package . '</info>',
                 'Name: <info>' . $previewManifest->title($localeArg) . '</info>',

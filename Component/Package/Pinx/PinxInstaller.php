@@ -8,6 +8,7 @@ use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Migration\Migrator;
 use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Package\Engine\AppEngine;
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Template\Theme\ThemeManifest;
 use Pinoox\Portal\App\AppEngine as AppEnginePortal;
 use Pinoox\Portal\FileSystem;
@@ -104,8 +105,12 @@ class PinxInstaller
                 $this->recordStep($steps, 'depends', 'skipped', 'No app dependencies declared.');
             }
 
-            if ($manifest->isApp() && !$this->engine->checkName($manifest->package())) {
-                throw new Exception('Invalid package name: ' . $manifest->package());
+            if ($manifest->isApp()) {
+                $error = PackageName::validationError($manifest->package());
+
+                if ($error !== null) {
+                    throw new Exception($error);
+                }
             }
 
             $mode = $this->detectMode($manifest, (bool) ($options['force'] ?? false));

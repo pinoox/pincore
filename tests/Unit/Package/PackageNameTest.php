@@ -38,11 +38,36 @@ it('detects package-like strings for CLI disambiguation', function () {
         ->and(PackageName::looksLike('manager'))->toBeFalse();
 });
 
+it('suggests table prefix slug aligned with route naming', function () {
+    expect(PackageName::suggestedTablePrefix('com_pinoox_manager'))->toBe('manager')
+        ->and(PackageName::suggestedTablePrefix('com_acme_shop_panel'))->toBe('shop_panel')
+        ->and(PackageName::suggestedTablePrefix('IO_YOOSEFAP_AI'))->toBe('ai');
+});
+
+it('provides longer table prefix fallbacks when route slug collides', function () {
+    expect(PackageName::tablePrefixFallbacks('com_acme_shop'))->toBe([
+        'shop',
+        'acme_shop',
+        'com_acme_shop',
+    ]);
+});
+
 it('extracts app slug from multi-segment packages', function () {
     expect(PackageName::appSlug('com_pinoox_manager'))->toBe('manager')
         ->and(PackageName::appSlug('IR_MYSITE_FINANCIAL'))->toBe('financial')
         ->and(PackageName::appSlug('io_yoosefap_ai'))->toBe('ai')
         ->and(PackageName::appSlug('com_acme_shop_panel'))->toBe('shop_panel');
+});
+
+it('provides validation errors for invalid package names', function () {
+    expect(PackageName::validationError('manager'))
+        ->toContain('Invalid package name')
+        ->and(PackageName::validationError('com_pinoox_manager'))->toBeNull();
+});
+
+it('assertValid throws for invalid names', function () {
+    expect(fn () => PackageName::assertValid('bad-name'))
+        ->toThrow(InvalidArgumentException::class);
 });
 
 it('normalizes wizard package names without breaking valid scopes', function () {
