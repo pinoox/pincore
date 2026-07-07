@@ -57,7 +57,7 @@ final class FrontendDevSession
         $locked = $withServe && !$platformServe && $bindingInput !== '';
         $binding = $locked ? $bindingInput : '';
 
-        [$appUrl, $prefixes] = self::resolveAppUrlAndProxy($package, $host, $port, $locked, $binding);
+        [$appUrl, $prefixes] = self::resolveAppUrlAndProxy($package, $host, $port, $locked);
         [$appUrl, $prefixes] = self::applyConfigOverrides($appUrl, $prefixes, $config);
 
         return new self(
@@ -124,6 +124,10 @@ final class FrontendDevSession
      */
     public function displayAppUrls(): array
     {
+        if (!$this->platformServe) {
+            return [rtrim($this->phpOrigin(), '/')];
+        }
+
         $routerUrls = self::appRouterUrlsForPackage($this->package, $this->serveHost, $this->servePort);
 
         if ($routerUrls !== []) {
@@ -303,25 +307,17 @@ final class FrontendDevSession
         string $host,
         int $port,
         bool $locked,
-        string $binding,
     ): array {
         $origin = 'http://' . self::publicHostForUrl($host) . ':' . $port;
 
-        if (!$locked) {
-            return [
-                self::resolveRouterAppUrl($package, $origin),
-                self::mountPathsForPackage($package),
-            ];
+        if ($locked) {
+            return [rtrim($origin, '/'), ['/api']];
         }
 
-        $mount = self::resolveServeMountPath($binding);
-        $appUrl = rtrim($origin, '/') . ($mount === '/' ? '' : $mount);
-
-        if ($mount === '/') {
-            return [$appUrl, self::proxyPrefixesForPackage($package, ['/api'])];
-        }
-
-        return [$appUrl, self::proxyPrefixesForPackage($package, [$mount])];
+        return [
+            self::resolveRouterAppUrl($package, $origin),
+            self::mountPathsForPackage($package),
+        ];
     }
 
     /**
@@ -334,36 +330,6 @@ final class FrontendDevSession
         $prefixes = array_values(array_unique(array_filter($prefixes)));
 
         return $prefixes !== [] ? $prefixes : $defaults;
-    }
-
-    private static function resolveServeMountPath(string $binding): string
-    {
-        try {
-            $routes = \Pinoox\Portal\App\AppRouter::routes();
-            $resolved = ServeAppBinding::resolveBinding($binding, $routes);
-
-            if ($resolved !== null) {
-                $path = AppRouteMatcher::normalize($resolved['path']);
-
-                return $path === '' ? '/' : $path;
-            }
-        } catch (\Throwable) {
-            // fall through
-        }
-
-        if (str_contains($binding, '@')) {
-            [, $path] = explode('@', $binding, 2);
-
-            return AppRouteMatcher::normalize(trim($path));
-        }
-
-        $paths = self::mountPathsForPackage($binding);
-
-        if ($paths !== []) {
-            return $paths[0];
-        }
-
-        return PackageName::looksLike($binding) ? '/' : AppRouteMatcher::normalize('/' . ltrim($binding, '/'));
     }
 
     private static function resolveRouterAppUrl(string $package, string $origin): string

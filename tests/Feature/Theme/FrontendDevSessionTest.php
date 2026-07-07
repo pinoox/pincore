@@ -4,7 +4,7 @@ use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\FrontendDevSession;
 use Pinoox\Component\Template\Frontend\FrontendDevSync;
 
-test('FrontendDevSession builds locked serve URLs at app mount path', function () {
+test('FrontendDevSession builds locked serve URLs at PHP origin without app-router path', function () {
     $themePath = frontendDevSyncThemeDir();
     $GLOBALS['__frontendDevSyncThemePath'] = $themePath;
 
@@ -20,8 +20,10 @@ test('FrontendDevSession builds locked serve URLs at app mount path', function (
         true,
     );
 
-    expect($session->phpAppUrl)->toBe('http://127.0.0.1:8000/manager')
-        ->and($session->proxyPrefixes)->toContain('/manager')
+    expect($session->phpAppUrl)->toBe('http://127.0.0.1:8000')
+        ->and($session->displayAppUrls())->toBe(['http://127.0.0.1:8000'])
+        ->and($session->proxyPrefixes)->toContain('/api')
+        ->and($session->proxyPrefixes)->not->toContain('/manager')
         ->and($session->viteDevServerUrl())->toBe('http://127.0.0.1:5173');
 });
 
