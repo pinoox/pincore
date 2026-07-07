@@ -272,6 +272,34 @@ test('FrontendConfig explicit HMR mode uses dev url when manifest exists', funct
     @rmdir($themePath);
 });
 
+test('FrontendConfig reads PINOOX_VITE_HMR from getenv when absent in _ENV', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-theme-getenv-hmr-' . uniqid();
+    mkdir($themePath . '/dist/.vite', 0777, true);
+    file_put_contents($themePath . '/dist/.vite/manifest.json', '{}');
+    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue', 'dev' => ['port' => 5173]];\n");
+
+    $config = FrontendConfig::forThemePath($themePath);
+    $key = FrontendConfig::VITE_HMR_ENV;
+
+    putenv($key . '=1');
+
+    try {
+        unset($_ENV[$key], $_SERVER[$key]);
+
+        expect(FrontendConfig::viteHmrMode())->toBeTrue()
+            ->and(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5173');
+    } finally {
+        putenv($key);
+        unset($_ENV[$key], $_SERVER[$key]);
+    }
+
+    @unlink($themePath . '/dist/.vite/manifest.json');
+    @rmdir($themePath . '/dist/.vite');
+    @rmdir($themePath . '/dist');
+    @unlink($themePath . '/frontend.config.php');
+    @rmdir($themePath);
+});
+
 test('FrontendConfig ignores hot file and dev url when runtime is production', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-theme-prod-hot-' . uniqid();
     mkdir($themePath . '/dist', 0777, true);

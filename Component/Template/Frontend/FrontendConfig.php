@@ -497,9 +497,27 @@ class FrontendConfig
 
     private static function viteHmrEnvExplicitlySet(): bool
     {
-        $hmr = _env(self::VITE_HMR_ENV);
+        return self::runtimeEnv(self::VITE_HMR_ENV) !== null;
+    }
 
-        return $hmr !== null && $hmr !== '';
+    /**
+     * Process env (PINOOX_VITE_HMR, VITE_DEV, …) may exist only in getenv() on Windows when $_ENV is empty.
+     */
+    private static function runtimeEnv(string $key): ?string
+    {
+        $value = _env($key);
+
+        if ($value !== null && $value !== '') {
+            return (string) $value;
+        }
+
+        $fromGetenv = getenv($key);
+
+        if (is_string($fromGetenv) && $fromGetenv !== '') {
+            return $fromGetenv;
+        }
+
+        return null;
     }
 
     public static function isDevEnabled(array $config): bool
@@ -521,7 +539,7 @@ class FrontendConfig
             return true;
         }
 
-        return trim((string) _env('VITE_DEV_SERVER', '')) !== '';
+        return trim((string) (self::runtimeEnv('VITE_DEV_SERVER') ?? '')) !== '';
     }
 
     /**
@@ -919,9 +937,9 @@ class FrontendConfig
 
     private static function envBool(string $key, bool $default = false): bool
     {
-        $value = _env($key);
+        $value = self::runtimeEnv($key);
 
-        if ($value === null || $value === '') {
+        if ($value === null) {
             return $default;
         }
 
@@ -1025,7 +1043,7 @@ class FrontendConfig
      */
     public static function resolveConfiguredDevServerUrl(array $config, ?string $themePath = null): ?string
     {
-        $fromEnv = trim((string) _env('VITE_DEV_SERVER', ''));
+        $fromEnv = trim((string) (self::runtimeEnv('VITE_DEV_SERVER') ?? ''));
 
         if ($fromEnv !== '') {
             return rtrim($fromEnv, '/');
