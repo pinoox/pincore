@@ -423,6 +423,11 @@ class ThemeFrontend
     {
         $this->assertFrontendProject();
         FrontendDevSync::removeHotFile($this->themePath, $this->config);
+
+        if ($this->devSession !== null) {
+            FrontendDevSync::writeDevPortCache($this->themePath, $this->config, $this->devSession->vitePort);
+        }
+
         $this->syncDev();
         $this->ensureDependencies($installMode);
     }

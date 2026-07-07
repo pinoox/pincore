@@ -530,10 +530,8 @@ final class FrontendDevSync
 
         if ($manifest !== null && is_file($manifest) && !is_file(FrontendConfig::hotAbsolutePath($themePath, $config))) {
             $issues[] = [
-                'level' => 'warning',
-                'message' => 'Production manifest exists without a hot file — PHP may serve stale built assets (fonts/CSS) until Vite starts. Run '
-                    . ProjectCli::autoFormat('fe dev')
-                    . ' and wait for dist/hot, or delete dist/.vite/manifest.json for a fresh dev session.',
+                'level' => 'comment',
+                'message' => 'Built manifest present — Vite HMR will load after the dev server starts (dist/hot is written by Vite).',
             ];
         }
 

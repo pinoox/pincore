@@ -791,6 +791,7 @@ FOOTER
             $frontend->setDevEnvFile(trim($envFileOption));
         }
 
+        FrontendDevSync::writeDevPortCache($frontend->themePath(), $frontend->config(), $session->vitePort);
         $sync = $frontend->syncDev();
         $this->renderDevDiagnostics($io, $frontend, $sync);
 
@@ -924,6 +925,7 @@ FOOTER
             );
 
             $frontend->setDevSession($session);
+            FrontendDevSync::writeDevPortCache($frontend->themePath(), $frontend->config(), $session->vitePort);
             $sync = $frontend->syncDev();
 
             if (!$quietStack) {
@@ -1171,8 +1173,32 @@ FOOTER
     private function renderDevApplicationUrl(SymfonyStyle $io, FrontendDevSession $session, bool $withServe): void
     {
         $io->writeln('');
-        $io->writeln('  <fg=gray>Starting Vite… the app URL appears below when ready.</>');
-        $io->writeln('  <fg=gray>Open the PHP app URL in your browser — not the Vite port.</>');
+        $io->writeln(sprintf(
+            '  <fg=green;options=bold>➜</>  <fg=cyan;options=bold>Dev server</>  <fg=gray>(%s)</>',
+            $withServe ? 'PHP + Vite' : 'Vite only',
+        ));
+
+        if ($withServe) {
+            $io->writeln('  <fg=gray>PHP</>           ' . $session->phpOrigin());
+
+            if ($session->serveAppLocked && $session->serveAppBinding !== null) {
+                $io->writeln('  <fg=gray>Serve lock</>    ' . ServeAppBinding::devServeBinding($session->serveAppBinding));
+            } elseif ($session->platformServe) {
+                $io->writeln('  <fg=gray>Serve lock</>    platform');
+            }
+        }
+
+        $io->writeln('');
+        $io->writeln('  <fg=gray>Open in browser</>');
+
+        foreach ($session->displayAppUrls() as $url) {
+            $io->writeln('  <comment>' . $url . '</comment>');
+        }
+
+        $io->writeln('  <fg=gray>Vite HMR</>      <comment>' . $session->viteDevServerUrl() . '</comment>');
+        $io->writeln('  <fg=gray>Tip</>           Open the <comment>PHP URL</comment> above — not the Vite port.');
+        $io->writeln('');
+        $io->writeln('  <fg=gray>Press Ctrl+C to stop</>');
         $io->writeln('');
     }
 
