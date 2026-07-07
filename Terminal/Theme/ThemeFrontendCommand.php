@@ -807,10 +807,12 @@ FOOTER
             }
         }
 
-        $this->renderDevApplicationUrl($io, $session, $withServe);
-
         try {
-            return $frontend->dev($installMode) === 0 ? Command::SUCCESS : Command::FAILURE;
+            $frontend->startDevProcess($installMode);
+            $this->waitForViteReady($io, $frontend);
+            $this->renderDevApplicationUrl($io, $session, $withServe);
+
+            return $frontend->awaitRunningDevProcess() === 0 ? Command::SUCCESS : Command::FAILURE;
         } finally {
             $frontend->stopRunningProcess();
             $this->stopServeProcess($serveProcess, $io);
@@ -1168,6 +1170,24 @@ FOOTER
         $parts = preg_split('/\s*,\s*/', trim($raw)) ?: [];
 
         return array_values(array_filter(array_map(static fn (string $part): string => trim($part), $parts), static fn (string $part): bool => $part !== ''));
+    }
+
+    private function waitForViteReady(SymfonyStyle $io, ThemeFrontend $frontend): void
+    {
+        $io->write('  <fg=gray>Starting Vite</> ');
+
+        if ($frontend->waitUntilDevReady(120)) {
+            $io->writeln('<info>ready</info>');
+
+            return;
+        }
+
+        if (!$frontend->hasRunningDevProcess()) {
+            $io->writeln('<error>failed</error>');
+            throw new \RuntimeException('Vite dev server exited before becoming ready. Check npm/Vite output above.');
+        }
+
+        $io->writeln('<comment>still starting — refresh the browser shortly</comment>');
     }
 
     private function renderDevApplicationUrl(SymfonyStyle $io, FrontendDevSession $session, bool $withServe): void

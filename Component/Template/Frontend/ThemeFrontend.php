@@ -414,9 +414,93 @@ class ThemeFrontend
 
     public function dev(string $installMode = self::INSTALL_SKIP): int
     {
+        $this->startDevProcess($installMode);
+
+        return $this->awaitRunningDevProcess();
+    }
+
+    public function startDevProcess(string $installMode = self::INSTALL_SKIP): void
+    {
         $this->prepareDev($installMode);
 
-        return $this->runNpm(['run', 'dev'], longRunning: true, extraEnv: $this->npmRunEnvironment());
+        $binary = $this->npmBinary();
+        $env = $this->inheritedEnvironment($this->npmRunEnvironment());
+        $process = new Process([$binary, 'run', 'dev'], $this->themePath, $env, null, null);
+
+        $this->attachLongRunningProcess($process);
+        $process->start(function ($type, $buffer): void {
+            $this->emit($buffer);
+        });
+    }
+
+    public function hasRunningDevProcess(): bool
+    {
+        return $this->runningProcess !== null && $this->runningProcess->isRunning();
+    }
+
+    public function waitUntilDevReady(int $timeoutSeconds = 120): bool
+    {
+        if ($this->devSession === null) {
+            return false;
+        }
+
+        $hotFile = FrontendConfig::hotAbsolutePath($this->themePath, $this->config);
+        $probeUrl = rtrim($this->devSession->viteDevServerUrl(), '/') . '/@vite/client';
+        $deadline = microtime(true) + max(1, $timeoutSeconds);
+
+        while (microtime(true) < $deadline) {
+            if (!$this->hasRunningDevProcess()) {
+                return false;
+            }
+
+            if (is_file($hotFile) && trim((string) file_get_contents($hotFile)) !== '') {
+                return true;
+            }
+
+            if ($this->viteDevServerResponds($probeUrl)) {
+                return true;
+            }
+
+            usleep(400_000);
+        }
+
+        return $this->hasRunningDevProcess()
+            && (is_file($hotFile) || $this->viteDevServerResponds($probeUrl));
+    }
+
+    public function awaitRunningDevProcess(): int
+    {
+        $process = $this->runningProcess;
+
+        if ($process === null) {
+            return 1;
+        }
+
+        while ($process->isRunning()) {
+            if (\function_exists('pcntl_signal_dispatch')) {
+                pcntl_signal_dispatch();
+            }
+
+            usleep(100_000);
+        }
+
+        $this->runningProcess = null;
+
+        return (int) ($process->getExitCode() ?? 0);
+    }
+
+    private function viteDevServerResponds(string $url): bool
+    {
+        $context = stream_context_create([
+            'http' => [
+                'timeout' => 2,
+                'ignore_errors' => true,
+            ],
+        ]);
+
+        $body = @file_get_contents($url, false, $context);
+
+        return is_string($body) && $body !== '';
     }
 
     public function prepareDev(string $installMode = self::INSTALL_SKIP): void
@@ -710,6 +794,17 @@ class ThemeFrontend
 
     private function runLongNpmProcess(Process $process): int
     {
+        $this->attachLongRunningProcess($process);
+
+        $process->start(function ($type, $buffer): void {
+            $this->emit($buffer);
+        });
+
+        return $this->awaitRunningDevProcess();
+    }
+
+    private function attachLongRunningProcess(Process $process): void
+    {
         $this->runningProcess = $process;
 
         $stopProcess = function () use ($process): void {
@@ -740,22 +835,6 @@ class ThemeFrontend
         }
 
         register_shutdown_function($stopProcess);
-
-        $process->start(function ($type, $buffer) {
-            $this->emit($buffer);
-        });
-
-        while ($process->isRunning()) {
-            if (\function_exists('pcntl_signal_dispatch')) {
-                pcntl_signal_dispatch();
-            }
-
-            usleep(100_000);
-        }
-
-        $this->runningProcess = null;
-
-        return (int) ($process->getExitCode() ?? 0);
     }
 
     private function emit(string $buffer): void
