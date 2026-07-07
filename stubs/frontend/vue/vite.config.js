@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import vue from '@vitejs/plugin-vue';
-import pinoox, { pinooxVueTemplateOptions } from '@pinooxhq/vite-plugin';
+import pinoox from '@pinooxhq/vite-plugin';
+import { pinooxVueTemplateOptions } from '@pinooxhq/vite-plugin/vue';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
