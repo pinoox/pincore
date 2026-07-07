@@ -21,6 +21,8 @@ final class FrontendDevSession
         public readonly string $phpAppUrl,
         /** @var list<string> */
         public readonly array $proxyPrefixes,
+        public readonly string $viteHost = '127.0.0.1',
+        public readonly bool $viteQuiet = true,
     ) {
     }
 
@@ -35,6 +37,8 @@ final class FrontendDevSession
         ?string $serveAppBinding = null,
         bool $withServe = true,
         ?int $vitePort = null,
+        ?string $viteHost = null,
+        ?bool $viteQuiet = null,
     ): self {
         $host = self::normalizeHost(
             ($serveHost !== null && trim((string) $serveHost) !== '')
@@ -43,6 +47,8 @@ final class FrontendDevSession
         );
         $port = $servePort ?? (int) _env('SERVER_PORT', 8000);
         $vitePort = $vitePort ?? FrontendConfig::devPort($config);
+        $viteHost = $viteHost ?? FrontendConfig::devHost($config);
+        $viteQuiet = $viteQuiet ?? FrontendConfig::devQuiet($config);
         $binding = $withServe ? trim((string) ($serveAppBinding ?? $package)) : '';
         $locked = $withServe && $binding !== '';
 
@@ -58,6 +64,8 @@ final class FrontendDevSession
             $vitePort,
             $appUrl,
             $prefixes,
+            $viteHost,
+            $viteQuiet,
         );
     }
 
@@ -68,7 +76,13 @@ final class FrontendDevSession
 
     public function viteDevServerUrl(): string
     {
-        return 'http://' . $this->displayHost() . ':' . $this->vitePort;
+        $host = $this->viteHost;
+
+        if ($host === '0.0.0.0' || $host === 'true' || $host === '[::]') {
+            $host = '127.0.0.1';
+        }
+
+        return 'http://' . $host . ':' . $this->vitePort;
     }
 
     public function displayHost(): string
@@ -96,6 +110,8 @@ final class FrontendDevSession
             'VITE_HOT_FILE' => FrontendConfig::hotRelativePath($config),
             'PINOOX_CORE_PATH' => FrontendDevSync::resolveCorePath(),
             'VITE_DEV_PORT' => (string) $this->vitePort,
+            'VITE_DEV_HOST' => $this->viteHost,
+            'VITE_DEV_QUIET' => $this->viteQuiet ? 'true' : 'false',
             'VITE_DEV_SERVER' => $this->viteDevServerUrl(),
             'VITE_SERVER_URL' => $this->phpAppUrl,
             'VITE_DEV' => 'true',

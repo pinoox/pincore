@@ -572,6 +572,8 @@ final class FrontendDevSync
     {
         return [
             'VITE_DEV_PORT',
+            'VITE_DEV_HOST',
+            'VITE_DEV_QUIET',
             'VITE_DEV_SERVER',
             'VITE_SERVER_URL',
             'VITE_DEV_PROXY',

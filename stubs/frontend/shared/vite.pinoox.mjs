@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { createLogger } from 'vite';
 
 const DEFAULT_ENTRIES = {
     vue: ['src/main.js'],
@@ -51,11 +52,93 @@ export function resolveHotFile(env = {}, options = {}) {
     return env.VITE_HOT_FILE || process.env.VITE_HOT_FILE || 'dist/hot';
 }
 
+function mergedEnv(env = {}) {
+    return { ...process.env, ...env };
+}
+
+function resolveViteQuiet(env = {}, options = {}) {
+    const raw = env.VITE_DEV_QUIET ?? process.env.VITE_DEV_QUIET ?? options.quiet;
+
+    if (raw === undefined || raw === null || raw === '') {
+        return true;
+    }
+
+    if (raw === 'false' || raw === '0' || raw === 'no') {
+        return false;
+    }
+
+    return true;
+}
+
+function resolveViteHost(env = {}, options = {}) {
+    const raw = env.VITE_DEV_HOST ?? process.env.VITE_DEV_HOST ?? options.host;
+
+    if (raw === undefined || raw === null || raw === '') {
+        return '127.0.0.1';
+    }
+
+    if (raw === 'true' || raw === '0.0.0.0' || raw === 'all' || raw === 'network') {
+        return true;
+    }
+
+    if (raw === 'false' || raw === 'localhost') {
+        return '127.0.0.1';
+    }
+
+    return raw;
+}
+
+function createPinooxViteLogger(env = {}, options = {}) {
+    const quiet = resolveViteQuiet(env, options);
+    const logger = createLogger('warn', { allowClearScreen: false });
+
+    if (!quiet) {
+        return logger;
+    }
+
+    const shouldSkip = (msg) => {
+        const text = String(msg);
+
+        return /^\s*➜\s+(Local|Network):/m.test(text)
+            || /^\s*VITE v[\d.]+\s+ready in/m.test(text);
+    };
+
+    const info = logger.info.bind(logger);
+    logger.info = (msg, opts) => {
+        if (shouldSkip(msg)) {
+            return;
+        }
+
+        info(msg, opts);
+    };
+
+    return logger;
+}
+
+function printPinooxDevBanner(env = {}, port = 5173) {
+    const appUrl = env.VITE_SERVER_URL || process.env.VITE_SERVER_URL;
+
+    if (!appUrl) {
+        return;
+    }
+
+    const host = resolveViteHost(env);
+    const hostname = host === true || host === '0.0.0.0' ? '127.0.0.1' : (host || '127.0.0.1');
+
+    console.log('');
+    console.log('  \x1b[32m\x1b[1m➜\x1b[0m  \x1b[36m\x1b[1mOpen app\x1b[0m  ' + appUrl);
+    console.log('  \x1b[90mVite HMR\x1b[0m       http://' + hostname + ':' + port + ' \x1b[90m(background)\x1b[0m');
+    console.log('  \x1b[90mPress Ctrl+C to stop\x1b[0m');
+    console.log('');
+}
+
 /**
  * Writes theme/dist/hot (or VITE_HOT_FILE) so PHP ViteHelper injects HMR script tags.
  * @see \Pinoox\Component\Template\Frontend\FrontendConfig::hotRelativePath()
  */
 export function pinooxHot(options = {}) {
+    const pluginEnv = mergedEnv(options.env ?? {});
+
     const themeRoot = process.cwd();
     const hotRelative = resolveHotFile(options.env ?? {}, options);
     const hotFilePath = path.isAbsolute(hotRelative)
@@ -80,10 +163,18 @@ export function pinooxHot(options = {}) {
 
     return {
         name: 'pinoox-hot-file',
+        config() {
+            return {
+                customLogger: createPinooxViteLogger(pluginEnv, options),
+            };
+        },
         configureServer(server) {
             const updateHot = () => writeHot(server);
 
-            server.httpServer?.once('listening', updateHot);
+            server.httpServer?.once('listening', () => {
+                updateHot();
+                printPinooxDevBanner(pluginEnv, server.config.server.port ?? 5173);
+            });
 
             if (server.httpServer?.listening) {
                 updateHot();
@@ -282,10 +373,10 @@ export function pinooxServer(env = {}, options = {}) {
 
     const server = {
         port,
-        host: options.host ?? true,
+        host: resolveViteHost(env, options),
         strictPort,
         proxy,
-        printUrls: options.printUrls ?? false,
+        printUrls: false,
     };
 
     if (strictPort) {

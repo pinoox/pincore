@@ -467,6 +467,43 @@ class FrontendConfig
         return is_numeric($port) && (int) $port > 0 ? (int) $port : 5173;
     }
 
+    /**
+     * Vite dev-server bind host (env VITE_DEV_HOST, default 127.0.0.1).
+     * Use 0.0.0.0 or true for LAN (--vite-network).
+     *
+     * @param array<string, mixed> $config
+     */
+    public static function devHost(array $config): string
+    {
+        $host = $config['dev']['host'] ?? null;
+
+        if (is_string($host) && trim($host) !== '') {
+            return trim($host);
+        }
+
+        return '127.0.0.1';
+    }
+
+    /**
+     * Hide Vite Local/Network URL spam in the terminal (default true).
+     *
+     * @param array<string, mixed> $config
+     */
+    public static function devQuiet(array $config): bool
+    {
+        $quiet = $config['dev']['quiet'] ?? null;
+
+        if ($quiet === null) {
+            return true;
+        }
+
+        if (is_bool($quiet)) {
+            return $quiet;
+        }
+
+        return filter_var((string) $quiet, FILTER_VALIDATE_BOOLEAN);
+    }
+
     private static function resolveHotPathFromEnv(): string
     {
         $fromEnv = _env('VITE_HOT_FILE');

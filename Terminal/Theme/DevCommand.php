@@ -42,7 +42,10 @@ class DevCommand extends Terminal
             ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start ' . ProjectCli::platformFormat('serve') . ' (MAMP, Docker, etc.)')
             ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for ' . ProjectCli::platformFormat('serve'))
             ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::platformFormat('serve'))
-            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve'));
+            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve'))
+            ->addOption('vite-host', null, InputOption::VALUE_REQUIRED, 'Vite bind host (default 127.0.0.1)')
+            ->addOption('vite-network', null, InputOption::VALUE_NONE, 'Bind Vite to 0.0.0.0 for LAN access')
+            ->addOption('verbose-vite', null, InputOption::VALUE_NONE, 'Show full Vite startup URLs');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -76,6 +79,9 @@ class DevCommand extends Terminal
             '--serve-app' => $input->getOption('serve-app'),
             '--serve-host' => $input->getOption('serve-host'),
             '--serve-port' => $input->getOption('serve-port'),
+            '--vite-host' => $input->getOption('vite-host'),
+            '--vite-network' => $input->getOption('vite-network') ? true : null,
+            '--verbose-vite' => $input->getOption('verbose-vite') ? true : null,
         ], static fn ($value) => $value !== null && $value !== false && $value !== '');
 
         return $command->run(new ArrayInput($arguments), $output);

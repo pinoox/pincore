@@ -126,6 +126,9 @@ FOOTER
             ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for the dev server (defaults to the resolved package)')
             ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_HOST or 127.0.0.1)')
             ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_PORT or 8000)')
+            ->addOption('vite-host', null, InputOption::VALUE_REQUIRED, 'Vite bind host (default 127.0.0.1; use --vite-network for LAN)')
+            ->addOption('vite-network', null, InputOption::VALUE_NONE, 'Bind Vite to 0.0.0.0 for LAN access')
+            ->addOption('verbose-vite', null, InputOption::VALUE_NONE, 'Show full Vite startup URLs (Local/Network)')
             ->addOption('fix-vite', null, InputOption::VALUE_NONE, 'Auto-wire vite.config.js with pinooxHot/pinooxServer when missing')
             ->addOption('env-file', null, InputOption::VALUE_REQUIRED, 'Theme env file for fe dev auto-setup (default: .env)');
     }
@@ -507,6 +510,8 @@ FOOTER
             : null;
         $serveApp = trim((string) ($input->getOption('serve-app') ?: $package));
 
+        $viteOpts = $this->resolveViteDevOptions($input, $frontend->config());
+
         $session = FrontendDevSession::fromOptions(
             $package,
             $frontend->config(),
@@ -514,6 +519,9 @@ FOOTER
             $servePort,
             $serveApp,
             $withServe,
+            null,
+            $viteOpts['host'],
+            $viteOpts['quiet'],
         );
 
         $frontend->setDevSession($session);
@@ -597,6 +605,7 @@ FOOTER
         $vitePorts = FrontendDevStack::allocateVitePorts($targets);
         $sharedHost = is_string($serveHost) && trim($serveHost) !== '' ? trim($serveHost) : null;
         $forceEnvKeys = FrontendDevSync::stackForceEnvKeys();
+        $viteOpts = $this->resolveViteDevOptions($input, $targets[0]['config'] ?? []);
 
         foreach ($targets as $index => $target) {
             $frontend = ThemeFrontend::forPackageAndTheme($target['package'], $target['theme']);
@@ -615,6 +624,8 @@ FOOTER
                 null,
                 false,
                 $vitePorts[$index],
+                $viteOpts['host'],
+                $viteOpts['quiet'],
             );
 
             $frontend->setDevSession($session);
@@ -835,12 +846,38 @@ FOOTER
 
     private function renderDevApplicationUrl(SymfonyStyle $io, FrontendDevSession $session, bool $withServe): void
     {
-        $url = $session->phpAppUrl;
+        $io->writeln('');
+        $io->writeln('  <fg=gray>Starting Vite… the app URL appears below when ready.</>');
+        $io->writeln('  <fg=gray>Open the PHP app URL in your browser — not the Vite port.</>');
+        $io->writeln('');
+    }
 
-        $io->writeln('');
-        $io->writeln('  <fg=green;options=bold>➜</>  <fg=cyan;options=bold>' . $url . '</>');
-        $io->writeln('  <fg=gray>Press Ctrl+C to stop' . ($withServe ? ' Vite and PHP server' : ' Vite') . '</>');
-        $io->writeln('');
+    /**
+     * @return array{host: string, quiet: bool}
+     */
+    private function resolveViteDevOptions(InputInterface $input, array $config): array
+    {
+        $host = FrontendConfig::devHost($config);
+        $quiet = FrontendConfig::devQuiet($config);
+
+        if ((bool) $input->getOption('vite-network')) {
+            $host = '0.0.0.0';
+        }
+
+        $viteHostOption = $input->getOption('vite-host');
+
+        if (is_string($viteHostOption) && trim($viteHostOption) !== '') {
+            $host = trim($viteHostOption);
+        }
+
+        if ((bool) $input->getOption('verbose-vite')) {
+            $quiet = false;
+        }
+
+        return [
+            'host' => $host,
+            'quiet' => $quiet,
+        ];
     }
 
     /**
