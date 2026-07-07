@@ -80,11 +80,27 @@ class SystemConfig
     private static function runtimePathEnvOverrides(): array
     {
         return [
+            'config' => 'PINOOX_CONFIG_PATH',
+            'system' => 'PINOOX_CONFIG_PATH',
+            'pinker_config' => 'PINOOX_PINKER_CONFIG_PATH',
             'apps' => 'PINOOX_APPS_PATH',
-            'project_registry' => 'PINOOX_PROJECT_REGISTRY_PATH',
             'pinker' => 'PINOOX_PINKER_PATH',
             'storage' => 'PINOOX_STORAGE_PATH',
             'project_config' => 'PINOOX_PROJECT_CONFIG_PATH',
+            'project_registry' => 'PINOOX_PROJECT_REGISTRY_PATH',
+            'project_router' => 'PINOOX_PROJECT_ROUTER_PATH',
+            'project_domain' => 'PINOOX_PROJECT_DOMAIN_PATH',
+            'project_pinoox' => 'PINOOX_PROJECT_PINOOX_PATH',
+            'project_pincore' => 'PINOOX_PROJECT_PINCORE_PATH',
+            'platform_lang' => 'PINOOX_PLATFORM_LANG_PATH',
+            'platform_migrations' => 'PINOOX_PLATFORM_MIGRATIONS_PATH',
+            'platform_seed' => 'PINOOX_PLATFORM_SEED_PATH',
+            'platform_patches' => 'PINOOX_PLATFORM_PATCHES_PATH',
+            'platform_models' => 'PINOOX_PLATFORM_MODELS_PATH',
+            'stubs' => 'PINOOX_STUBS_PATH',
+            'wizard_tmp' => 'PINOOX_WIZARD_TMP_PATH',
+            'pinion_uploads' => 'PINOOX_PINION_UPLOADS_PATH',
+            'package_manual' => 'PINOOX_PACKAGE_MANUAL_PATH',
         ];
     }
 
