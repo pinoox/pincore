@@ -3,6 +3,7 @@
 namespace Pinoox\Component\Router;
 
 use Pinoox\Component\Package\App;
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Portal\App\App as AppPortal;
 use Pinoox\Portal\App\AppEngine;
 
@@ -152,15 +153,7 @@ class RouteNaming
 
     public static function slugFromPackage(string $package): string
     {
-        if (preg_match('/^com_[^_]+_(.+)$/', $package, $matches) === 1) {
-            return (string) $matches[1];
-        }
-
-        if (preg_match('/^com_(.+)$/', $package, $matches) === 1) {
-            return (string) $matches[1];
-        }
-
-        return $package;
+        return PackageName::appSlug($package);
     }
 
     public static function dotted(string $name): string

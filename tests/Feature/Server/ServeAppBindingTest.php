@@ -10,7 +10,9 @@ it('resolves package names to their router mount path', function () {
     ];
 
     expect(ServeAppBinding::resolveBinding('com_pinoox_manager', $routes))
-        ->toBe(['package' => 'com_pinoox_manager', 'path' => '/manager']);
+        ->toBe(['package' => 'com_pinoox_manager', 'path' => '/manager'])
+        ->and(ServeAppBinding::resolveBinding('io_yoosefap_ai', []))
+        ->toBe(['package' => 'io_yoosefap_ai', 'path' => '/']);
 });
 
 it('resolves route paths from the router map', function () {

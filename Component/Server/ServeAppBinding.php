@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Server;
 
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Package\AppLayer;
 use Pinoox\Component\Package\Routing\AppRouteMatcher;
 
@@ -67,7 +68,7 @@ final class ServeAppBinding
 
         if (str_contains($binding, '@')) {
             [$package, $path] = explode('@', $binding, 2);
-            $package = trim($package);
+            $package = PackageName::canonical(trim($package));
             $path = AppRouteMatcher::normalize(trim($path));
 
             if ($package === '') {
@@ -80,13 +81,15 @@ final class ServeAppBinding
             ];
         }
 
+        $binding = PackageName::normalize($binding);
+
         $routePath = AppRouteMatcher::normalize(
             str_starts_with($binding, '/') ? $binding : '/' . $binding,
         );
 
         if (isset($routes[$routePath]) && is_string($routes[$routePath])) {
             return [
-                'package' => $routes[$routePath],
+                'package' => PackageName::canonical($routes[$routePath]),
                 'path' => $routePath,
             ];
         }
@@ -96,17 +99,17 @@ final class ServeAppBinding
                 continue;
             }
 
-            if ($package === $binding) {
+            if (PackageName::equals($package, $binding)) {
                 return [
-                    'package' => $package,
+                    'package' => PackageName::canonical($package),
                     'path' => self::preferPackageMountPath($package, $routes),
                 ];
             }
         }
 
-        if (str_starts_with($binding, 'com_')) {
+        if (PackageName::looksLike($binding)) {
             return [
-                'package' => $binding,
+                'package' => PackageName::canonical($binding),
                 'path' => self::preferPackageMountPath($binding, $routes),
             ];
         }
@@ -115,9 +118,9 @@ final class ServeAppBinding
             ? $binding
             : 'com_pinoox_' . ltrim($binding, '/');
 
-        if (str_starts_with($guessedPackage, 'com_')) {
+        if (PackageName::looksLike($guessedPackage)) {
             return [
-                'package' => $guessedPackage,
+                'package' => PackageName::canonical($guessedPackage),
                 'path' => self::preferPackageMountPath($guessedPackage, $routes),
             ];
         }

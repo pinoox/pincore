@@ -3,6 +3,7 @@
 namespace Pinoox\Terminal\Theme;
 
 use Pinoox\Component\Package\AppManifest;
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Server\DevelopmentServer;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\FrontendDevSession;
@@ -93,7 +94,7 @@ Target and action can be omitted — pick from a list interactively (defaults to
 
 dev also starts {$serve} for the resolved app (use --no-serve to skip).
 
-dev:apps starts one shared {$serve} plus Vite for multiple apps. Use full package names (com_*).
+dev:apps starts one shared {$serve} plus Vite for multiple apps. Use full package names (e.g. com_pinoox_manager, io_yoosefap_ai).
 
 Dev auto-setup (no manual .env required):
   - Syncs vite.pinoox.mjs (hot file + mount-aware proxy)
@@ -800,10 +801,11 @@ FOOTER
 
         $package = $this->normalizePackageInput($item);
 
-        if ($package === '' || !str_starts_with($package, 'com_')) {
+        if ($package === '' || !PackageName::isValid($package)) {
             throw new \RuntimeException(sprintf(
-                "Invalid package '%s'. Use full package names, e.g. com_pinoox_manager,com_pinoox_welcome.",
+                "Invalid package '%s'. Use full package names (%s), e.g. com_pinoox_manager,io_yoosefap_ai.",
                 $item,
+                PackageName::formatHint(),
             ));
         }
 

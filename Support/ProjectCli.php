@@ -173,7 +173,7 @@ final class ProjectCli
             return true;
         }
 
-        if (preg_match('/com_[a-z0-9_]+,\s*com_[a-z0-9_]+/i', $command)) {
+        if (preg_match('/[a-z][a-z0-9]*_[a-z0-9_]+,\s*[a-z][a-z0-9]*_[a-z0-9_]+/i', $command)) {
             return true;
         }
 

@@ -6,6 +6,7 @@ use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Migration\Migrator;
 use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Package\Engine\AppEngine;
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Portal\App\AppEngine as AppEnginePortal;
 use Pinoox\Portal\App\AppRouter;
 use Pinoox\Portal\FileSystem;
@@ -129,8 +130,10 @@ class PinxUninstaller
      */
     private function assertAppTarget(string $package, array &$steps, bool $force): void
     {
-        if (!$this->engine->checkName($package)) {
-            throw new Exception('Invalid package name: ' . $package);
+        $error = PackageName::validationError($package);
+
+        if ($error !== null) {
+            throw new Exception($error);
         }
 
         if (!$this->engine->exists($package)) {

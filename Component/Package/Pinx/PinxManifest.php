@@ -6,6 +6,7 @@ use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Package\ManifestLabel;
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Template\Theme\ThemeManifest;
 
 class PinxManifest
@@ -117,6 +118,21 @@ class PinxManifest
             if ($this->themeName() === '') {
                 throw new Exception('Theme package requires theme_name in manifest.');
             }
+
+            self::assertValidAppPackage($this->targetApp(), 'target_app');
+        }
+
+        if ($type === self::TYPE_APP) {
+            self::assertValidAppPackage($this->package(), 'package');
+        }
+    }
+
+    private static function assertValidAppPackage(string $package, string $field): void
+    {
+        $error = PackageName::validationError($package);
+
+        if ($error !== null) {
+            throw new Exception(sprintf('Invalid %s in manifest: %s', $field, $error));
         }
     }
 

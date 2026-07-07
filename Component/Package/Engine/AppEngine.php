@@ -13,6 +13,7 @@
 
 namespace Pinoox\Component\Package\Engine;
 
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\AppEvent\AppBootstrap;
 use Pinoox\Component\Cache\AppCacheConfig;
 use Pinoox\Component\Date\AppDateConfig;
@@ -121,6 +122,7 @@ class AppEngine implements EngineInterface
     public function stable(string|ReferenceInterface $packageName): bool
     {
         $enable = false;
+        $packageName = $this->resolvePackageKey($packageName);
 
         if ($this->exists($packageName)) {
             try {
@@ -134,7 +136,7 @@ class AppEngine implements EngineInterface
 
     public function getAllRouters(ReferenceInterface|string $packageName): array
     {
-        $packageName = is_string($packageName) ? $packageName : $packageName->getPackageName();
+        $packageName = $this->resolvePackageKey($packageName);
         return !empty($this->router[$packageName]) ? $this->router[$packageName] : [];
     }
 
@@ -147,7 +149,7 @@ class AppEngine implements EngineInterface
 
     public function router(ReferenceInterface|string $packageName, string $path = '/'): Router
     {
-        $packageName = is_string($packageName) ? $packageName : $packageName->getPackageName();
+        $packageName = $this->resolvePackageKey($packageName);
         $path = $this->buildPath($path);
         $routes = $this->config($packageName)->get('router.routes');
         if (empty($this->router[$packageName][$path])) {
@@ -172,7 +174,7 @@ class AppEngine implements EngineInterface
 
     public function manager(ReferenceInterface|string $packageName): AppManager
     {
-        $packageName = is_string($packageName) ? $packageName : $packageName->getPackageName();
+        $packageName = $this->resolvePackageKey($packageName);
 
         if (empty($this->appManager[$packageName]))
             $this->appManager[$packageName] = new AppManager($this, $packageName);
@@ -185,7 +187,7 @@ class AppEngine implements EngineInterface
      */
     public function lang(ReferenceInterface|string $packageName): Translator
     {
-        $packageName = is_string($packageName) ? $packageName : $packageName->getPackageName();
+        $packageName = $this->resolvePackageKey($packageName);
 
         if (empty($this->appLang[$packageName])) {
 
@@ -207,7 +209,7 @@ class AppEngine implements EngineInterface
      */
     public function config(ReferenceInterface|string $packageName): ConfigInterface
     {
-        $packageName = is_string($packageName) ? $packageName : $packageName->getPackageName();
+        $packageName = $this->resolvePackageKey($packageName);
 
         if (empty($this->appConfig[$packageName])) {
             $mainFile = $this->path($packageName, $this->appFile);
@@ -247,7 +249,7 @@ class AppEngine implements EngineInterface
      */
     public function exists(ReferenceInterface|string $packageName): bool
     {
-        return $this->loader->exists($packageName);
+        return $this->loader->exists($this->resolvePackageKey($packageName));
     }
 
     /**
@@ -317,7 +319,7 @@ class AppEngine implements EngineInterface
      */
     public function path(ReferenceInterface|string $packageName, string $path = ''): string
     {
-        $packageName = is_string($packageName) ? $packageName : $packageName->getPackageName();
+        $packageName = $this->resolvePackageKey($packageName);
 
         if (empty($this->pathManager[$packageName])) {
             $basePath = $this->pathPackage($packageName);
@@ -345,7 +347,16 @@ class AppEngine implements EngineInterface
      */
     public function checkName(string $packageName): bool
     {
-        return !!preg_match('/^[a-zA-Z]+[a-zA-Z0-9]*+[_]\s{0,1}[a-zA-Z0-9]+[_]\s{0,1}[a-zA-Z0-9]+[_]{0,1}[a-zA-Z0-9]+$/m', $packageName);
+        return PackageName::isValid($packageName);
+    }
+
+    private function resolvePackageKey(ReferenceInterface|string $packageName): string
+    {
+        if (!is_string($packageName)) {
+            return $packageName->getPackageName();
+        }
+
+        return PackageName::canonical($packageName);
     }
 
     public function all(): array

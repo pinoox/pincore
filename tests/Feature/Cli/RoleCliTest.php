@@ -44,6 +44,7 @@ it('detects access package names in role CLI trait', function () {
 
     expect(cliTraitInvoke($probe, 'looksLikeAccessPackage', Platform::PACKAGE))->toBeTrue()
         ->and(cliTraitInvoke($probe, 'looksLikeAccessPackage', 'com_test_cli_role'))->toBeTrue()
+        ->and(cliTraitInvoke($probe, 'looksLikeAccessPackage', 'io_yoosefap_ai'))->toBeTrue()
         ->and(cliTraitInvoke($probe, 'looksLikeAccessPackage', 'editor'))->toBeFalse();
 });
 

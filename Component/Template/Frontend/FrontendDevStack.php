@@ -3,6 +3,7 @@
 namespace Pinoox\Component\Template\Frontend;
 
 use Pinoox\Component\Package\AppManifest;
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Server\DevelopmentServer;
 use Pinoox\Support\ProjectCli;
 use Symfony\Component\Console\Output\OutputInterface;
@@ -311,7 +312,7 @@ final class FrontendDevStack
     private static function stackLabel(string $package): string
     {
         if (str_starts_with($package, 'com_pinoox_')) {
-            return substr($package, 11);
+            return PackageName::shortLabel($package);
         }
 
         return $package;
