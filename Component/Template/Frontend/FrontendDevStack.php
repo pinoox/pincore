@@ -325,7 +325,7 @@ final class FrontendDevStack
 
             foreach ($session->displayAppUrls() as $url) {
 
-                $rows[] = [$label, $url];
+                $rows[] = [$label, $url, $session->viteDevServerUrl()];
 
             }
 
@@ -333,7 +333,7 @@ final class FrontendDevStack
 
 
 
-        $io->table(['App', 'URL'], $rows);
+        $io->table(['App', 'URL', 'Vite HMR'], $rows);
 
         $io->writeln('  <fg=gray>Press Ctrl+C to stop all servers</>');
 

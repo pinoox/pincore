@@ -422,6 +422,7 @@ class ThemeFrontend
     public function prepareDev(string $installMode = self::INSTALL_SKIP): void
     {
         $this->assertFrontendProject();
+        FrontendDevSync::removeHotFile($this->themePath, $this->config);
         $this->syncDev();
         $this->ensureDependencies($installMode);
     }
