@@ -27,7 +27,7 @@ Include `{{ pinoox_bootstrap(bootstrap|default({}))|raw }}` before Vite tags so 
 
 `frontend.config.php` only needs `stack` and `profile` — entry, manifest, and dev server settings are applied automatically.
 
-Vite helpers live in `stubs/frontend/shared/` (`vite.pinoox.mjs` with `createPinooxViteConfig`, `pinooxHot`, `pinooxServer`, `pinooxRefresh`) and are synced into each theme on `fe dev` / `fe build`.
+HMR uses the npm package `@pinoox/vite-plugin` (`createPinooxViteConfig`, `pinooxHot`, `pinooxServer`, `pinooxRefresh`). Add it to theme `package.json` — scaffold stubs include it; run `npm install` after scaffold.
 
 After scaffold: `php pinoox fe {{package}} install --theme=default` then `dev`.
 

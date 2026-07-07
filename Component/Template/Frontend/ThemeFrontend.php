@@ -473,7 +473,8 @@ class ThemeFrontend
 
     /**
      * @return array{
-     *     pinoox_bundle: bool,
+     *     vite_plugin: bool,
+     *     vite_plugin_added: bool,
      *     env_seeded: bool,
      *     hot_path: string,
      *     env_autodev: bool,
@@ -551,7 +552,8 @@ class ThemeFrontend
             'hot_relative' => FrontendConfig::hotRelativePath($this->config),
             'hot_exists' => is_file(FrontendConfig::hotAbsolutePath($this->themePath, $this->config)),
             'dev_port' => FrontendConfig::devPort($this->config),
-            'pinoox_bundle' => is_file($this->themePath . '/vite.pinoox.mjs'),
+            'vite_plugin' => FrontendDevSync::hasVitePluginDependency($this->themePath)
+                || is_file($this->themePath . '/vite.pinoox.mjs'),
             'vite_wired' => FrontendDevSync::inspectViteConfig($this->themePath)['wired'],
             'env_autodev' => FrontendDevSync::hasAutoDevBlock($this->themePath, $this->devEnvFile()),
             'env_file' => $this->devEnvFile(),

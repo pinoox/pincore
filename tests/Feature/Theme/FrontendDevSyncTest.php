@@ -75,25 +75,29 @@ afterEach(function () {
     }
 });
 
-test('FrontendDevSync copies hot plugin and seeds theme env', function () {
+test('FrontendDevSync adds vite plugin dependency and seeds theme env', function () {
     $themePath = frontendDevSyncThemeDir();
     $GLOBALS['__frontendDevSyncThemePath'] = $themePath;
 
     file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue'];\n");
     file_put_contents($themePath . '/.env.example', "VITE_DEV_PORT=5199\n");
+    file_put_contents($themePath . '/package.json', json_encode([
+        'private' => true,
+        'devDependencies' => [],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES) . "\n");
 
     $config = FrontendConfig::forThemePath($themePath);
     $corePath = dirname(__DIR__, 3);
 
-    $result = FrontendDevSync::sync($themePath, $config, $corePath);
+    $result = FrontendDevSync::sync($themePath, $config, $corePath, null, true);
 
-    expect($result['pinoox_bundle'])->toBeTrue()
+    expect($result['vite_plugin'])->toBeTrue()
+        ->and($result['vite_plugin_added'])->toBeTrue()
         ->and($result['env_seeded'])->toBeTrue()
         ->and($result['hot_path'])->toBe('dist/hot')
-        ->and(is_file($themePath . '/vite.pinoox.mjs'))->toBeTrue()
-        ->and(is_file($themePath . '/vite-import-hot.mjs'))->toBeTrue()
-        ->and(is_file($themePath . '/vite-plugin-pinoox-hot.mjs'))->toBeTrue()
-        ->and(is_file($themePath . '/.env'))->toBeTrue();
+        ->and(is_file($themePath . '/vite.pinoox.mjs'))->toBeFalse()
+        ->and(is_file($themePath . '/.env'))->toBeTrue()
+        ->and(file_get_contents($themePath . '/package.json'))->toContain('@pinoox/vite-plugin');
 });
 
 test('FrontendConfig reads VITE_HOT_FILE and VITE_DEV_PORT from env', function () {

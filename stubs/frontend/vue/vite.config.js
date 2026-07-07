@@ -1,7 +1,7 @@
 import { defineConfig, loadEnv } from 'vite';
 import vue from '@vitejs/plugin-vue';
 import { fileURLToPath, URL } from 'node:url';
-import { createPinooxViteConfig, pinooxVueTemplateOptions } from './vite.pinoox.mjs';
+import { createPinooxViteConfig, pinooxVueTemplateOptions } from '@pinoox/vite-plugin';
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, process.cwd(), '');

@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "devDependencies": {
+    "@pinoox/vite-plugin": "^1.4.0",
     "vite": "^6.0.0"
   }
 }
