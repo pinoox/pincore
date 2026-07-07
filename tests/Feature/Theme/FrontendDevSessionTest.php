@@ -199,10 +199,17 @@ test('FrontendDevSession npmEnvironment adds backend refresh globs for Flow rout
     file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue'];\n");
     mkdir($appPath . '/Flow', 0777, true);
     mkdir($appPath . '/routes', 0777, true);
+    mkdir($appPath . '/router', 0777, true);
     mkdir($appPath . '/Controller', 0777, true);
+    mkdir($appPath . '/Component', 0777, true);
+    mkdir($appPath . '/Portal', 0777, true);
+    mkdir($appPath . '/config', 0777, true);
+    mkdir($appPath . '/lang', 0777, true);
     file_put_contents($appPath . '/Flow/AuthFlow.php', "<?php\n");
     file_put_contents($appPath . '/routes/web.php', "<?php\n");
     file_put_contents($appPath . '/Controller/HomeController.php', "<?php\n");
+    file_put_contents($appPath . '/Component/Helper.php', "<?php\n");
+    file_put_contents($appPath . '/app.php', "<?php\nreturn [];\n");
 
     $config = FrontendConfig::forThemePath($themePath);
     $session = FrontendDevSession::fromOptions('com_demo_app', $config, '127.0.0.1', 8000, 'com_demo_app', true);
@@ -211,5 +218,11 @@ test('FrontendDevSession npmEnvironment adds backend refresh globs for Flow rout
     expect($npmEnv)->toHaveKey('VITE_DEV_REFRESH')
         ->and($npmEnv['VITE_DEV_REFRESH'])->toContain('/Flow/')
         ->and($npmEnv['VITE_DEV_REFRESH'])->toContain('/routes/')
-        ->and($npmEnv['VITE_DEV_REFRESH'])->toContain('/Controller/');
+        ->and($npmEnv['VITE_DEV_REFRESH'])->toContain('/router/')
+        ->and($npmEnv['VITE_DEV_REFRESH'])->toContain('/Controller/')
+        ->and($npmEnv['VITE_DEV_REFRESH'])->toContain('/Component/')
+        ->and($npmEnv['VITE_DEV_REFRESH'])->toContain('/Portal/')
+        ->and($npmEnv['VITE_DEV_REFRESH'])->toContain('/config/')
+        ->and($npmEnv['VITE_DEV_REFRESH'])->toContain('/lang/')
+        ->and($npmEnv['VITE_DEV_REFRESH'])->toContain('/app.php');
 });

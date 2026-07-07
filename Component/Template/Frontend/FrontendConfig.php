@@ -327,7 +327,7 @@ class FrontendConfig
     }
 
     /**
-     * Absolute globs for app PHP that affects rendered pages (Flow, routes, controllers).
+     * Absolute globs for app PHP that affects rendered pages (Flow, routes, controllers, …).
      * Passed via VITE_DEV_REFRESH during `fe dev` for full-page reload in the browser.
      *
      * @return list<string>
@@ -336,11 +336,32 @@ class FrontendConfig
     {
         $appPath = dirname(dirname(rtrim(str_replace('\\', '/', $themePath), '/')));
 
-        return array_merge(
+        $globs = array_merge(
             self::directoryRefreshGlobs($appPath . '/Flow'),
             self::directoryRefreshGlobs($appPath . '/routes'),
+            self::directoryRefreshGlobs($appPath . '/router'),
             self::directoryRefreshGlobs($appPath . '/Controller'),
+            self::directoryRefreshGlobs($appPath . '/Component'),
+            self::directoryRefreshGlobs($appPath . '/Portal'),
+            self::directoryRefreshGlobs($appPath . '/config'),
+            self::directoryRefreshGlobs($appPath . '/lang'),
         );
+
+        foreach (['app.php', 'boot.php', 'func.php', 'schedule.php'] as $file) {
+            $target = $appPath . '/' . $file;
+
+            if (!is_file($target)) {
+                continue;
+            }
+
+            $resolved = realpath($target);
+
+            if ($resolved !== false) {
+                $globs[] = str_replace('\\', '/', $resolved);
+            }
+        }
+
+        return $globs;
     }
 
     /**
