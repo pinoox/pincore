@@ -11,7 +11,7 @@ final class FrontendDevSync
 {
     public const VITE_PLUGIN_PACKAGE = '@pinooxhq/vite-plugin';
 
-    public const VITE_PLUGIN_VERSION = '^1.6.2';
+    public const VITE_PLUGIN_VERSION = '^1.6.3';
 
     public const DEFAULT_ENV_FILE = '.env';
 

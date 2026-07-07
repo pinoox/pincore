@@ -52,11 +52,17 @@ final class FrontendDevStack
 
         foreach ($targets as $target) {
             $preferred = self::preferredPort($target);
-            $explicit = self::hasExplicitVitePort($target) ? $preferred : null;
-            $port = ServerPort::resolve($explicit, '127.0.0.1', $preferred);
+            $port = $preferred;
 
             while (in_array($port, $used, true) || !ServerPort::isAvailable('127.0.0.1', $port)) {
                 $port++;
+
+                if ($port > 65535) {
+                    throw new \RuntimeException(sprintf(
+                        'Could not find a free Vite port (starting at %d).',
+                        $preferred,
+                    ));
+                }
             }
 
             $used[] = $port;

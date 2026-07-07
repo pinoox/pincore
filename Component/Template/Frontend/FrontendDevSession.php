@@ -495,7 +495,11 @@ final class FrontendDevSession
     private static function resolveVitePort(?int $explicit, array $config, string $host): int
     {
         if ($explicit !== null && $explicit > 0) {
-            return ServerPort::resolve($explicit, $host, null);
+            if (ServerPort::isAvailable($host, $explicit)) {
+                return $explicit;
+            }
+
+            return ServerPort::resolve(null, $host, $explicit);
         }
 
         return ServerPort::resolve(null, $host, FrontendConfig::devPort($config));
