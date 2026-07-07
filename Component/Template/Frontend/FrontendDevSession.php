@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Template\Frontend;
 
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Package\Routing\AppRouteMatcher;
 use Pinoox\Component\Server\ServeAppBinding;
 
@@ -212,7 +213,7 @@ final class FrontendDevSession
             return $paths[0];
         }
 
-        return str_starts_with($binding, 'com_') ? '/' : AppRouteMatcher::normalize('/' . ltrim($binding, '/'));
+        return PackageName::looksLike($binding) ? '/' : AppRouteMatcher::normalize('/' . ltrim($binding, '/'));
     }
 
     private static function resolveRouterAppUrl(string $package, string $origin): string

@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Server;
 
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Package\AppLayer;
 use Pinoox\Component\Package\Routing\AppRouteMatcher;
 
@@ -104,7 +105,7 @@ final class ServeAppBinding
             }
         }
 
-        if (str_starts_with($binding, 'com_')) {
+        if (PackageName::looksLike($binding)) {
             return [
                 'package' => $binding,
                 'path' => self::preferPackageMountPath($binding, $routes),
@@ -115,7 +116,7 @@ final class ServeAppBinding
             ? $binding
             : 'com_pinoox_' . ltrim($binding, '/');
 
-        if (str_starts_with($guessedPackage, 'com_')) {
+        if (PackageName::looksLike($guessedPackage)) {
             return [
                 'package' => $guessedPackage,
                 'path' => self::preferPackageMountPath($guessedPackage, $routes),

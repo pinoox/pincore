@@ -8,6 +8,7 @@ use Pinoox\Model\RoleModel;
 use Pinoox\Model\UserModel;
 use Pinoox\Portal\Auth;
 use Pinoox\Portal\Database\DB;
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Support\Platform;
 use Pinoox\Terminal\Concerns\SelectsPackage;
 use Symfony\Component\Console\Helper\Table;
@@ -180,7 +181,7 @@ trait ManagesCliUsers
 
     protected function looksLikePackageName(string $value): bool
     {
-        return $value === Platform::PACKAGE || str_starts_with($value, 'com_');
+        return $value === Platform::PACKAGE || PackageName::looksLike($value);
     }
 
     protected function resolveUserIdentifier(InputInterface $input): string

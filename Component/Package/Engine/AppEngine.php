@@ -13,6 +13,7 @@
 
 namespace Pinoox\Component\Package\Engine;
 
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\AppEvent\AppBootstrap;
 use Pinoox\Component\Cache\AppCacheConfig;
 use Pinoox\Component\Date\AppDateConfig;
@@ -345,7 +346,7 @@ class AppEngine implements EngineInterface
      */
     public function checkName(string $packageName): bool
     {
-        return !!preg_match('/^[a-zA-Z]+[a-zA-Z0-9]*+[_]\s{0,1}[a-zA-Z0-9]+[_]\s{0,1}[a-zA-Z0-9]+[_]{0,1}[a-zA-Z0-9]+$/m', $packageName);
+        return PackageName::isValid($packageName);
     }
 
     public function all(): array

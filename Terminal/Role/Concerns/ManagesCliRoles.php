@@ -16,6 +16,7 @@ use Pinoox\Model\UserModel;
 
 use Pinoox\Portal\Database\DB;
 
+use Pinoox\Component\Package\PackageName;
 use Pinoox\Support\Platform;
 
 use Symfony\Component\Console\Helper\Table;
@@ -58,7 +59,7 @@ trait ManagesCliRoles
 
     {
 
-        return $value === Platform::PACKAGE || str_starts_with($value, 'com_');
+        return $value === Platform::PACKAGE || PackageName::looksLike($value);
 
     }
 

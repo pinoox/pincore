@@ -17,7 +17,7 @@ test('fe dev:apps parseArguments accepts dev-stack as deprecated alias', functio
     expect($method->invoke($command, $input))->toBe(['', 'dev:apps']);
 });
 
-test('fe dev:apps rejects short aliases and requires com_* package names', function () {
+test('fe dev:apps rejects short aliases and requires full package names', function () {
     $command = new ThemeFrontendCommand();
     $method = new ReflectionMethod($command, 'assertDevAppsPackage');
     $method->setAccessible(true);
