@@ -5,6 +5,7 @@ namespace Pinoox\Terminal\Theme;
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Server\DevelopmentServer;
+use Pinoox\Component\Server\InspectorRuntime;
 use Pinoox\Component\Server\ServeAppBinding;
 use Pinoox\Component\Server\ServerPort;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
@@ -144,7 +145,9 @@ FOOTER
             ->addOption('vite-network', null, InputOption::VALUE_NONE, 'Bind Vite to 0.0.0.0 for LAN access')
             ->addOption('verbose-vite', null, InputOption::VALUE_NONE, 'Show full Vite startup URLs (Local/Network)')
             ->addOption('fix-vite', null, InputOption::VALUE_NONE, 'Auto-wire vite.config.js with pinooxDevState/pinooxServer when missing')
-            ->addOption('env-file', null, InputOption::VALUE_REQUIRED, 'Theme env file for fe dev auto-setup (default: .env)');
+            ->addOption('env-file', null, InputOption::VALUE_REQUIRED, 'Theme env file for fe dev auto-setup (default: .env)')
+            ->addOption('no-inspector', null, InputOption::VALUE_NONE, 'Disable Pinx Inspector on /~inspector')
+            ->addOption('open-inspector', null, InputOption::VALUE_NONE, 'Open Pinx Inspector in the browser');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -799,6 +802,16 @@ FOOTER
         if ($withServe) {
             try {
                 $serveProcess = $this->startServeProcess($package, $input, $output, $io, $platformServe, $serveApp, $session->servePort);
+                if (!(bool) $input->getOption('no-inspector') && InspectorRuntime::isAvailable()) {
+                    $inspectorUrl = InspectorRuntime::url(
+                        $session->serveHost === '0.0.0.0' ? '127.0.0.1' : ($session->serveHost ?? '127.0.0.1'),
+                        $session->servePort,
+                    );
+                    $io->note('Pinx Inspector: ' . $inspectorUrl);
+                    if ((bool) $input->getOption('open-inspector')) {
+                        InspectorRuntime::openBrowser($inspectorUrl);
+                    }
+                }
             } catch (\Throwable $e) {
                 $io->error('Could not start Pinoox server: ' . $e->getMessage());
 
@@ -1366,7 +1379,21 @@ FOOTER
 
         $command[] = '--port=' . $servePort;
 
-        $process = new Process($command, $basePath, DevelopmentServer::feDevServeSubprocessEnv(), null, null);
+        if ((bool) $input->getOption('no-inspector')) {
+            $command[] = '--no-inspector';
+        } elseif ((bool) $input->getOption('open-inspector')) {
+            $command[] = '--open-inspector';
+        }
+
+        $env = DevelopmentServer::feDevServeSubprocessEnv();
+        if (!(bool) $input->getOption('no-inspector') && InspectorRuntime::isAvailable()) {
+            $defaultPackage = $platformServe ? null : InspectorRuntime::resolveDefaultPackage($serveApp);
+            foreach (InspectorRuntime::environment($basePath, $defaultPackage) as $key => $value) {
+                $env[$key] = $value;
+            }
+        }
+
+        $process = new Process($command, $basePath, $env, null, null);
         $process->setTimeout(null);
 
         $serveLabel = $platformServe

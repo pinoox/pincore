@@ -33,6 +33,8 @@ class DevelopmentServer
         'PINX_INSPECTOR_ROUTER',
         'PINX_INSPECTOR_WIDGET',
         'PINX_INSPECTOR_PROJECT_ROOT',
+        'PINX_INSPECTOR_DEFAULT_PACKAGE',
+        'PINX_INSPECTOR_PACKAGE',
     ];
 
     private int $portOffset = 0;

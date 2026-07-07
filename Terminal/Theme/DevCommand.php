@@ -55,7 +55,9 @@ class DevCommand extends Terminal
             ->addOption('vite-network', null, InputOption::VALUE_NONE, 'Bind Vite to 0.0.0.0 for LAN access')
             ->addOption('verbose-vite', null, InputOption::VALUE_NONE, 'Show full Vite startup URLs')
             ->addOption('fix-vite', null, InputOption::VALUE_NONE, 'Auto-wire vite.config.js with pinooxDevState/pinooxServer when missing')
-            ->addOption('env-file', null, InputOption::VALUE_REQUIRED, 'Theme env file for dev auto-setup (default: .env)');
+            ->addOption('env-file', null, InputOption::VALUE_REQUIRED, 'Theme env file for dev auto-setup (default: .env)')
+            ->addOption('no-inspector', null, InputOption::VALUE_NONE, 'Disable Pinx Inspector on /~inspector')
+            ->addOption('open-inspector', null, InputOption::VALUE_NONE, 'Open Pinx Inspector in the browser');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -97,6 +99,8 @@ class DevCommand extends Terminal
             '--verbose-vite' => $input->getOption('verbose-vite') ? true : null,
             '--fix-vite' => $input->getOption('fix-vite') ? true : null,
             '--env-file' => $input->getOption('env-file'),
+            '--no-inspector' => $input->getOption('no-inspector') ? true : null,
+            '--open-inspector' => $input->getOption('open-inspector') ? true : null,
         ], static fn ($value) => $value !== null && $value !== false && $value !== '');
 
         return $command->run(new ArrayInput($arguments), $output);

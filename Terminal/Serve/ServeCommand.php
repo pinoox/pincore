@@ -4,6 +4,7 @@ namespace Pinoox\Terminal\Serve;
 
 use Pinoox\Component\Package\Routing\AppRouteMatcher;
 use Pinoox\Component\Server\DevelopmentServer;
+use Pinoox\Component\Server\InspectorRuntime;
 use Pinoox\Component\Server\ServerPort;
 use Pinoox\Component\Server\ServeAppBinding;
 use Pinoox\Component\Terminal;
@@ -55,6 +56,8 @@ FOOTER
             ->addOption('app', null, InputOption::VALUE_REQUIRED, 'Lock to one app (package, route path, alias, or package@path)')
             ->addOption('tries', null, InputOption::VALUE_OPTIONAL, 'How many ports to try if the default is busy', 10)
             ->addOption('no-reload', null, InputOption::VALUE_NONE, 'Do not restart when .env changes')
+            ->addOption('no-inspector', null, InputOption::VALUE_NONE, 'Disable Pinx Inspector on /~inspector')
+            ->addOption('open-inspector', null, InputOption::VALUE_NONE, 'Open Pinx Inspector in the browser')
             ->addOption('open', 'o', InputOption::VALUE_NONE, 'Open the site in your default browser after start');
     }
 
@@ -107,6 +110,17 @@ FOOTER
 
         if ($this->isNetworkMode($input)) {
             $io->note('Network mode: server listens on 0.0.0.0. Allow the port in Windows Firewall if needed.');
+        }
+
+        $inspectorPackage = null;
+        if (!(bool) $input->getOption('no-inspector') && InspectorRuntime::isAvailable()) {
+            $inspectorPackage = InspectorRuntime::resolveDefaultPackage($serveApp);
+            InspectorRuntime::applyEnvironment($documentRoot, $inspectorPackage);
+            $io->note('Pinx Inspector: ' . InspectorRuntime::url($host, $resolvedPort));
+
+            if ((bool) $input->getOption('open-inspector')) {
+                InspectorRuntime::openBrowser(InspectorRuntime::url($host, $resolvedPort));
+            }
         }
 
         $server = new DevelopmentServer(
