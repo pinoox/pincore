@@ -574,6 +574,12 @@ class FrontendConfig
      */
     public static function resolveRuntimeDevPort(string $themePath, array $config): int
     {
+        $fromHot = self::readHotFilePort($themePath, $config);
+
+        if ($fromHot !== null) {
+            return $fromHot;
+        }
+
         $cached = FrontendDevSync::readDevPortCache($themePath, $config);
 
         if ($cached !== null) {
@@ -599,6 +605,31 @@ class FrontendConfig
         }
 
         return ServerPort::DEFAULT_VITE_PORT;
+    }
+
+    /**
+     * Port parsed from dist/hot when Vite is running (authoritative over .vite-dev-port cache).
+     *
+     * @param array<string, mixed> $config
+     */
+    private static function readHotFilePort(string $themePath, array $config): ?int
+    {
+        $hotFile = self::hotAbsolutePath($themePath, $config);
+
+        if (!is_file($hotFile)) {
+            return null;
+        }
+
+        $url = trim((string) file_get_contents($hotFile));
+
+        if ($url === '') {
+            return null;
+        }
+
+        $parsed = parse_url($url);
+        $port = $parsed['port'] ?? null;
+
+        return is_numeric($port) && (int) $port > 0 ? (int) $port : null;
     }
 
     /**
