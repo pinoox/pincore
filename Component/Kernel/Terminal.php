@@ -71,7 +71,9 @@ class Terminal
     {
         $commands = [
             \Pinoox\Terminal\DevDB\DevDbStatusCommand::class,
+            \Pinoox\Terminal\DevDB\DevDbTablesCommand::class,
             \Pinoox\Terminal\DevDB\DevDbInspectCommand::class,
+            \Pinoox\Terminal\DevDB\DevDbExploreCommand::class,
             \Pinoox\Terminal\DevDB\DevDbClearCommand::class,
             \Pinoox\Terminal\DevDB\DevDbExportCommand::class,
             \Pinoox\Terminal\DevDB\DevDbSeedCommand::class,
