@@ -449,6 +449,7 @@ final class FrontendDevSync
         $lines = [
             self::AUTO_ENV_BEGIN,
             '# Regenerated on each `' . ProjectCli::autoFormat('fe dev') . '` run.',
+            'VITE_DEV=true',
             'VITE_HOT_FILE=' . FrontendConfig::hotRelativePath($config),
             'VITE_SERVER_URL=' . $session->phpAppUrl,
             'VITE_SERVE_APP=' . $session->serveAppLabel(),
@@ -523,8 +524,10 @@ final class FrontendDevSync
 
         if ($manifest !== null && is_file($manifest) && !is_file(FrontendConfig::hotAbsolutePath($themePath, $config))) {
             $issues[] = [
-                'level' => 'comment',
-                'message' => 'Production manifest exists without a hot file — PHP may serve built assets until Vite starts.',
+                'level' => 'warning',
+                'message' => 'Production manifest exists without a hot file — PHP may serve stale built assets (fonts/CSS) until Vite starts. Run '
+                    . ProjectCli::autoFormat('fe dev')
+                    . ' and wait for dist/hot, or delete dist/.vite/manifest.json for a fresh dev session.',
             ];
         }
 

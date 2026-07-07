@@ -185,11 +185,11 @@ class FrontendConfig
             $config['mount'] ??= '#app';
             $config['pinoox'] ??= 'pinoox';
             $config['dev'] = array_replace([
-                'enabled' => (bool) _env('VITE_DEV', false),
-                'url' => rtrim((string) _env('VITE_DEV_SERVER', 'http://127.0.0.1:5173'), '/'),
+                'enabled' => self::isDevFlagActive(),
+                'url' => rtrim((string) _env('VITE_DEV_SERVER', ''), '/'),
                 'hot' => self::resolveHotPathFromEnv(),
                 'port' => self::resolveDevPortFromEnv(),
-                'prefer_manifest' => !self::envBool('VITE_DEV_FORCE', false),
+                'prefer_manifest' => self::envBool('VITE_PREFER_MANIFEST', false),
                 'force' => self::envBool('VITE_DEV_FORCE', false),
             ], is_array($config['dev'] ?? null) ? $config['dev'] : []);
         } elseif (self::usesLegacyWebpack(['stack' => $stack])) {
@@ -465,7 +465,24 @@ class FrontendConfig
 
     public static function isDevEnabled(array $config): bool
     {
-        return self::viteDevAllowed() && !empty($config['dev']['enabled']);
+        if (!self::viteDevAllowed()) {
+            return false;
+        }
+
+        if (!empty($config['dev']['enabled'])) {
+            return true;
+        }
+
+        return self::isDevFlagActive();
+    }
+
+    private static function isDevFlagActive(): bool
+    {
+        if (self::envBool('VITE_DEV', false)) {
+            return true;
+        }
+
+        return trim((string) _env('VITE_DEV_SERVER', '')) !== '';
     }
 
     /**
@@ -575,7 +592,7 @@ class FrontendConfig
     }
 
     /**
-     * Resolve Vite dev-server URL: hot file → dev.url fallback → null (use manifest).
+     * Resolve Vite dev-server URL: hot file → dev fallback → null (use manifest).
      *
      * @param array<string, mixed> $config
      */
@@ -591,28 +608,71 @@ class FrontendConfig
         if (is_file($hotFile)) {
             $url = trim((string) file_get_contents($hotFile));
 
-            return $url !== '' ? rtrim($url, '/') : null;
+            if ($url !== '') {
+                return rtrim($url, '/');
+            }
         }
 
-        if (!self::isDevEnabled($config)) {
+        $devUrl = self::resolveConfiguredDevServerUrl($config);
+
+        if ($devUrl === null) {
             return null;
         }
 
         $manifestRelative ??= self::manifestRelativePath($config);
+        $manifestPath = $manifestRelative !== null
+            ? $themePath . '/' . ltrim($manifestRelative, '/')
+            : null;
+        $manifestExists = $manifestPath !== null && is_file($manifestPath);
+        $forceDev = !empty($config['dev']['force']) || self::envBool('VITE_DEV_FORCE', false);
+        $preferManifest = ($config['dev']['prefer_manifest'] ?? false) && !$forceDev;
+        $devEnabled = self::isDevEnabled($config);
 
-        if ($manifestRelative !== null) {
-            $manifestPath = $themePath . '/' . ltrim($manifestRelative, '/');
-            $force = !empty($config['dev']['force']);
-            $preferManifest = ($config['dev']['prefer_manifest'] ?? true);
-
-            if (is_file($manifestPath) && $preferManifest && !$force) {
-                return null;
-            }
+        if ($forceDev) {
+            return $devUrl;
         }
 
-        $url = trim((string) ($config['dev']['url'] ?? ''));
+        if (!$manifestExists) {
+            return $devUrl;
+        }
 
-        return $url !== '' ? rtrim($url, '/') : null;
+        if ($devEnabled && !$preferManifest) {
+            return $devUrl;
+        }
+
+        return null;
+    }
+
+    /**
+     * Dev-server URL from env, frontend.config.php dev.url, or dev.host + dev.port.
+     *
+     * @param array<string, mixed> $config
+     */
+    public static function resolveConfiguredDevServerUrl(array $config): ?string
+    {
+        $fromEnv = trim((string) _env('VITE_DEV_SERVER', ''));
+
+        if ($fromEnv !== '') {
+            return rtrim($fromEnv, '/');
+        }
+
+        $fromConfig = trim((string) ($config['dev']['url'] ?? ''));
+
+        if ($fromConfig !== '') {
+            return rtrim($fromConfig, '/');
+        }
+
+        if (!self::usesViteAssets($config)) {
+            return null;
+        }
+
+        $host = self::devHost($config);
+
+        if ($host === '0.0.0.0' || $host === '[::]') {
+            $host = '127.0.0.1';
+        }
+
+        return 'http://' . $host . ':' . self::devPort($config);
     }
 
     public static function isSsrEnabled(array $config): bool
