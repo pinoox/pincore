@@ -53,6 +53,24 @@ final class ServeAppBinding
     }
 
     /**
+     * Format `--app` for single-app `fe dev`: mount at / instead of the app-router prefix.
+     */
+    public static function devServeBinding(string $binding): string
+    {
+        $binding = trim($binding);
+
+        if ($binding === '' || str_contains($binding, '@') || str_starts_with($binding, '/')) {
+            return $binding;
+        }
+
+        if (!PackageName::looksLike($binding)) {
+            return $binding;
+        }
+
+        return PackageName::canonical($binding) . '@/';
+    }
+
+    /**
      * @param array<string, string> $routes Normalized router map (path => package)
      * @return array{package: string, path: string}|null
      */

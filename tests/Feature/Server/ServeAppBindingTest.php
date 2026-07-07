@@ -48,6 +48,17 @@ it('prefers explicit mount paths when a package has multiple router entries', fu
         ->toBe('/demo');
 });
 
+it('formats package-only dev serve binding to mount at root', function () {
+    expect(ServeAppBinding::devServeBinding('com_pinoox_manager'))
+        ->toBe('com_pinoox_manager@/')
+        ->and(ServeAppBinding::devServeBinding('/manager'))
+        ->toBe('/manager')
+        ->and(ServeAppBinding::devServeBinding('com_pinoox_manager@/manager'))
+        ->toBe('com_pinoox_manager@/manager')
+        ->and(ServeAppBinding::devServeBinding('manager'))
+        ->toBe('manager');
+});
+
 it('builds app layer when serve env binding is active', function () {
     putenv(ServeAppBinding::ENV . '=com_pinoox_manager');
 

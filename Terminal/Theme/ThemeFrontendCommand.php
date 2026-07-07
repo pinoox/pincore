@@ -5,6 +5,7 @@ namespace Pinoox\Terminal\Theme;
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Server\DevelopmentServer;
+use Pinoox\Component\Server\ServeAppBinding;
 use Pinoox\Component\Server\ServerPort;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\FrontendDevSession;
@@ -1307,7 +1308,7 @@ FOOTER
         ], $basePath);
 
         if (!$platformServe) {
-            $command[] = '--app=' . $serveApp;
+            $command[] = '--app=' . ServeAppBinding::devServeBinding($serveApp);
         }
 
         $serveHost = $this->resolveServeHost($input);
