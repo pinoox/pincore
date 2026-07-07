@@ -3,6 +3,7 @@
 namespace Pinoox\Component\Template\Frontend;
 
 use Pinoox\Component\Runtime\RuntimeMode;
+use Pinoox\Component\Server\ServerPort;
 use Pinoox\Portal\App\App;
 use Pinoox\Support\ProjectCli;
 
@@ -188,7 +189,7 @@ class FrontendConfig
                 'enabled' => self::isDevFlagActive(),
                 'url' => rtrim((string) _env('VITE_DEV_SERVER', ''), '/'),
                 'hot' => self::resolveHotPathFromEnv(),
-                'port' => self::resolveDevPortFromEnv(),
+                'port' => self::readRawDevPort($themePath) ?? self::readEnvDevPort(),
                 'prefer_manifest' => self::envBool('VITE_PREFER_MANIFEST', false),
                 'force' => self::envBool('VITE_DEV_FORCE', false),
             ], is_array($config['dev'] ?? null) ? $config['dev'] : []);
@@ -494,15 +495,126 @@ class FrontendConfig
     }
 
     /**
-     * Vite dev-server port for npm (env VITE_DEV_PORT, default 5173).
+     * Port from frontend.config.php only (not merged defaults).
+     */
+    public static function readRawDevPort(string $themePath): ?int
+    {
+        $file = rtrim(str_replace('\\', '/', $themePath), '/') . '/frontend.config.php';
+
+        if (!is_file($file)) {
+            return null;
+        }
+
+        $raw = include $file;
+
+        if (!is_array($raw)) {
+            return null;
+        }
+
+        $dev = is_array($raw['dev'] ?? null) ? $raw['dev'] : [];
+        $port = $dev['port'] ?? null;
+
+        return is_numeric($port) && (int) $port > 0 ? (int) $port : null;
+    }
+
+    public static function hasExplicitDevPort(string $themePath): bool
+    {
+        return self::readRawDevPort($themePath) !== null;
+    }
+
+    /**
+     * Pick a free Vite port — honors an explicit frontend.config.php port when set.
+     *
+     * @param list<int> $reservedPorts
+     */
+    public static function allocateDevPort(
+        string $themePath,
+        array $reservedPorts = [],
+        string $host = '127.0.0.1',
+    ): int {
+        $explicit = self::readRawDevPort($themePath);
+
+        if ($explicit !== null) {
+            $port = $explicit;
+
+            while ($port <= 65535 && (in_array($port, $reservedPorts, true) || !ServerPort::isAvailable($host, $port))) {
+                $port++;
+            }
+
+            if ($port > 65535) {
+                throw new \RuntimeException(sprintf(
+                    'Could not find a free Vite port near configured %d.',
+                    $explicit,
+                ));
+            }
+
+            return $port;
+        }
+
+        $port = ServerPort::DEFAULT_VITE_PORT;
+
+        while ($port <= 65535 && (in_array($port, $reservedPorts, true) || !ServerPort::isAvailable($host, $port))) {
+            $port++;
+        }
+
+        if ($port > 65535) {
+            throw new \RuntimeException(sprintf(
+                'Could not find a free Vite port (starting at %d).',
+                ServerPort::DEFAULT_VITE_PORT,
+            ));
+        }
+
+        return $port;
+    }
+
+    /**
+     * Resolved port for PHP asset tags: cache from fe dev → explicit config → env → default.
      *
      * @param array<string, mixed> $config
      */
-    public static function devPort(array $config): int
+    public static function resolveRuntimeDevPort(string $themePath, array $config): int
     {
+        $cached = FrontendDevSync::readDevPortCache($themePath, $config);
+
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $explicit = self::readRawDevPort($themePath);
+
+        if ($explicit !== null) {
+            return $explicit;
+        }
+
+        $fromEnv = self::readEnvDevPort();
+
+        if ($fromEnv !== null) {
+            return $fromEnv;
+        }
+
         $port = $config['dev']['port'] ?? null;
 
-        return is_numeric($port) && (int) $port > 0 ? (int) $port : 5173;
+        if (is_numeric($port) && (int) $port > 0) {
+            return (int) $port;
+        }
+
+        return ServerPort::DEFAULT_VITE_PORT;
+    }
+
+    /**
+     * Vite dev-server port (explicit config, fe dev cache, env, or default 5173).
+     *
+     * @param array<string, mixed> $config
+     */
+    public static function devPort(array $config, ?string $themePath = null): int
+    {
+        if ($themePath !== null && $themePath !== '') {
+            return self::resolveRuntimeDevPort($themePath, $config);
+        }
+
+        $port = $config['dev']['port'] ?? null;
+
+        return is_numeric($port) && (int) $port > 0 ? (int) $port : ServerPort::DEFAULT_VITE_PORT;
     }
 
     /**
@@ -555,9 +667,18 @@ class FrontendConfig
 
     private static function resolveDevPortFromEnv(): int
     {
-        $port = _env('VITE_DEV_PORT', 5173);
+        return self::readEnvDevPort() ?? ServerPort::DEFAULT_VITE_PORT;
+    }
 
-        return is_numeric($port) && (int) $port > 0 ? (int) $port : 5173;
+    private static function readEnvDevPort(): ?int
+    {
+        $port = _env('VITE_DEV_PORT');
+
+        if ($port === null || $port === '') {
+            return null;
+        }
+
+        return is_numeric($port) && (int) $port > 0 ? (int) $port : null;
     }
 
     private static function envBool(string $key, bool $default = false): bool
@@ -613,7 +734,7 @@ class FrontendConfig
             }
         }
 
-        $devUrl = self::resolveConfiguredDevServerUrl($config);
+        $devUrl = self::resolveConfiguredDevServerUrl($config, $themePath);
 
         if ($devUrl === null) {
             return null;
@@ -648,7 +769,7 @@ class FrontendConfig
      *
      * @param array<string, mixed> $config
      */
-    public static function resolveConfiguredDevServerUrl(array $config): ?string
+    public static function resolveConfiguredDevServerUrl(array $config, ?string $themePath = null): ?string
     {
         $fromEnv = trim((string) _env('VITE_DEV_SERVER', ''));
 
@@ -672,7 +793,11 @@ class FrontendConfig
             $host = '127.0.0.1';
         }
 
-        return 'http://' . $host . ':' . self::devPort($config);
+        $port = $themePath !== null && $themePath !== ''
+            ? self::resolveRuntimeDevPort($themePath, $config)
+            : self::devPort($config);
+
+        return 'http://' . $host . ':' . $port;
     }
 
     public static function isSsrEnabled(array $config): bool

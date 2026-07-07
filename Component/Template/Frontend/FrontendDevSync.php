@@ -56,6 +56,10 @@ final class FrontendDevSync
             $inspection = self::inspectViteConfig($themePath);
         }
 
+        if ($session !== null) {
+            self::writeDevPortCache($themePath, $config, $session->vitePort);
+        }
+
         return [
             'vite_plugin' => self::hasVitePluginDependency($themePath),
             'vite_plugin_added' => $vitePluginAdded,
@@ -562,6 +566,70 @@ final class FrontendDevSync
         if (is_file($hotFile)) {
             @unlink($hotFile);
         }
+
+        self::removeDevPortCache($themePath, $config);
+    }
+
+    /**
+     * Written during `fe dev` so PHP can resolve the allocated Vite port before dist/hot exists.
+     */
+    public static function writeDevPortCache(string $themePath, array $config, int $port): void
+    {
+        if ($port < 1 || $port > 65535) {
+            return;
+        }
+
+        $path = self::devPortCacheAbsolutePath($themePath, $config);
+        $dir = dirname($path);
+
+        if (!is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+
+        file_put_contents($path, (string) $port);
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    public static function readDevPortCache(string $themePath, array $config): ?int
+    {
+        $path = self::devPortCacheAbsolutePath($themePath, $config);
+
+        if (!is_file($path)) {
+            return null;
+        }
+
+        $port = trim((string) file_get_contents($path));
+
+        return is_numeric($port) && (int) $port > 0 ? (int) $port : null;
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    public static function removeDevPortCache(string $themePath, array $config): void
+    {
+        $path = self::devPortCacheAbsolutePath($themePath, $config);
+
+        if (is_file($path)) {
+            @unlink($path);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     */
+    private static function devPortCacheAbsolutePath(string $themePath, array $config): string
+    {
+        $hotRelative = FrontendConfig::hotRelativePath($config);
+        $distDir = dirname(ltrim(str_replace('\\', '/', $hotRelative), '/'));
+
+        if ($distDir === '.' || $distDir === '') {
+            $distDir = 'dist';
+        }
+
+        return rtrim(str_replace('\\', '/', $themePath), '/') . '/' . $distDir . '/.vite-dev-port';
     }
 
     /**

@@ -84,53 +84,25 @@ final class FrontendDevStack
      */
 
     private static function preferredPort(array $target): int
-
     {
-
-        $config = is_array($target['config'] ?? null) ? $target['config'] : [];
-
-        $dev = is_array($config['dev'] ?? null) ? $config['dev'] : [];
-
-
-
-        if (isset($dev['port']) && is_numeric($dev['port']) && (int) $dev['port'] > 0) {
-
-            return (int) $dev['port'];
-
-        }
-
-
-
         $themePath = trim((string) ($target['themePath'] ?? ''));
 
-
-
         if ($themePath !== '') {
+            $explicit = FrontendConfig::readRawDevPort($themePath);
 
-            $configFile = rtrim(str_replace('\\', '/', $themePath), '/') . '/frontend.config.php';
-
-
-
-            if (is_file($configFile)) {
-
-                $raw = include $configFile;
-
-
-
-                if (is_array($raw) && isset($raw['dev']['port']) && is_numeric($raw['dev']['port']) && (int) $raw['dev']['port'] > 0) {
-
-                    return (int) $raw['dev']['port'];
-
-                }
-
+            if ($explicit !== null) {
+                return $explicit;
             }
+        } else {
+            $config = is_array($target['config'] ?? null) ? $target['config'] : [];
+            $dev = is_array($config['dev'] ?? null) ? $config['dev'] : [];
 
+            if (isset($dev['port']) && is_numeric($dev['port']) && (int) $dev['port'] > 0) {
+                return (int) $dev['port'];
+            }
         }
 
-
-
-        return 5173;
-
+        return ServerPort::DEFAULT_VITE_PORT;
     }
 
     /**
@@ -138,31 +110,13 @@ final class FrontendDevStack
      */
     private static function hasExplicitVitePort(array $target): bool
     {
-        $config = is_array($target['config'] ?? null) ? $target['config'] : [];
-        $dev = is_array($config['dev'] ?? null) ? $config['dev'] : [];
-
-        if (isset($dev['port']) && is_numeric($dev['port']) && (int) $dev['port'] > 0) {
-            return true;
-        }
-
         $themePath = trim((string) ($target['themePath'] ?? ''));
 
         if ($themePath === '') {
             return false;
         }
 
-        $configFile = rtrim(str_replace('\\', '/', $themePath), '/') . '/frontend.config.php';
-
-        if (!is_file($configFile)) {
-            return false;
-        }
-
-        $raw = include $configFile;
-
-        return is_array($raw)
-            && isset($raw['dev']['port'])
-            && is_numeric($raw['dev']['port'])
-            && (int) $raw['dev']['port'] > 0;
+        return FrontendConfig::hasExplicitDevPort($themePath);
     }
 
 

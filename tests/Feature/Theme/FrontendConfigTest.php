@@ -102,6 +102,37 @@ test('FrontendConfig prefer_manifest skips dev url when manifest exists', functi
     @rmdir($themePath);
 });
 
+test('FrontendConfig allocates free port when dev.port is omitted', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-theme-auto-port-' . uniqid();
+    mkdir($themePath, 0777, true);
+    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue'];\n");
+
+    $port = FrontendConfig::allocateDevPort($themePath);
+
+    expect($port)->toBeGreaterThanOrEqual(5173)
+        ->and(FrontendConfig::hasExplicitDevPort($themePath))->toBeFalse();
+
+    @unlink($themePath . '/frontend.config.php');
+    @rmdir($themePath);
+});
+
+test('FrontendConfig resolveRuntimeDevPort reads fe dev cache file', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-theme-dev-port-cache-' . uniqid();
+    mkdir($themePath . '/dist', 0777, true);
+    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue'];\n");
+    file_put_contents($themePath . '/dist/.vite-dev-port', '5188');
+
+    $config = FrontendConfig::forThemePath($themePath);
+
+    expect(FrontendConfig::resolveRuntimeDevPort($themePath, $config))->toBe(5188)
+        ->and(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5188');
+
+    @unlink($themePath . '/dist/.vite-dev-port');
+    @rmdir($themePath . '/dist');
+    @unlink($themePath . '/frontend.config.php');
+    @rmdir($themePath);
+});
+
 test('FrontendConfig uses dev port when manifest is missing', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-theme-no-manifest-' . uniqid();
     mkdir($themePath, 0777, true);

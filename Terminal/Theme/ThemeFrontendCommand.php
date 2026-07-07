@@ -769,6 +769,7 @@ FOOTER
                 null,
                 $viteOpts['host'],
                 $viteOpts['quiet'],
+                $frontend->themePath(),
             );
         } catch (\RuntimeException $e) {
             $io->error($e->getMessage());

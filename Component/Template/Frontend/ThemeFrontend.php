@@ -552,7 +552,7 @@ class ThemeFrontend
             'dev_url' => $this->config['dev']['url'] ?? null,
             'hot_relative' => FrontendConfig::hotRelativePath($this->config),
             'hot_exists' => is_file(FrontendConfig::hotAbsolutePath($this->themePath, $this->config)),
-            'dev_port' => FrontendConfig::devPort($this->config),
+            'dev_port' => FrontendConfig::devPort($this->config, $this->themePath),
             'vite_plugin' => FrontendDevSync::hasVitePluginDependency($this->themePath)
                 || is_file($this->themePath . '/vite.pinoox.mjs'),
             'vite_wired' => FrontendDevSync::inspectViteConfig($this->themePath)['wired'],

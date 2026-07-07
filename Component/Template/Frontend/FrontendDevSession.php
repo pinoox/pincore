@@ -42,6 +42,7 @@ final class FrontendDevSession
         ?int $vitePort = null,
         ?string $viteHost = null,
         ?bool $viteQuiet = null,
+        ?string $themePath = null,
     ): self {
         $host = self::normalizeHost(
             ($serveHost !== null && trim((string) $serveHost) !== '')
@@ -49,8 +50,8 @@ final class FrontendDevSession
                 : (string) _env('SERVER_HOST', '127.0.0.1'),
         );
         $port = self::resolveServePort($servePort, $host);
-        $vitePort = self::resolveVitePort($vitePort, $config, $viteHost ?? '127.0.0.1');
         $viteHost = $viteHost ?? FrontendConfig::devHost($config);
+        $vitePort = self::resolveVitePort($vitePort, $config, $viteHost, $themePath ?? '');
         $viteQuiet = $viteQuiet ?? FrontendConfig::devQuiet($config);
         $bindingInput = trim((string) ($serveAppBinding ?? ($withServe ? $package : '')));
         $platformServe = $bindingInput === self::SERVE_PLATFORM;
@@ -492,14 +493,18 @@ final class FrontendDevSession
     /**
      * @param array<string, mixed> $config
      */
-    private static function resolveVitePort(?int $explicit, array $config, string $host): int
+    private static function resolveVitePort(?int $explicit, array $config, string $host, string $themePath): int
     {
         if ($explicit !== null && $explicit > 0) {
             if (ServerPort::isAvailable($host, $explicit)) {
                 return $explicit;
             }
 
-            return ServerPort::resolve(null, $host, $explicit);
+            return ServerPort::resolve($explicit, $host, $explicit);
+        }
+
+        if ($themePath !== '') {
+            return FrontendConfig::allocateDevPort($themePath, [], $host);
         }
 
         return ServerPort::resolve(null, $host, FrontendConfig::devPort($config));
