@@ -17,6 +17,15 @@ class ThemeFrontend
     /** @var callable(string): void|null */
     private $outputWriter = null;
 
+    private ?FrontendDevSession $devSession = null;
+
+    private bool $fixViteOnSync = false;
+
+  /** @var list<string> */
+    private array $forceDevEnvKeys = [];
+
+    private ?string $devEnvFile = null;
+
     public function __construct(
         private readonly string $package,
         private readonly string $themePath,
@@ -129,6 +138,44 @@ class ThemeFrontend
         return $matches;
     }
 
+    public function setDevSession(?FrontendDevSession $session): void
+    {
+        $this->devSession = $session;
+    }
+
+    public function setFixViteOnSync(bool $fix): void
+    {
+        $this->fixViteOnSync = $fix;
+    }
+
+    /**
+     * @param list<string> $keys
+     */
+    public function setForceDevEnvKeys(array $keys): void
+    {
+        $this->forceDevEnvKeys = array_values($keys);
+    }
+
+    public function setDevEnvFile(?string $envFile): void
+    {
+        $this->devEnvFile = $envFile !== null && trim($envFile) !== ''
+            ? FrontendDevSync::normalizeEnvFile($envFile)
+            : null;
+    }
+
+    public function devEnvFile(): string
+    {
+        return $this->devEnvFile ?? FrontendDevSync::DEFAULT_ENV_FILE;
+    }
+
+    /**
+     * @return list<array{level: string, message: string}>
+     */
+    public function devDiagnostics(): array
+    {
+        return FrontendDevSync::diagnose($this->themePath, $this->config, $this->devSession);
+    }
+
     /**
      * @param callable(string): void $writer
      */
@@ -216,11 +263,39 @@ class ThemeFrontend
 
     public function dev(string $installMode = self::INSTALL_SKIP): int
     {
+        $this->prepareDev($installMode);
+
+        return $this->runNpm(['run', 'dev'], longRunning: true, extraEnv: $this->npmRunEnvironment());
+    }
+
+    public function prepareDev(string $installMode = self::INSTALL_SKIP): void
+    {
+        $this->assertFrontendProject();
+        $this->syncDev();
+        $this->ensureDependencies($installMode);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function devNpmEnvironment(): array
+    {
+        return $this->npmRunEnvironment();
+    }
+
+    public function watch(string $installMode = self::INSTALL_SKIP): int
+    {
         $this->assertFrontendProject();
         $this->syncDev();
         $this->ensureDependencies($installMode);
 
-        return $this->runNpm(['run', 'dev'], longRunning: true, extraEnv: $this->npmRunEnvironment());
+        $scripts = $this->npmScripts();
+
+        if (!isset($scripts['watch'])) {
+            return $this->runNpm(['run', 'build', '--', '--watch'], longRunning: true, extraEnv: $this->npmRunEnvironment());
+        }
+
+        return $this->runNpm(['run', 'watch'], longRunning: true, extraEnv: $this->npmRunEnvironment());
     }
 
     public function runScript(string $script, string $installMode = self::INSTALL_SKIP): int
@@ -246,11 +321,26 @@ class ThemeFrontend
     }
 
     /**
-     * @return array{pinoox_bundle: bool, env_seeded: bool, hot_path: string}
+     * @return array{
+     *     pinoox_bundle: bool,
+     *     env_seeded: bool,
+     *     hot_path: string,
+     *     env_autodev: bool,
+     *     env_file: string,
+     *     vite_wired: bool,
+     *     vite_inspection: array<string, mixed>
+     * }
      */
     public function syncDev(): array
     {
-        return FrontendDevSync::sync($this->themePath, $this->config, FrontendDevSync::resolveCorePath());
+        return FrontendDevSync::sync(
+            $this->themePath,
+            $this->config,
+            FrontendDevSync::resolveCorePath(),
+            $this->devSession,
+            $this->fixViteOnSync,
+            $this->devEnvFile(),
+        );
     }
 
     /**
@@ -295,6 +385,8 @@ class ThemeFrontend
             'stack' => $stack,
             'profile' => $this->config['profile'] ?? null,
             'entry' => $this->config['entry'] ?? null,
+            'entries' => FrontendConfig::entries($this->config),
+            'refresh' => FrontendConfig::refreshPaths($this->config),
             'manifest' => $this->manifestPath(),
             'manifest_relative' => FrontendConfig::manifestRelativePath($this->config),
             'manifest_exists' => $this->manifestExists(),
@@ -309,6 +401,9 @@ class ThemeFrontend
             'hot_exists' => is_file(FrontendConfig::hotAbsolutePath($this->themePath, $this->config)),
             'dev_port' => FrontendConfig::devPort($this->config),
             'pinoox_bundle' => is_file($this->themePath . '/vite.pinoox.mjs'),
+            'vite_wired' => FrontendDevSync::inspectViteConfig($this->themePath)['wired'],
+            'env_autodev' => FrontendDevSync::hasAutoDevBlock($this->themePath, $this->devEnvFile()),
+            'env_file' => $this->devEnvFile(),
             'npm_scripts' => $this->npmScripts(),
             'node_modules' => is_dir($this->themePath . '/node_modules'),
             'needs_npm_install' => $this->hasPackageJson() && $this->needsNpmInstall(),
@@ -348,6 +443,10 @@ class ThemeFrontend
             $this->config,
             FrontendDevSync::resolveCorePath(),
             $this->package,
+            $this->devSession,
+            $this->themePath,
+            $this->devEnvFile(),
+            $this->forceDevEnvKeys,
         );
     }
 
@@ -409,7 +508,7 @@ class ThemeFrontend
 
     private function isLongRunningScript(string $script): bool
     {
-        if (in_array($script, ['dev', 'preview', 'serve', 'start'], true)) {
+        if (in_array($script, ['dev', 'watch', 'preview', 'serve', 'start'], true)) {
             return true;
         }
 

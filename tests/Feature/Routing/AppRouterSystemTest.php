@@ -160,7 +160,7 @@ it('locks app router to serve binding when PINOOX_SERVE_APP is set', function ()
         $layer = $router->find('anything/deep/path');
 
         expect($layer->getPackageName())->toBe('com_pinoox_manager')
-            ->and($layer->getPath())->toBe('/')
+            ->and($layer->getPath())->toBe('/manager')
             ->and($layer->matchedBy())->toBe('serve_app');
     } finally {
         putenv(ServeAppBinding::ENV);

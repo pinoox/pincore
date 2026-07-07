@@ -117,39 +117,42 @@ class AppApiRegistry
                 continue;
             }
 
-            $method = strtoupper((string)($route['method'] ?? 'GET'));
-            if (!in_array($method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], true)) {
-                continue;
-            }
+            foreach ($this->resolveMethods($route) as $method) {
+                if (!in_array($method, ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+                    continue;
+                }
 
-            $uri = '/' . trim((string)($route['path'] ?? $route['uri'] ?? '/'), '/');
-            $routeFlow = array_values(array_unique(array_merge($flow, $this->list($route['flow'] ?? []))));
-            $routes[] = [
-                'app' => $package,
-                'owner' => $owner,
-                'version' => $version,
-                'method' => $method,
-                'uri' => $uri,
-                'full_uri' => $this->fullUri($version, $prefix, $uri),
-                'action' => $route['action'] ?? null,
-                'name' => (string)($route['name'] ?? ''),
-                'flow' => $routeFlow,
-                'permission' => $route['permission'] ?? null,
-                'auth' => $route['auth'] ?? null,
-                'rate_limit' => $route['rate_limit'] ?? $route['rateLimit'] ?? null,
-                'request' => $route['request'] ?? null,
-                'resource' => $route['resource'] ?? null,
-                'description' => (string)($route['description'] ?? ''),
-                'summary' => (string)($route['summary'] ?? ''),
-                'tag' => (string)($route['tag'] ?? ''),
-                'deprecated' => (bool)($route['deprecated'] ?? false),
-                'params' => $route['params'] ?? [],
-                'body' => $route['body'] ?? [],
-                'body_description' => (string)($route['body_description'] ?? ''),
-                'body_example' => $route['body_example'] ?? null,
-                'response' => $route['response'] ?? [],
-                'responses' => $route['responses'] ?? [],
-            ];
+                $uri = '/' . trim((string)($route['path'] ?? $route['uri'] ?? '/'), '/');
+                $routeFlow = array_values(array_unique(array_merge($flow, $this->list($route['flow'] ?? []))));
+                $routes[] = [
+                    'app' => $package,
+                    'owner' => $owner,
+                    'version' => $version,
+                    'method' => $method,
+                    'uri' => $uri,
+                    'full_uri' => $this->fullUri($version, $prefix, $uri),
+                    'action' => $route['action'] ?? null,
+                    'name' => (string)($route['name'] ?? ''),
+                    'flow' => $routeFlow,
+                    'filters' => is_array($route['filters'] ?? null) ? $route['filters'] : [],
+                    'priority' => isset($route['priority']) ? (int) $route['priority'] : null,
+                    'permission' => $route['permission'] ?? null,
+                    'auth' => $route['auth'] ?? null,
+                    'rate_limit' => $route['rate_limit'] ?? $route['rateLimit'] ?? null,
+                    'request' => $route['request'] ?? null,
+                    'resource' => $route['resource'] ?? null,
+                    'description' => (string)($route['description'] ?? ''),
+                    'summary' => (string)($route['summary'] ?? ''),
+                    'tag' => (string)($route['tag'] ?? ''),
+                    'deprecated' => (bool)($route['deprecated'] ?? false),
+                    'params' => $route['params'] ?? [],
+                    'body' => $route['body'] ?? [],
+                    'body_description' => (string)($route['body_description'] ?? ''),
+                    'body_example' => $route['body_example'] ?? null,
+                    'response' => $route['response'] ?? [],
+                    'responses' => $route['responses'] ?? [],
+                ];
+            }
         }
 
         return [
@@ -211,6 +214,22 @@ class AppApiRegistry
         }
 
         return $base;
+    }
+
+    /**
+     * @param array<string, mixed> $route
+     * @return list<string>
+     */
+    private function resolveMethods(array $route): array
+    {
+        if (is_array($route['methods'] ?? null) && ($route['methods'] ?? []) !== []) {
+            return array_values(array_unique(array_map(
+                static fn (mixed $method): string => strtoupper((string) $method),
+                $route['methods'],
+            )));
+        }
+
+        return [strtoupper((string) ($route['method'] ?? 'GET'))];
     }
 
     private function list(mixed $value): array
