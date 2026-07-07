@@ -270,7 +270,7 @@ final class DatabaseConnectionToolkit
         bool $test,
         bool $detailed = false,
     ): array {
-        $runtime = DatabaseConfig::normalizeConnectionDriver($config);
+        $runtime = DatabaseConfig::normalizeConnectionDriver($config, false);
         $row = [
             'name' => $name,
             'default' => $name === $default ? 'yes' : 'no',
@@ -340,7 +340,7 @@ final class DatabaseConnectionToolkit
         $root = PlatformDatabaseStore::platformRoot();
         $default = (string) ($root['default'] ?? DatabaseConfig::DEFAULT_CONNECTION);
 
-        return DatabaseConfig::connectionConfig($root, $default);
+        return DatabaseConfig::connectionConfig($root, $default, false);
     }
 
     /**
@@ -348,6 +348,10 @@ final class DatabaseConnectionToolkit
      */
     private static function statusLabel(array $config): string
     {
+        if (!empty($config['devdb_unavailable'])) {
+            return 'local only';
+        }
+
         return self::testConfig($config) ? 'connected' : 'failed';
     }
 

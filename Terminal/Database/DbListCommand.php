@@ -47,9 +47,12 @@ HELP
         parent::execute($input, $output);
 
         $io = new SymfonyStyle($input, $output);
-        $this->prepareDatabaseCli();
-
         $test = (bool) $input->getOption('test');
+
+        if ($test) {
+            $this->prepareDatabaseCli();
+        }
+
         $target = trim((string) ($input->getArgument('target') ?: ''));
 
         if ($input->getOption('all')) {

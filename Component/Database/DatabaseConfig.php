@@ -34,9 +34,9 @@ final class DatabaseConfig
             throw new \InvalidArgumentException('Database config is invalid.');
         }
 
-        $requested = self::resolveConnectionName(self::normalize($root), $requested);
+        $requested = self::resolveConnectionName(self::normalize($root), $requested, true);
 
-        self::connectionConfig(self::normalize($root), $requested);
+        self::connectionConfig(self::normalize($root), $requested, true);
 
         return $requested;
     }
@@ -49,7 +49,7 @@ final class DatabaseConfig
         $fromEnv = SystemConfig::env('DB_CONNECTION');
 
         if (is_string($fromEnv) && $fromEnv !== '') {
-            return $fromEnv;
+            return self::effectiveConnectionName($fromEnv);
         }
 
         $appEnv = SystemConfig::env('APP_ENV');
@@ -61,7 +61,7 @@ final class DatabaseConfig
         }
 
         if (in_array($appEnv, [RuntimeMode::TEST, RuntimeMode::DEVELOPMENT], true)) {
-            return self::DEVDB_CONNECTION;
+            return self::isLocalRuntime() ? self::DEVDB_CONNECTION : self::DEFAULT_CONNECTION;
         }
 
         $root = SystemConfig::get('database');
@@ -71,7 +71,7 @@ final class DatabaseConfig
             $default = (string) ($root['default'] ?? '');
 
             if ($default !== '') {
-                return $default;
+                return self::effectiveConnectionName($default);
             }
         }
 
@@ -97,14 +97,14 @@ final class DatabaseConfig
      * @param array<string, mixed> $root Normalized config root
      * @return array<string, mixed>
      */
-    public static function connectionConfig(array $root, ?string $connection = null): array
+    public static function connectionConfig(array $root, ?string $connection = null, bool $forConnection = true): array
     {
         $root = self::normalize($root);
-        $connection = self::resolveConnectionName($root, $connection ?? self::requestedConnectionName());
+        $connection = self::resolveConnectionName($root, $connection ?? self::requestedConnectionName(), $forConnection);
         $connections = $root['connections'] ?? [];
 
         if (isset($connections[$connection]) && is_array($connections[$connection])) {
-            return self::normalizeConnectionDriver($connections[$connection]);
+            return self::normalizeConnectionDriver($connections[$connection], $forConnection);
         }
 
         throw new \InvalidArgumentException('Database connection "' . $connection . '" is not defined.');
@@ -131,7 +131,7 @@ final class DatabaseConfig
      * @param array<string, mixed> $config
      * @return array<string, mixed>
      */
-    public static function normalizeConnectionDriver(array $config): array
+    public static function normalizeConnectionDriver(array $config, bool $forConnection = true): array
     {
         if (($config['driver'] ?? null) === 'mariadb') {
             $config['driver'] = 'mysql';
@@ -139,6 +139,10 @@ final class DatabaseConfig
 
         if (($config['driver'] ?? null) === self::DEVDB_CONNECTION) {
             if (!self::isLocalRuntime()) {
+                if (!$forConnection) {
+                    return self::describeDevDbConnection($config);
+                }
+
                 throw new \RuntimeException('Pinoox DevDB can only be used when APP_ENV=local or APP_ENV=development.');
             }
 
@@ -146,6 +150,25 @@ final class DatabaseConfig
         }
 
         return $config;
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    public static function describeDevDbConnection(array $config): array
+    {
+        $path = self::devDbPath($config);
+
+        return array_replace($config, [
+            'driver' => self::DEVDB_CONNECTION,
+            'database' => (string) ($config['database'] ?? self::DEVDB_CONNECTION),
+            'host' => '—',
+            'prefix' => (string) ($config['prefix'] ?? DatabaseManager::DEFAULT_CORE_TABLE_PREFIX),
+            'devdb' => true,
+            'devdb_path' => $path,
+            'devdb_unavailable' => true,
+        ]);
     }
 
     /**
@@ -351,14 +374,14 @@ final class DatabaseConfig
     /**
      * @param array<string, mixed> $root Normalized config root
      */
-    private static function resolveConnectionName(array $root, string $requested): string
+    private static function resolveConnectionName(array $root, string $requested, bool $forConnection = true): string
     {
         if ($requested === self::DEVDB_CONNECTION) {
-            if (!self::isLocalRuntime()) {
-                throw new \RuntimeException('Pinoox DevDB can only be used when APP_ENV=local or APP_ENV=development.');
+            if (!$forConnection || self::isLocalRuntime()) {
+                return self::DEVDB_CONNECTION;
             }
 
-            return self::DEVDB_CONNECTION;
+            throw new \RuntimeException('Pinoox DevDB can only be used when APP_ENV=local or APP_ENV=development.');
         }
 
         if ($requested !== self::AUTO_CONNECTION) {
@@ -456,6 +479,15 @@ final class DatabaseConfig
         $database = (string) ($config['database'] ?? '');
 
         return $database === ':memory:' || ($database !== '' && is_file($database));
+    }
+
+    private static function effectiveConnectionName(string $name): string
+    {
+        if ($name === self::DEVDB_CONNECTION && !self::isLocalRuntime()) {
+            return self::DEFAULT_CONNECTION;
+        }
+
+        return $name;
     }
 
     private static function isLocalRuntime(): bool

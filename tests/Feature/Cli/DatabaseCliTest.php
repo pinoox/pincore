@@ -156,3 +156,40 @@ it('reports sqlite probe success through DatabaseConnectionNormalizer', function
         'database' => ':memory:',
     ]))->toBeTrue();
 });
+
+it('lists platform connections with DevDB in production without crashing', function () {
+    $previous = [
+        'APP_ENV' => getenv('APP_ENV'),
+        'DB_CONNECTION' => getenv('DB_CONNECTION'),
+    ];
+
+    $_ENV['APP_ENV'] = 'production';
+    $_SERVER['APP_ENV'] = 'production';
+    putenv('APP_ENV=production');
+    putenv('DB_CONNECTION');
+    unset($_ENV['DB_CONNECTION'], $_SERVER['DB_CONNECTION']);
+    \Pinoox\Support\SystemConfig::clearCache();
+
+    $application = cliApplication([new DbListCommand()]);
+    $tester = new CommandTester($application->find('db:list'));
+
+    $status = $tester->execute([], ['interactive' => false]);
+
+    expect($status)->toBe(0)
+        ->and($tester->getDisplay())->toContain('Platform database connections')
+        ->and($tester->getDisplay())->toContain('devdb');
+
+    foreach ($previous as $key => $value) {
+        if ($value === false) {
+            putenv($key);
+            unset($_ENV[$key], $_SERVER[$key]);
+            continue;
+        }
+
+        $_ENV[$key] = (string) $value;
+        $_SERVER[$key] = (string) $value;
+        putenv($key . '=' . $value);
+    }
+
+    \Pinoox\Support\SystemConfig::clearCache();
+});
