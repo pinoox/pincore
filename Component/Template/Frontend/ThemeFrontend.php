@@ -112,6 +112,71 @@ class ThemeFrontend
         return $themes;
     }
 
+    public static function supportsViteDev(string $package, ?string $themeName = null): bool
+    {
+        if (!AppEngine::exists($package)) {
+            return false;
+        }
+
+        $themes = self::listThemeFolders($package);
+
+        if ($themes === []) {
+            return false;
+        }
+
+        if ($themeName === null || trim($themeName) === '') {
+            $defaultTheme = (string) AppEngine::config($package)->get('theme', 'default');
+            $themeName = isset($themes[$defaultTheme]) ? $defaultTheme : array_key_first($themes);
+        }
+
+        if (!is_string($themeName) || !isset($themes[$themeName])) {
+            return false;
+        }
+
+        $themePath = rtrim(str_replace('\\', '/', AppEngine::path($package) . '/theme/' . $themeName), '/');
+        $config = FrontendConfig::forThemePath($themePath);
+
+        if (!FrontendConfig::usesViteAssets($config)) {
+            return false;
+        }
+
+        $packageJson = $themePath . '/package.json';
+
+        if (!is_file($packageJson)) {
+            return false;
+        }
+
+        $data = json_decode((string) file_get_contents($packageJson), true);
+
+        if (!is_array($data)) {
+            return false;
+        }
+
+        $scripts = $data['scripts'] ?? [];
+
+        return isset($scripts['dev']) && trim((string) $scripts['dev']) !== '';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function packagesWithViteDev(): array
+    {
+        $packages = [];
+
+        foreach (AppEngine::all() as $package => $manager) {
+            if (!self::supportsViteDev($package)) {
+                continue;
+            }
+
+            $packages[] = $package;
+        }
+
+        sort($packages);
+
+        return $packages;
+    }
+
     /**
      * Find app packages that contain a theme folder with the given name.
      *

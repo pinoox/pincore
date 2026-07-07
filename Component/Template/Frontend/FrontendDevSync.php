@@ -579,6 +579,7 @@ final class FrontendDevSync
             'VITE_DEV_SERVER',
             'VITE_SERVER_URL',
             'VITE_SERVE_APP',
+            'VITE_DEV_STACK',
             'VITE_DEV_PROXY',
             'VITE_HOT_FILE',
         ];

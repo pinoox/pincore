@@ -42,7 +42,14 @@ class ThemeFrontendCommand extends Terminal
     /** @var list<string> */
     private const DEPRECATED_ACTIONS = ['dev-stack'];
 
+    private const VITE_HMR_AUTO = 'auto';
+
     private bool $platformServe = false;
+
+    private bool $devAppsAuto = false;
+
+    /** @var list<string> */
+    private array $devAppsAutoPackages = [];
 
     protected function configure(): void
     {
@@ -142,6 +149,8 @@ FOOTER
 
         $io = new SymfonyStyle($input, $output);
         $this->platformServe = false;
+        $this->devAppsAuto = false;
+        $this->devAppsAutoPackages = [];
 
         try {
             [$target, $action] = $this->parseArguments($input);
@@ -177,6 +186,16 @@ FOOTER
 
         $package = $resolved['package'];
         $themeName = $resolved['theme'];
+
+        if ($action === 'dev' && $this->devAppsAuto) {
+            try {
+                return $this->runDevApps($io, $input, $output, implode(',', $this->devAppsAutoPackages));
+            } catch (\Throwable $e) {
+                $io->error($e->getMessage());
+
+                return Command::FAILURE;
+            }
+        }
 
         $frontend = ThemeFrontend::forPackageAndTheme($package, $themeName);
         $frontend->setOutputWriter(static fn (string $buffer) => $output->write($buffer));
@@ -391,9 +410,23 @@ FOOTER
             $this->platformServe = true;
         }
 
-        $package = count($candidates) === 1
-            ? array_key_first($candidates)
-            : $this->resolvePackageFromCandidates($input, $output, $io, $candidates, [
+        if (strtolower($positional) === self::VITE_HMR_AUTO) {
+            return $this->resolveAutoViteDevTarget($input, $output, $io);
+        }
+
+        $appsOption = strtolower(trim((string) $input->getOption('apps')));
+
+        if ($appsOption === self::VITE_HMR_AUTO) {
+            return $this->resolveAutoViteDevTarget($input, $output, $io);
+        }
+
+        $viteCandidates = [
+            self::VITE_HMR_AUTO => 'All Vite apps (auto-detect HMR)',
+        ] + $candidates;
+
+        $selected = count($viteCandidates) === 1
+            ? array_key_first($viteCandidates)
+            : $this->resolvePackageFromCandidates($input, $output, $io, $viteCandidates, [
                 'sectionTitle' => 'Vite HMR for',
                 'emptyMessage' => 'No apps with frontend themes were found.',
                 'invalidMessage' => "Package '%s' was not found.",
@@ -401,7 +434,43 @@ FOOTER
                 'resolvedInput' => '',
             ]);
 
+        if ($selected === self::VITE_HMR_AUTO) {
+            return $this->resolveAutoViteDevTarget($input, $output, $io);
+        }
+
+        $package = $selected;
+
         $io->note('Platform serve: all apps available via the router (like `php pinoox serve`).');
+
+        return [
+            'package' => $package,
+            'theme' => $this->resolveThemeForPackage($input, $output, $io, $package, 'dev', ''),
+        ];
+    }
+
+    /**
+     * @return array{package: string, theme: string}
+     */
+    private function resolveAutoViteDevTarget(
+        InputInterface $input,
+        OutputInterface $output,
+        SymfonyStyle $io,
+    ): array {
+        $packages = ThemeFrontend::packagesWithViteDev();
+
+        if ($packages === []) {
+            throw new \RuntimeException('No apps with Vite HMR support were found.');
+        }
+
+        $this->devAppsAuto = true;
+        $this->devAppsAutoPackages = $packages;
+        $this->platformServe = true;
+
+        $package = $packages[0];
+        $io->note([
+            'Platform serve: all apps available via the router (like `php pinoox serve`).',
+            'Auto Vite HMR for: ' . implode(', ', $packages),
+        ]);
 
         return [
             'package' => $package,
@@ -715,9 +784,14 @@ FOOTER
 
         $vitePorts = FrontendDevStack::allocateVitePorts($targets);
         $sharedHost = is_string($serveHost) && trim($serveHost) !== '' ? trim($serveHost) : null;
-        $forceEnvKeys = FrontendDevSync::stackForceEnvKeys();
+        $forceEnvKeys = array_merge(FrontendDevSync::stackForceEnvKeys(), [
+            'VITE_DEV_STACK',
+            'VITE_SERVE_APP',
+            'VITE_DEV_QUIET',
+        ]);
         $viteOpts = $this->resolveViteDevOptions($input, $targets[0]['config'] ?? []);
         $networkServeHost = $this->isNetworkMode($input) ? '0.0.0.0' : ($sharedHost !== '' ? $sharedHost : null);
+        $quietStack = $this->devAppsAuto || count($packages) > 1;
 
         foreach ($targets as $index => $target) {
             $frontend = ThemeFrontend::forPackageAndTheme($target['package'], $target['theme']);
@@ -733,24 +807,25 @@ FOOTER
                 $target['config'],
                 $networkServeHost,
                 $servePort,
-                null,
+                FrontendDevSession::SERVE_PLATFORM,
                 false,
                 $vitePorts[$index],
                 $viteOpts['host'],
-                $viteOpts['quiet'],
+                true,
             );
 
             $frontend->setDevSession($session);
             $sync = $frontend->syncDev();
-            $this->renderDevDiagnostics($io, $frontend, $sync);
+
+            if (!$quietStack) {
+                $this->renderDevDiagnostics($io, $frontend, $sync);
+            }
 
             $frontends[] = $frontend;
             $sessions[] = $session;
         }
 
-        $io->section('Starting frontend dev:apps');
-
-        if ($this->isNetworkMode($input)) {
+        if ($quietStack && $this->isNetworkMode($input)) {
             $this->renderNetworkDevNote($io, $sessions[0]);
         }
 
@@ -773,6 +848,10 @@ FOOTER
         $appsOption = trim((string) $input->getOption('apps'));
 
         if ($appsOption !== '') {
+            if (strtolower($appsOption) === self::VITE_HMR_AUTO) {
+                return ThemeFrontend::packagesWithViteDev();
+            }
+
             return $this->resolveDevAppsPackageList($this->parsePackageList($appsOption));
         }
 
@@ -844,10 +923,11 @@ FOOTER
             '  • numbers: <info>1,7</info>',
             '  • package names: <info>com_pinoox_manager,com_pinoox_welcome</info>',
             '  • all apps: <info>all</info>',
+            '  • Vite HMR auto-detect: <info>auto</info>',
         ]);
 
         $question = new Question('Select packages: ');
-        $question->setAutocompleterValues(array_merge(['all'], $packages));
+        $question->setAutocompleterValues(array_merge(['all', self::VITE_HMR_AUTO], $packages));
         $question->setValidator(function (mixed $answer) use ($packages): array {
             return $this->parseDevAppsSelection((string) $answer, $packages);
         });
@@ -870,6 +950,16 @@ FOOTER
 
         if (strtolower($raw) === 'all') {
             return $packages;
+        }
+
+        if (strtolower($raw) === self::VITE_HMR_AUTO) {
+            $auto = ThemeFrontend::packagesWithViteDev();
+
+            if ($auto === []) {
+                throw new \RuntimeException('No apps with Vite HMR support were found.');
+            }
+
+            return $auto;
         }
 
         $tokens = preg_split('/\s*,\s*/', $raw) ?: [];

@@ -52,7 +52,7 @@ final class FrontendDevSession
         $vitePort = $vitePort ?? FrontendConfig::devPort($config);
         $viteHost = $viteHost ?? FrontendConfig::devHost($config);
         $viteQuiet = $viteQuiet ?? FrontendConfig::devQuiet($config);
-        $bindingInput = $withServe ? trim((string) ($serveAppBinding ?? $package)) : '';
+        $bindingInput = trim((string) ($serveAppBinding ?? ($withServe ? $package : '')));
         $platformServe = $bindingInput === self::SERVE_PLATFORM;
         $locked = $withServe && !$platformServe && $bindingInput !== '';
         $binding = $locked ? $bindingInput : '';
@@ -106,12 +106,31 @@ final class FrontendDevSession
 
     public function localPhpAppUrl(): string
     {
-        $parsed = parse_url($this->phpAppUrl);
+        $parsed = parse_url($this->displayAppUrl());
         $path = $parsed['path'] ?? '';
         $query = isset($parsed['query']) ? '?' . $parsed['query'] : '';
         $fragment = isset($parsed['fragment']) ? '#' . $parsed['fragment'] : '';
 
         return 'http://127.0.0.1:' . $this->servePort . $path . $query . $fragment;
+    }
+
+    public function displayAppUrl(): string
+    {
+        $origin = rtrim($this->phpOrigin(), '/');
+        $url = rtrim($this->phpAppUrl, '/');
+
+        if ($url !== $origin) {
+            return $this->phpAppUrl;
+        }
+
+        return self::resolvePublicAppUrl($this->package, $this->serveHost, $this->servePort);
+    }
+
+    public static function resolvePublicAppUrl(string $package, string $serveHost, int $servePort): string
+    {
+        $origin = rtrim('http://' . self::publicHostForUrl($serveHost) . ':' . $servePort, '/');
+
+        return self::resolveRouterAppUrl($package, $origin);
     }
 
     public function serveAppLabel(): string
@@ -282,10 +301,31 @@ final class FrontendDevSession
             // fall through
         }
 
+        try {
+            $routes = \Pinoox\Portal\App\AppRouter::routes();
+            $resolved = ServeAppBinding::resolveBinding($package, $routes);
+
+            if ($resolved !== null) {
+                $path = $resolved['path'];
+
+                return rtrim($origin, '/') . ($path === '/' ? '' : $path);
+            }
+        } catch (\Throwable) {
+            // fall through
+        }
+
         $paths = self::mountPathsForPackage($package);
 
         if ($paths !== []) {
             return rtrim($origin, '/') . $paths[0];
+        }
+
+        if (PackageName::looksLike($package)) {
+            $short = PackageName::shortLabel($package);
+
+            if ($short !== '' && $short !== 'app') {
+                return rtrim($origin, '/') . '/' . $short;
+            }
         }
 
         return rtrim($origin, '/');

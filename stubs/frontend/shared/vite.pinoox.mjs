@@ -154,6 +154,10 @@ function resolveLocalAppUrl(appUrl) {
 }
 
 function printPinooxDevBanner(env = {}, port = 5173) {
+    if ((env.VITE_DEV_STACK || process.env.VITE_DEV_STACK) === 'true') {
+        return;
+    }
+
     const appUrl = env.VITE_SERVER_URL || process.env.VITE_SERVER_URL;
 
     if (!appUrl) {
