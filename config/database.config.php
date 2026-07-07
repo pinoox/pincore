@@ -1,6 +1,7 @@
 <?php
 
 use Pinoox\Component\Database\DatabaseManager;
+use Pinoox\Component\Runtime\RuntimeMode;
 use Pinoox\Support\SystemConfig;
 
 /*
@@ -8,6 +9,7 @@ use Pinoox\Support\SystemConfig;
 | Redis connections: see redis.config.php (same env keys as Laravel).
 |
 | Switch driver: DB_CONNECTION=auto|devdb|mysql|mariadb|pgsql|sqlsrv|sqlite
+| Development and test without DB_CONNECTION: default to devdb.
 | Shared credentials: DB_HOST, DB_PORT, DB_DATABASE, DB_USERNAME, DB_PASSWORD, …
 */
 
@@ -23,7 +25,10 @@ return [
     | Default connection
     |--------------------------------------------------------------------------
     */
-    'default' => env('DB_CONNECTION', 'mysql'),
+    'default' => env('DB_CONNECTION', match (RuntimeMode::fromEnv()) {
+        RuntimeMode::DEVELOPMENT, RuntimeMode::TEST => 'devdb',
+        default => 'mysql',
+    }),
 
     /*
     |--------------------------------------------------------------------------

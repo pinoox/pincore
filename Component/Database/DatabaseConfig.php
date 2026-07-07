@@ -60,8 +60,8 @@ final class DatabaseConfig
             $appEnv = RuntimeMode::normalize($appEnv);
         }
 
-        if ($appEnv === RuntimeMode::TEST) {
-            return self::TEST_CONNECTION;
+        if (in_array($appEnv, [RuntimeMode::TEST, RuntimeMode::DEVELOPMENT], true)) {
+            return self::DEVDB_CONNECTION;
         }
 
         $root = SystemConfig::get('database');
@@ -248,9 +248,10 @@ final class DatabaseConfig
 
     private static function connectionNameFromEnvOrDefault(string $appEnv): string
     {
-        return RuntimeMode::normalize($appEnv) === RuntimeMode::TEST
-            ? self::TEST_CONNECTION
-            : self::DEFAULT_CONNECTION;
+        return match (RuntimeMode::normalize($appEnv)) {
+            RuntimeMode::TEST, RuntimeMode::DEVELOPMENT => self::DEVDB_CONNECTION,
+            default => self::DEFAULT_CONNECTION,
+        };
     }
 
     /**

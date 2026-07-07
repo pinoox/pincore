@@ -159,6 +159,68 @@ it('supports Pinoox models, DB app tables, relations, pagination, and factories'
         ->and(is_file($path . '/meta/indexes.json'))->toBeTrue();
 });
 
+it('defaults development to DevDB when DB_CONNECTION is unset', function () {
+    $previous = [
+        'APP_ENV' => getenv('APP_ENV'),
+        'DB_CONNECTION' => getenv('DB_CONNECTION'),
+    ];
+
+    $_ENV['APP_ENV'] = 'development';
+    $_SERVER['APP_ENV'] = 'development';
+    putenv('APP_ENV=development');
+    putenv('DB_CONNECTION');
+    unset($_ENV['DB_CONNECTION'], $_SERVER['DB_CONNECTION']);
+    \Pinoox\Support\SystemConfig::clearCache();
+
+    expect(DatabaseConfig::requestedConnectionName())->toBe('devdb')
+        ->and(DatabaseConfig::connectionName())->toBe('devdb');
+
+    foreach ($previous as $key => $value) {
+        if ($value === false) {
+            putenv($key);
+            unset($_ENV[$key], $_SERVER[$key]);
+            continue;
+        }
+
+        $_ENV[$key] = (string) $value;
+        $_SERVER[$key] = (string) $value;
+        putenv($key . '=' . $value);
+    }
+
+    \Pinoox\Support\SystemConfig::clearCache();
+});
+
+it('defaults test to DevDB when DB_CONNECTION is unset', function () {
+    $previous = [
+        'APP_ENV' => getenv('APP_ENV'),
+        'DB_CONNECTION' => getenv('DB_CONNECTION'),
+    ];
+
+    $_ENV['APP_ENV'] = 'test';
+    $_SERVER['APP_ENV'] = 'test';
+    putenv('APP_ENV=test');
+    putenv('DB_CONNECTION');
+    unset($_ENV['DB_CONNECTION'], $_SERVER['DB_CONNECTION']);
+    \Pinoox\Support\SystemConfig::clearCache();
+
+    expect(DatabaseConfig::requestedConnectionName())->toBe('devdb')
+        ->and(DatabaseConfig::connectionName())->toBe('devdb');
+
+    foreach ($previous as $key => $value) {
+        if ($value === false) {
+            putenv($key);
+            unset($_ENV[$key], $_SERVER[$key]);
+            continue;
+        }
+
+        $_ENV[$key] = (string) $value;
+        $_SERVER[$key] = (string) $value;
+        putenv($key . '=' . $value);
+    }
+
+    \Pinoox\Support\SystemConfig::clearCache();
+});
+
 it('resolves auto to DevDB only in local mode and rejects production fallback', function () {
     $previous = [
         'APP_ENV' => getenv('APP_ENV'),
