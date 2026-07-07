@@ -28,7 +28,9 @@ class SystemConfig
         'system_router' => 'project_router',
         'system_lang' => 'platform_lang',
         'system_migrations' => 'platform_migrations',
-        'system_seed' => 'platform_seed',
+        'system_seed' => 'platform_seeders',
+        'platform_seed' => 'platform_seeders',
+        'app_seed' => 'app_seeders',
         'system_patches' => 'platform_patches',
         'system_models' => 'platform_models',
     ];
@@ -93,8 +95,10 @@ class SystemConfig
             'project_pinoox' => 'PINOOX_PROJECT_PINOOX_PATH',
             'project_pincore' => 'PINOOX_PROJECT_PINCORE_PATH',
             'platform_lang' => 'PINOOX_PLATFORM_LANG_PATH',
+            'platform_database' => 'PINOOX_PLATFORM_DATABASE_PATH',
             'platform_migrations' => 'PINOOX_PLATFORM_MIGRATIONS_PATH',
-            'platform_seed' => 'PINOOX_PLATFORM_SEED_PATH',
+            'platform_seeders' => 'PINOOX_PLATFORM_SEEDERS_PATH',
+            'platform_factories' => 'PINOOX_PLATFORM_FACTORIES_PATH',
             'platform_patches' => 'PINOOX_PLATFORM_PATCHES_PATH',
             'platform_models' => 'PINOOX_PLATFORM_MODELS_PATH',
             'stubs' => 'PINOOX_STUBS_PATH',
@@ -114,7 +118,7 @@ class SystemConfig
         $canonical = match ($resource) {
             'migrations' => self::path('platform_migrations'),
             'patches' => self::path('platform_patches'),
-            'seed' => self::path('platform_seed'),
+            'seed' => self::path('platform_seeders'),
             default => throw new \InvalidArgumentException('Unknown platform resource: ' . $resource),
         };
 
@@ -151,7 +155,7 @@ class SystemConfig
                 $root . '/system/patches',
             ],
             'seed' => [
-                self::path('platform_seed'),
+                self::path('platform_seeders'),
                 $core . '/database/seeders',
                 $root . '/vendor/pinoox/pincore/database/seeders',
                 $root . '/pincore/database/seeders',

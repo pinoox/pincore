@@ -25,15 +25,23 @@ return [
     'project_pincore' => env('PINOOX_PROJECT_PINCORE_PATH', '~pincore/config/pincore.config.php'),
 
     'platform_lang' => env('PINOOX_PLATFORM_LANG_PATH', '~pincore/lang'),
+
+    'platform_database' => env('PINOOX_PLATFORM_DATABASE_PATH', '~pincore/database'),
     'platform_migrations' => env('PINOOX_PLATFORM_MIGRATIONS_PATH', '~pincore/database/migrations'),
-    'platform_seed' => env('PINOOX_PLATFORM_SEED_PATH', '~pincore/database/seed'),
+    'platform_seeders' => env('PINOOX_PLATFORM_SEEDERS_PATH','~pincore/database/seeders'),
+    'platform_factories' => env('PINOOX_PLATFORM_FACTORIES_PATH', '~pincore/database/factories'),
+
     'platform_patches' => env('PINOOX_PLATFORM_PATCHES_PATH', '~pincore/patches'),
     'platform_models' => env('PINOOX_PLATFORM_MODELS_PATH', '~pincore/Model'),
 
     'stubs' => env('PINOOX_STUBS_PATH', '~pincore/stubs'),
     'app_file' => env('PINOOX_APP_FILE', 'app.php'),
+
+    'app_database' => env('PINOOX_APP_DATABASE_PATH', 'database'),
     'app_migrations' => env('PINOOX_APP_MIGRATIONS_PATH', 'database/migrations'),
-    'app_seed' => env('PINOOX_APP_SEED_PATH', 'database/seed'),
+    'app_seeders' => env('PINOOX_APP_SEEDERS_PATH', 'database/seeders'),
+    'app_factories' => env('PINOOX_APP_FACTORIES_PATH', 'database/factories'),
+
     'app_patches' => env('PINOOX_APP_PATCHES_PATH', 'patches'),
     'app_lang' => env('PINOOX_APP_LANG_PATH', 'lang'),
     'app_config' => env('PINOOX_APP_CONFIG_PATH', 'config'),
