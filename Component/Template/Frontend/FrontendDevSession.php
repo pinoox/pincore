@@ -11,6 +11,8 @@ use Pinoox\Component\Server\ServeAppBinding;
  */
 final class FrontendDevSession
 {
+    public const SERVE_PLATFORM = 'platform';
+
     public function __construct(
         public readonly string $package,
         public readonly string $serveHost,
@@ -23,6 +25,7 @@ final class FrontendDevSession
         public readonly array $proxyPrefixes,
         public readonly string $viteHost = '127.0.0.1',
         public readonly bool $viteQuiet = true,
+        public readonly bool $platformServe = false,
     ) {
     }
 
@@ -49,8 +52,10 @@ final class FrontendDevSession
         $vitePort = $vitePort ?? FrontendConfig::devPort($config);
         $viteHost = $viteHost ?? FrontendConfig::devHost($config);
         $viteQuiet = $viteQuiet ?? FrontendConfig::devQuiet($config);
-        $binding = $withServe ? trim((string) ($serveAppBinding ?? $package)) : '';
-        $locked = $withServe && $binding !== '';
+        $bindingInput = $withServe ? trim((string) ($serveAppBinding ?? $package)) : '';
+        $platformServe = $bindingInput === self::SERVE_PLATFORM;
+        $locked = $withServe && !$platformServe && $bindingInput !== '';
+        $binding = $locked ? $bindingInput : '';
 
         [$appUrl, $prefixes] = self::resolveAppUrlAndProxy($package, $host, $port, $locked, $binding);
         [$appUrl, $prefixes] = self::applyConfigOverrides($appUrl, $prefixes, $config);
@@ -66,6 +71,7 @@ final class FrontendDevSession
             $prefixes,
             $viteHost,
             $viteQuiet,
+            $platformServe,
         );
     }
 
@@ -98,8 +104,30 @@ final class FrontendDevSession
         return $this->serveHost;
     }
 
+    public function localPhpAppUrl(): string
+    {
+        $parsed = parse_url($this->phpAppUrl);
+        $path = $parsed['path'] ?? '';
+        $query = isset($parsed['query']) ? '?' . $parsed['query'] : '';
+        $fragment = isset($parsed['fragment']) ? '#' . $parsed['fragment'] : '';
+
+        return 'http://127.0.0.1:' . $this->servePort . $path . $query . $fragment;
+    }
+
+    public function serveAppLabel(): string
+    {
+        if ($this->platformServe) {
+            return self::SERVE_PLATFORM;
+        }
+
+        if ($this->serveAppLocked) {
+            return $this->serveAppBinding ?? $this->package;
+        }
+
+        return $this->package;
+    }
+
     /**
-     * @param array<string, string> $themeEnv parsed theme `.env` (manual values win over auto)
      * @param list<string>          $forceKeys  auto values that override theme `.env`
      *
      * @return array<string, string>
@@ -114,6 +142,7 @@ final class FrontendDevSession
             'VITE_DEV_QUIET' => $this->viteQuiet ? 'true' : 'false',
             'VITE_DEV_SERVER' => $this->viteDevServerUrl(),
             'VITE_SERVER_URL' => $this->phpAppUrl,
+            'VITE_SERVE_APP' => $this->serveAppLabel(),
             'VITE_DEV' => 'true',
             'VITE_DEV_FORCE' => 'false',
         ];
@@ -148,7 +177,12 @@ final class FrontendDevSession
             ['level' => 'info', 'message' => 'Hot file: dist/hot (written when Vite starts)'],
         ];
 
-        if ($this->serveAppLocked) {
+        if ($this->platformServe) {
+            $lines[] = [
+                'level' => 'info',
+                'message' => 'Pinoox serve: platform (all apps) at ' . $this->phpOrigin(),
+            ];
+        } elseif ($this->serveAppLocked) {
             $lines[] = [
                 'level' => 'info',
                 'message' => 'Pinoox serve locked to ' . ($this->serveAppBinding ?? $this->package) . ' at ' . $this->phpOrigin(),

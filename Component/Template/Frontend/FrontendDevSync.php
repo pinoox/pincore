@@ -381,6 +381,7 @@ final class FrontendDevSync
             '# Regenerated on each `' . ProjectCli::autoFormat('fe dev') . '` run.',
             'VITE_HOT_FILE=' . FrontendConfig::hotRelativePath($config),
             'VITE_SERVER_URL=' . $session->phpAppUrl,
+            'VITE_SERVE_APP=' . $session->serveAppLabel(),
             'VITE_DEV_PORT=' . $session->vitePort,
             'VITE_DEV_SERVER=' . $session->viteDevServerUrl(),
         ];
@@ -577,6 +578,7 @@ final class FrontendDevSync
             'VITE_DEV_NETWORK',
             'VITE_DEV_SERVER',
             'VITE_SERVER_URL',
+            'VITE_SERVE_APP',
             'VITE_DEV_PROXY',
             'VITE_HOT_FILE',
         ];

@@ -149,6 +149,31 @@ test('FrontendDevSync accepts custom env file name', function () {
         ->and(FrontendDevSync::normalizeEnvFile('.env.local'))->toBe('.env.local');
 });
 
+test('FrontendDevSession platform serve unlocks router and labels serve app', function () {
+    $themePath = frontendDevSyncThemeDir();
+    $GLOBALS['__frontendDevSyncThemePath'] = $themePath;
+
+    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue'];\n");
+
+    $config = FrontendConfig::forThemePath($themePath);
+    $session = FrontendDevSession::fromOptions(
+        'com_pinoox_manager',
+        $config,
+        '127.0.0.1',
+        8000,
+        FrontendDevSession::SERVE_PLATFORM,
+        true,
+    );
+
+    expect($session->platformServe)->toBeTrue()
+        ->and($session->serveAppLocked)->toBeFalse()
+        ->and($session->serveAppLabel())->toBe('platform');
+
+    $npmEnv = $session->npmEnvironment($config, [], $themePath);
+
+    expect($npmEnv['VITE_SERVE_APP'])->toBe('platform');
+});
+
 test('FrontendDevSession npmEnvironment respects theme env values over auto resolution', function () {
     $themePath = frontendDevSyncThemeDir();
     $GLOBALS['__frontendDevSyncThemePath'] = $themePath;

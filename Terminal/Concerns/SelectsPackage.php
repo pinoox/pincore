@@ -295,7 +295,11 @@ trait SelectsPackage
         $emptyMessage = (string) ($config['emptyMessage'] ?? 'No matching packages found.');
         $invalidMessage = (string) ($config['invalidMessage'] ?? "Package '%s' was not found.");
 
-        $package = $this->readPackageInput($input, $argument, $optionNames);
+        if (array_key_exists('resolvedInput', $config)) {
+            $package = (string) $config['resolvedInput'];
+        } else {
+            $package = $this->readPackageInput($input, $argument, $optionNames);
+        }
 
         if ($package !== '') {
             if (!isset($candidates[$package])) {

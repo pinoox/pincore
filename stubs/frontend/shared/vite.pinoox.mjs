@@ -142,6 +142,17 @@ function createPinooxViteLogger(env = {}, options = {}) {
     return logger;
 }
 
+function resolveLocalAppUrl(appUrl) {
+    try {
+        const url = new URL(appUrl);
+        url.hostname = '127.0.0.1';
+
+        return url.toString();
+    } catch {
+        return appUrl;
+    }
+}
+
 function printPinooxDevBanner(env = {}, port = 5173) {
     const appUrl = env.VITE_SERVER_URL || process.env.VITE_SERVER_URL;
 
@@ -150,6 +161,7 @@ function printPinooxDevBanner(env = {}, port = 5173) {
     }
 
     const network = (env.VITE_DEV_NETWORK || process.env.VITE_DEV_NETWORK) === 'true';
+    const serveApp = env.VITE_SERVE_APP || process.env.VITE_SERVE_APP;
     const host = resolveViteHost(env);
     let hmrHost = host === true || host === '0.0.0.0' ? '127.0.0.1' : (host || '127.0.0.1');
 
@@ -164,7 +176,12 @@ function printPinooxDevBanner(env = {}, port = 5173) {
     console.log('');
     console.log('  \x1b[32m\x1b[1m➜\x1b[0m  \x1b[36m\x1b[1mOpen app\x1b[0m  ' + appUrl);
 
+    if (serveApp) {
+        console.log('  \x1b[90mServe App\x1b[0m     ' + serveApp);
+    }
+
     if (network) {
+        console.log('  \x1b[90mLocal\x1b[0m         ' + resolveLocalAppUrl(appUrl));
         console.log('  \x1b[90mLAN\x1b[0m           same URL on phone/tablet (same Wi‑Fi)');
     }
 

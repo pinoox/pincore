@@ -42,6 +42,8 @@ class ThemeFrontendCommand extends Terminal
     /** @var list<string> */
     private const DEPRECATED_ACTIONS = ['dev-stack'];
 
+    private bool $platformServe = false;
+
     protected function configure(): void
     {
         $serve = ProjectCli::platformFormat('serve');
@@ -123,7 +125,7 @@ FOOTER
             ->addOption('no-install', null, InputOption::VALUE_NONE, 'Skip npm install (default for build/dev/run)')
             ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start ' . ProjectCli::platformFormat('serve') . ' alongside dev')
             ->addOption('apps', null, InputOption::VALUE_REQUIRED, 'Comma-separated package names for dev:apps (e.g. com_pinoox_manager,com_pinoox_welcome)')
-            ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for the dev server (defaults to the resolved package)')
+            ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for the dev server (defaults to the resolved package; use "platform" for full router)')
             ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_HOST or 127.0.0.1)')
             ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_PORT or 8000)')
             ->addOption('network', 'N', InputOption::VALUE_NONE, 'Serve PHP app + Vite on LAN (0.0.0.0, shows your network IP)')
@@ -139,6 +141,7 @@ FOOTER
         parent::execute($input, $output);
 
         $io = new SymfonyStyle($input, $output);
+        $this->platformServe = false;
 
         try {
             [$target, $action] = $this->parseArguments($input);
@@ -289,12 +292,17 @@ FOOTER
             return $this->resolveByThemeName($input, $output, $io, $themeName);
         }
 
+        if ($action === 'dev') {
+            return $this->resolveDevTarget($input, $output, $io, $targetInput);
+        }
+
         $candidates = $this->frontendPackageCandidates();
 
         $package = $candidates !== []
             ? $this->resolvePackageFromCandidates($input, $output, $io, $candidates, [
                 'sectionTitle' => 'Apps with frontend themes',
-                'emptyMessage' => 'No apps with theme folders were found.',
+                'emptyMessage' => 'No apps with frontend themes were found.',
+                'resolvedInput' => $positional,
             ])
             : $this->resolvePackageRequired($input, $output, $io, [
                 'sectionTitle' => 'Theme frontend for',
@@ -304,6 +312,100 @@ FOOTER
         return [
             'package' => $package,
             'theme' => $this->resolveThemeForPackage($input, $output, $io, $package, $action, ''),
+        ];
+    }
+
+    /**
+     * @return array{package: string, theme: string}
+     */
+    private function resolveDevTarget(
+        InputInterface $input,
+        OutputInterface $output,
+        SymfonyStyle $io,
+        string $targetInput = '',
+    ): array {
+        $rawTarget = strtolower(trim((string) $input->getArgument('target')));
+
+        if ($targetInput !== '') {
+            $positional = $this->normalizePackageInput($targetInput);
+        } elseif ($rawTarget !== '' && in_array($rawTarget, self::ACTIONS, true)) {
+            $positional = '';
+        } else {
+            $positional = $this->readPackageInput($input, 'target', ['package', 'app']);
+        }
+
+        if (strtolower($positional) === FrontendDevSession::SERVE_PLATFORM) {
+            $this->platformServe = true;
+            $positional = '';
+        }
+
+        $themeOption = $this->readThemeInput($input);
+        $candidates = $this->frontendPackageCandidates();
+
+        if ($positional !== '' && AppEngine::exists($positional)) {
+            return [
+                'package' => $positional,
+                'theme' => $this->resolveThemeForPackage($input, $output, $io, $positional, 'dev', $themeOption),
+            ];
+        }
+
+        $themeName = $themeOption !== '' ? $themeOption : $positional;
+
+        if ($themeName !== '') {
+            return $this->resolveByThemeName($input, $output, $io, $themeName);
+        }
+
+        if ($candidates === []) {
+            throw new \RuntimeException('No apps with frontend themes were found.');
+        }
+
+        if (!$this->platformServe) {
+            $devCandidates = [
+                FrontendDevSession::SERVE_PLATFORM => 'All apps (platform router)',
+            ] + $candidates;
+
+            if (!$input->isInteractive() && $positional === '') {
+                throw new \RuntimeException('Dev target is required in non-interactive mode.');
+            }
+
+            if (count($devCandidates) === 1) {
+                $selected = array_key_first($devCandidates);
+                $io->note('Using the only available dev target: ' . $selected);
+            } else {
+                $selected = $this->resolvePackageFromCandidates($input, $output, $io, $devCandidates, [
+                    'sectionTitle' => 'Frontend dev for',
+                    'emptyMessage' => 'No apps with frontend themes were found.',
+                    'invalidMessage' => "Dev target '%s' was not found.",
+                    'argument' => 'target',
+                    'resolvedInput' => $positional,
+                ]);
+            }
+
+            if ($selected !== FrontendDevSession::SERVE_PLATFORM) {
+                return [
+                    'package' => $selected,
+                    'theme' => $this->resolveThemeForPackage($input, $output, $io, $selected, 'dev', ''),
+                ];
+            }
+
+            $this->platformServe = true;
+        }
+
+        $package = count($candidates) === 1
+            ? array_key_first($candidates)
+            : $this->resolvePackageFromCandidates($input, $output, $io, $candidates, [
+                'sectionTitle' => 'Vite HMR for',
+                'emptyMessage' => 'No apps with frontend themes were found.',
+                'invalidMessage' => "Package '%s' was not found.",
+                'argument' => 'target',
+                'resolvedInput' => '',
+            ]);
+
+        $io->note('Platform serve: all apps available via the router (like `php pinoox serve`).');
+
+        return [
+            'package' => $package,
+            'theme' => $this->resolveThemeForPackage($input, $output, $io, $package, 'dev', ''),
         ];
     }
 
@@ -508,7 +610,12 @@ FOOTER
         $servePort = $servePortOption !== null && $servePortOption !== ''
             ? (int) $servePortOption
             : null;
-        $serveApp = trim((string) ($input->getOption('serve-app') ?: $package));
+        $explicitServeApp = trim((string) $input->getOption('serve-app'));
+        $platformServe = $this->platformServe
+            || strtolower($explicitServeApp) === FrontendDevSession::SERVE_PLATFORM;
+        $serveApp = $platformServe
+            ? FrontendDevSession::SERVE_PLATFORM
+            : ($explicitServeApp !== '' ? $explicitServeApp : $package);
 
         $viteOpts = $this->resolveViteDevOptions($input, $frontend->config());
 
@@ -542,7 +649,7 @@ FOOTER
 
         if ($withServe) {
             try {
-                $serveProcess = $this->startServeProcess($package, $input, $output, $io);
+                $serveProcess = $this->startServeProcess($package, $input, $output, $io, $platformServe, $serveApp);
             } catch (\Throwable $e) {
                 $io->error('Could not start Pinoox server: ' . $e->getMessage());
 
@@ -916,9 +1023,10 @@ FOOTER
         $lan = FrontendDevSession::detectLanIp();
         $io->note([
             'Network mode: PHP + Vite listen on 0.0.0.0.',
+            'Local: ' . $session->localPhpAppUrl(),
             $lan !== null
-                ? 'Other devices: ' . $session->phpAppUrl . ' (LAN IP ' . $lan . ')'
-                : 'Other devices: open ' . $session->phpAppUrl . ' using this PC\'s LAN IP.',
+                ? 'LAN: ' . $session->phpAppUrl . ' (IP ' . $lan . ')'
+                : 'LAN: open ' . $session->phpAppUrl . ' using this PC\'s network IP.',
             'Allow ports ' . $session->servePort . ' and Vite in Windows Firewall if needed.',
         ]);
     }
@@ -969,15 +1077,20 @@ FOOTER
         InputInterface $input,
         OutputInterface $output,
         SymfonyStyle $io,
+        bool $platformServe = false,
+        ?string $serveApp = null,
     ): Process {
         $basePath = ProjectCli::root();
-        $serveApp = trim((string) ($input->getOption('serve-app') ?: $package));
+        $serveApp = trim((string) ($serveApp ?? $input->getOption('serve-app') ?: $package));
 
         $command = ProjectCli::processCommand([
             'serve',
-            '--app=' . $serveApp,
             '--no-reload',
         ], $basePath);
+
+        if (!$platformServe) {
+            $command[] = '--app=' . $serveApp;
+        }
 
         $serveHost = $this->resolveServeHost($input);
         if (is_string($serveHost) && trim($serveHost) !== '') {
@@ -992,7 +1105,10 @@ FOOTER
         $process = new Process($command, $basePath, null, null, null);
         $process->setTimeout(null);
 
-        $io->writeln('<info>Starting Pinoox server</info> <fg=gray>(' . ProjectCli::platformFormat('serve --app=' . $serveApp, $basePath) . ')</>');
+        $serveLabel = $platformServe
+            ? 'serve (platform)'
+            : 'serve --app=' . $serveApp;
+        $io->writeln('<info>Starting Pinoox server</info> <fg=gray>(' . ProjectCli::platformFormat($serveLabel, $basePath) . ')</>');
 
         $process->start(function (string $type, string $buffer) use ($output): void {
             foreach (preg_split("/\r\n|\n|\r/", $buffer) ?: [] as $line) {
