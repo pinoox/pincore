@@ -4,6 +4,7 @@ namespace Pinoox\Terminal\Serve;
 
 use Pinoox\Component\Package\Routing\AppRouteMatcher;
 use Pinoox\Component\Server\DevelopmentServer;
+use Pinoox\Component\Server\ServerPort;
 use Pinoox\Component\Server\ServeAppBinding;
 use Pinoox\Component\Terminal;
 use Pinoox\Portal\App\AppEngine;
@@ -31,7 +32,8 @@ class ServeCommand extends Terminal
                     'serve',
                     'serve --port=8080',
                     'serve --host=0.0.0.0 --port=9000',
-                    'serve --app=com_pinoox_manager',
+                    'serve -N',
+                    'serve --network --app=com_pinoox_manager',
                     'serve --app=/manager',
                     'serve --app=manager',
                     'serve --app=com_pinoox_manager@/manager',
@@ -47,8 +49,9 @@ The server uses platform/launcher/server.php (or legacy launcher/server.php) as 
 With --app, Pinoox skips app-router matching and always boots the selected app.
 FOOTER
             ))
-            ->addOption('host', null, InputOption::VALUE_OPTIONAL, 'Host address (default from SERVER_HOST or 127.0.0.1)')
-            ->addOption('port', null, InputOption::VALUE_OPTIONAL, 'Port number (default from SERVER_PORT or 8000)')
+            ->addOption('host', null, InputOption::VALUE_OPTIONAL, 'Host address (default from SERVER_HOST or 127.0.0.1; use --network for 0.0.0.0)')
+            ->addOption('port', null, InputOption::VALUE_OPTIONAL, 'Port number (default from SERVER_PORT or 8000; auto-picks next free port when busy)')
+            ->addOption('network', 'N', InputOption::VALUE_NONE, 'Listen on 0.0.0.0 and show LAN URL for other devices on your network')
             ->addOption('app', null, InputOption::VALUE_REQUIRED, 'Lock to one app (package, route path, alias, or package@path)')
             ->addOption('tries', null, InputOption::VALUE_OPTIONAL, 'How many ports to try if the default is busy', 10)
             ->addOption('no-reload', null, InputOption::VALUE_NONE, 'Do not restart when .env changes')
@@ -60,7 +63,7 @@ FOOTER
         parent::execute($input, $output);
 
         $io = new SymfonyStyle($input, $output);
-        $host = $this->resolveHost((string) ($input->getOption('host') ?: _env('SERVER_HOST', '127.0.0.1')));
+        $host = $this->resolveServeHost($input);
         $portOption = $input->getOption('port');
         $explicitPort = ($portOption !== null && $portOption !== '')
             ? $this->normalizePort($portOption)
@@ -86,9 +89,29 @@ FOOTER
             return Command::FAILURE;
         }
 
+        try {
+            $resolvedPort = ServerPort::resolve($explicitPort, $host, null, $tries);
+        } catch (\RuntimeException $e) {
+            $io->error($e->getMessage());
+
+            return Command::FAILURE;
+        }
+
+        if ($explicitPort === null && $resolvedPort !== ServerPort::preferredServePort()) {
+            $io->note(sprintf(
+                'Port %d is in use — using %d.',
+                ServerPort::preferredServePort(),
+                $resolvedPort,
+            ));
+        }
+
+        if ($this->isNetworkMode($input)) {
+            $io->note('Network mode: server listens on 0.0.0.0. Allow the port in Windows Firewall if needed.');
+        }
+
         $server = new DevelopmentServer(
             host: $host,
-            explicitPort: $explicitPort,
+            explicitPort: $resolvedPort,
             maxTries: $tries,
             noReload: (bool) $input->getOption('no-reload'),
             documentRoot: $documentRoot,
@@ -152,6 +175,30 @@ FOOTER
         $io->writeln('<info>Serve app:</info> ' . $resolved['package'] . ' <fg=gray>(mount ' . $mount . ', router bypassed)</>');
 
         return $resolved;
+    }
+
+    private function resolveServeHost(InputInterface $input): string
+    {
+        $hostOption = $input->getOption('host');
+
+        if ($this->isNetworkMode($input)) {
+            if (is_string($hostOption) && trim($hostOption) !== '' && trim($hostOption) !== '127.0.0.1') {
+                return $this->resolveHost(trim($hostOption));
+            }
+
+            return '0.0.0.0';
+        }
+
+        if (is_string($hostOption) && trim($hostOption) !== '') {
+            return $this->resolveHost(trim($hostOption));
+        }
+
+        return $this->resolveHost((string) _env('SERVER_HOST', '127.0.0.1'));
+    }
+
+    private function isNetworkMode(InputInterface $input): bool
+    {
+        return (bool) $input->getOption('network');
     }
 
     private function resolveHost(string $host): string

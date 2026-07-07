@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Server;
 
+use Pinoox\Component\Template\Frontend\FrontendDevSession;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
 
@@ -236,11 +237,7 @@ class DevelopmentServer
                 if (!$this->bannerShown) {
                     $this->bannerShown = true;
                     $this->output->writeln('');
-                    $this->output->writeln('<info>Pinoox development server running:</info> <comment>' . $this->url() . '</comment>');
-
-                    if ($this->serveApp !== null && $this->serveApp !== '') {
-                        $this->output->writeln('<info>Locked app:</info> <comment>' . $this->serveApp . '</comment> <fg=gray>(app router bypassed)</>');
-                    }
+                    $this->renderStartupBanner();
 
                     $this->output->writeln('<comment>Press Ctrl+C to stop</comment>');
                     $this->output->writeln('');
@@ -259,6 +256,36 @@ class DevelopmentServer
                 $this->output->writeln('<error>' . $line . '</error>');
             }
         }
+    }
+
+    private function renderStartupBanner(): void
+    {
+        $port = $this->port();
+        $localUrl = 'http://127.0.0.1:' . $port;
+
+        if ($this->isNetworkBound()) {
+            $this->output->writeln('<info>Pinoox development server running</info>');
+            $this->output->writeln('<info>Local:</info> <comment>' . $localUrl . '</comment>');
+
+            $lan = FrontendDevSession::detectLanIp();
+
+            if ($lan !== null) {
+                $this->output->writeln('<info>LAN:</info> <comment>http://' . $lan . ':' . $port . '</comment>');
+            } else {
+                $this->output->writeln('<info>Network:</info> <comment>0.0.0.0:' . $port . '</comment>');
+            }
+        } else {
+            $this->output->writeln('<info>Pinoox development server running:</info> <comment>' . $this->url() . '</comment>');
+        }
+
+        if ($this->serveApp !== null && $this->serveApp !== '') {
+            $this->output->writeln('<info>Locked app:</info> <comment>' . $this->serveApp . '</comment> <fg=gray>(app router bypassed)</>');
+        }
+    }
+
+    private function isNetworkBound(): bool
+    {
+        return $this->host === '0.0.0.0' || $this->host === '[::]';
     }
 
     private function canTryAnotherPort(): bool
