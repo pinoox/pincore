@@ -5,13 +5,13 @@ namespace Pinoox\Component\Template\Frontend;
 use Pinoox\Support\ProjectCli;
 
 /**
- * Keeps Vite HMR wiring in a theme aligned with pincore (@pinoox/vite-plugin, optional .env seed).
+ * Keeps Vite HMR wiring in a theme aligned with pincore (@pinooxhq/vite-plugin, optional .env seed).
  */
 final class FrontendDevSync
 {
-    public const VITE_PLUGIN_PACKAGE = '@pinoox/vite-plugin';
+    public const VITE_PLUGIN_PACKAGE = '@pinooxhq/vite-plugin';
 
-    public const VITE_PLUGIN_VERSION = '^1.6.0';
+    public const VITE_PLUGIN_VERSION = '^1.6.2';
 
     public const DEFAULT_ENV_FILE = '.env';
 

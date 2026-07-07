@@ -110,7 +110,7 @@ dev also starts {$serve} for the resolved app (use --no-serve to skip).
 dev:apps starts one shared {$serve} plus Vite for multiple apps. Use full package names (e.g. com_pinoox_manager, io_yoosefap_ai).
 
 Dev auto-setup (no manual .env required):
-  - Requires @pinoox/vite-plugin in theme package.json (use --fix-vite to add it)
+  - Requires @pinooxhq/vite-plugin in theme package.json (use --fix-vite to add it)
   - Merges dev keys into theme .env (default) — use --env-file for a custom name
   - Injects env into npm run dev (VITE_SERVER_URL, VITE_DEV_PROXY, …)
   - Use --fix-vite to patch vite.config.js when pinooxHot/pinooxServer are missing
@@ -123,7 +123,7 @@ Development (.env):
   VITE_DEV=true
   VITE_DEV_SERVER=http://127.0.0.1:5173
 
-HMR: @pinoox/vite-plugin writes theme/dist/hot on Vite start.
+HMR: @pinooxhq/vite-plugin writes theme/dist/hot on Vite start.
 Override hot path in frontend.config.php dev.hot or VITE_HOT_FILE.
 FOOTER
             ))
@@ -663,7 +663,7 @@ FOOTER
             ['Dev' => !empty($info['dev_enabled']) ? (string) ($info['dev_url'] ?? 'on') : 'off'],
             ['Dev port' => (string) ($info['dev_port'] ?? '-')],
             ['Hot file' => ($info['hot_exists'] ?? false) ? (string) ($info['hot_relative'] ?? '-') : 'missing'],
-            ['@pinoox/vite-plugin' => !empty($info['vite_plugin']) ? 'installed' : 'missing — npm install or fe dev --fix-vite --install'],
+            ['@pinooxhq/vite-plugin' => !empty($info['vite_plugin']) ? 'installed' : 'missing — npm install or fe dev --fix-vite --install'],
             ['vite.config wired' => !empty($info['vite_wired']) ? 'yes' : 'no — run fe dev --fix-vite'],
             ['Theme .env' => !empty($info['env_autodev'])
                 ? (string) ($info['env_file'] ?? '.env') . ' (auto block present)'

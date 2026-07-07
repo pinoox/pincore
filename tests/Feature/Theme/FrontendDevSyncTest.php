@@ -97,7 +97,7 @@ test('FrontendDevSync adds vite plugin dependency and seeds theme env', function
         ->and($result['hot_path'])->toBe('dist/hot')
         ->and(is_file($themePath . '/vite.pinoox.mjs'))->toBeFalse()
         ->and(is_file($themePath . '/.env'))->toBeTrue()
-        ->and(file_get_contents($themePath . '/package.json'))->toContain('@pinoox/vite-plugin');
+        ->and(file_get_contents($themePath . '/package.json'))->toContain('@pinooxhq/vite-plugin');
 });
 
 test('FrontendConfig reads VITE_HOT_FILE and VITE_DEV_PORT from env', function () {
