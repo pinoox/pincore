@@ -4,6 +4,7 @@ namespace Pinoox\Terminal\Pinx;
 
 use Pinoox\Component\Package\Pinx\PinxSignKey;
 use Pinoox\Component\Terminal;
+use Pinoox\Support\ProjectCli;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Support\SystemConfig;
 use Pinoox\Terminal\Concerns\SelectsPackage;
@@ -27,19 +28,13 @@ class PinxSignKeygenCommand extends Terminal
     protected function configure(): void
     {
         $this
-            ->setHelp(
-                <<<'HELP'
-Creates a signing key for pinx:build. Keys are stored locally and never included in .pinx files.
-
-Default locations:
-  apps/{package}/pinx/sign.key.json
-  storage/pinx/keys/{package}.key.json
-
-Examples:
-  php pinoox pinx:sign-keygen com_my_shop
-  php pinoox pinx:sign-keygen com_my_shop --global
-HELP
-            )
+            ->setHelp($this->cliHelp(
+                "Creates a signing key for pinx:build. Keys are stored locally and never included in .pinx files.\n\nDefault locations:\n  apps/{package}/pinx/sign.key.json\n  storage/pinx/keys/{package}.key.json",
+                [
+                    'pinx:sign-keygen com_my_shop',
+                    'pinx:sign-keygen com_my_shop --global',
+                ],
+            ))
             ->addArgument('package', InputArgument::OPTIONAL, 'App package name')
             ->addOption('global', 'g', InputOption::VALUE_NONE, 'Store key in storage/pinx/keys instead of app folder')
             ->addOption('key-id', null, InputOption::VALUE_REQUIRED, 'Publisher key id (default: {package}:main)')

@@ -4,6 +4,7 @@ namespace Pinoox\Component\Template\Frontend;
 
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Server\DevelopmentServer;
+use Pinoox\Support\ProjectCli;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Style\SymfonyStyle;
 use Symfony\Component\Process\Process;
@@ -155,7 +156,7 @@ final class FrontendDevStack
         $process = new Process($command, $basePath, null, null, null);
         $process->setTimeout(null);
 
-        $io->writeln('<info>Starting Pinoox server</info> <fg=gray>(php pinoox serve)</>');
+        $io->writeln('<info>Starting Pinoox server</info> <fg=gray>(' . ProjectCli::platformFormat('serve') . ')</>');
 
         $process->start(function (string $type, string $buffer) use ($output): void {
             $this->forwardLines($output, '[serve]', $buffer, 'cyan');

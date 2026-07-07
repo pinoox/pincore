@@ -6,7 +6,7 @@ use Pinoox\Component\Package\Routing\AppRouteMatcher;
 use Pinoox\Component\Server\ServeAppBinding;
 
 /**
- * Resolved PHP + Vite dev targets for `php pinoox fe dev` (serve host/port, app URL, proxy prefixes).
+ * Resolved PHP + Vite dev targets for theme:frontend dev (serve host/port, app URL, proxy prefixes).
  */
 final class FrontendDevSession
 {

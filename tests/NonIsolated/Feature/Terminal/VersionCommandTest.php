@@ -3,12 +3,13 @@
 uses()->group('non-isolated');
 
 use Pinoox\Component\Package\Pinx\PinxVersion;
+use Pinoox\Support\ProjectCli;
 
 it('prints platform and kernel versions via CLI', function () {
     $root = testProjectRoot();
 
     $process = proc_open(
-        [PHP_BINARY, $root . DIRECTORY_SEPARATOR . 'pinoox', 'version'],
+        [PHP_BINARY, ProjectCli::script($root), 'version'],
         [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],
@@ -38,7 +39,7 @@ it('prints only kernel version with --kernel', function () {
     $root = testProjectRoot();
 
     $process = proc_open(
-        [PHP_BINARY, $root . DIRECTORY_SEPARATOR . 'pinoox', 'version', '--kernel'],
+        [PHP_BINARY, ProjectCli::script($root), 'version', '--kernel'],
         [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],

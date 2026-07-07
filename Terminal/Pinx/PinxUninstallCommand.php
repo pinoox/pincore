@@ -4,6 +4,7 @@ namespace Pinoox\Terminal\Pinx;
 
 use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Terminal;
+use Pinoox\Support\ProjectCli;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\Pinx;
 use Pinoox\Terminal\Concerns\SelectsPackage;
@@ -28,21 +29,17 @@ class PinxUninstallCommand extends Terminal
     protected function configure(): void
     {
         $this
-            ->setHelp(
-                <<<'HELP'
-Uninstall pipeline for apps installed via pinx or app:create:
-validate, dependents, migrate rollback, routes, pinker, remove files.
-
-Examples:
-  php pinoox pinx:uninstall com_my_shop
-  php pinoox pinx:uninstall com_my_shop --keep-files
-  php pinoox pinx:uninstall com_my_shop --skip-migrate
-  php pinoox pinx:uninstall com_my_shop --theme=spark
-  php pinoox pinx:uninstall com_my_shop --force -y
-
-For route-only removal without DB rollback, see: php pinoox app:delete --route-only
-HELP
-            )
+            ->setHelp($this->cliHelp(
+                'Uninstall pipeline for apps installed via pinx or app:create: validate, dependents, migrate rollback, routes, pinker, remove files.',
+                [
+                    'pinx:uninstall com_my_shop',
+                    'pinx:uninstall com_my_shop --keep-files',
+                    'pinx:uninstall com_my_shop --skip-migrate',
+                    'pinx:uninstall com_my_shop --theme=spark',
+                    'pinx:uninstall com_my_shop --force -y',
+                ],
+                'For route-only removal without DB rollback, see: ' . $this->cliFormat('app:delete --route-only'),
+            ))
             ->addArgument('package', InputArgument::OPTIONAL, 'App package name (e.g. com_my_shop)')
             ->addOption('theme', 't', InputOption::VALUE_REQUIRED, 'Uninstall only a theme folder from the host app')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Uninstall even when other apps depend on this package')

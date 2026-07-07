@@ -15,6 +15,8 @@ namespace Pinoox\Terminal\Wizard;
 
 use Pinoox\Component\Kernel\Loader;
 use Pinoox\Component\Terminal;
+use Pinoox\Support\ProjectCli;
+use Pinoox\Support\SystemConfig;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputInterface;
@@ -95,7 +97,10 @@ class WizardListCommand extends Terminal
         $this->success('Installing selected pinx packages...');
 
         foreach ($files as $app) {
-            $process = new Process(['php', 'pinoox', 'pinx:install', $app]);
+            $process = new Process(
+                ProjectCli::pinxProcessCommand(['pinx:install', $app]),
+                SystemConfig::path('~'),
+            );
             $process->run();
 
             if ($process->isSuccessful()) {

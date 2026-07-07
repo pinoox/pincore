@@ -10,6 +10,7 @@ use Pinoox\Component\Template\Frontend\FrontendDevStack;
 use Pinoox\Component\Template\Frontend\FrontendDevSync;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
 use Pinoox\Component\Terminal;
+use Pinoox\Support\ProjectCli;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Terminal\Concerns\SelectsPackage;
 use Pinoox\Terminal\Concerns\SelectsTheme;
@@ -42,9 +43,10 @@ class ThemeFrontendCommand extends Terminal
 
     protected function configure(): void
     {
+        $serve = ProjectCli::platformFormat('serve');
         $this
-            ->setHelp(
-                <<<'HELP'
+            ->setHelp($this->cliHelp(
+                <<<'INTRO'
 Manage frontend assets inside apps/{package}/theme/{theme}/.
 
 Actions:
@@ -52,7 +54,10 @@ Actions:
   install   Install npm dependencies (skips when up to date; use --install to force)
   build     Run npm run build
   dev       Run npm run dev (Vite HMR + Twig refresh, live output)
-  dev:apps  One shared php pinoox serve + Vite for multiple apps (pick packages interactively)
+  dev:apps  One shared 
+INTRO
+                . $serve . <<<'INTRO'
+ + Vite for multiple apps (pick packages interactively)
   watch     Run npm run watch (rebuild assets on file changes)
   run       Run any npm script from package.json (--script=name)
   scaffold  Copy starter files (default stack: vue; auto-detect from package.json when possible)
@@ -60,33 +65,35 @@ Actions:
 Recommended assets in Twig: {{ vite_tags('src/main.js')|raw }} — or multiple entries like Laravel @vite([...]).
 Built assets in Twig: {{ vite_asset('src/images/logo.png') }}
 
-Create a new theme: php pinoox theme:create {name}
-
-Examples:
-  php pinoox fe info
-  php pinoox fe spark dev
-  php pinoox fe dev:apps
-  php pinoox fe dev:apps com_pinoox_manager,com_pinoox_welcome
-  php pinoox fe dev:apps --apps=com_pinoox_manager,com_pinoox_welcome
-  php pinoox fe spark build
-  php pinoox fe spark watch
-  php pinoox fe com_my_shop build
-  php pinoox fe com_my_shop dev --theme=admin
-  php pinoox fe spark run --script=preview
-  php pinoox fe spark install --install
-  php pinoox fe com_my_shop scaffold --stack=vue
-
+Create a new theme:
+INTRO
+                . '  ' . $this->cliFormat('theme:create {name}'),
+                [
+                    'fe info',
+                    'fe spark dev',
+                    'fe dev:apps',
+                    'fe dev:apps com_pinoox_manager,com_pinoox_welcome',
+                    'fe dev:apps --apps=com_pinoox_manager,com_pinoox_welcome',
+                    'fe spark build',
+                    'fe spark watch',
+                    'fe com_my_shop build',
+                    'fe com_my_shop dev --theme=admin',
+                    'fe spark run --script=preview',
+                    'fe spark install --install',
+                    'fe com_my_shop scaffold --stack=vue',
+                ],
+                <<<FOOTER
 The first argument is an app package (com_my_shop) or theme folder (spark), then the action.
-Legacy order (action first) still works: php pinoox fe dev spark
+Legacy order (action first) still works: {$this->cliFormat('fe dev spark')}
 
 If the theme name exists in one app only, the package is resolved automatically.
 If it exists in multiple apps, pick the package from a list.
 
 Target and action can be omitted — pick from a list interactively (defaults to info).
 
-dev also starts php pinoox serve for the resolved app (use --no-serve to skip).
+dev also starts {$serve} for the resolved app (use --no-serve to skip).
 
-dev:apps starts one shared php pinoox serve plus Vite for multiple apps. Use full package names (com_*).
+dev:apps starts one shared {$serve} plus Vite for multiple apps. Use full package names (com_*).
 
 Dev auto-setup (no manual .env required):
   - Syncs vite.pinoox.mjs (hot file + mount-aware proxy)
@@ -104,8 +111,8 @@ Development (.env):
 
 HMR: fe dev/build/run auto-sync vite.pinoox.mjs and write theme/dist/hot on Vite start.
 Override hot path in frontend.config.php dev.hot or VITE_HOT_FILE.
-HELP
-            )
+FOOTER
+            ))
             ->addArgument('target', InputArgument::OPTIONAL, 'App package (com_my_shop) or theme folder (spark). Leave empty to pick interactively.')
             ->addArgument('action', InputArgument::OPTIONAL, 'Action: info, install, build, dev, dev:apps, run, scaffold')
             ->addOption('stack', null, InputOption::VALUE_REQUIRED, 'Frontend stack for scaffold: twig, vite, vue, react (default: auto or vue)')
@@ -113,11 +120,11 @@ HELP
             ->addOption('script', null, InputOption::VALUE_REQUIRED, 'npm script name for the run action')
             ->addOption('install', null, InputOption::VALUE_NONE, 'Run npm install alongside the command (or force reinstall with the install action)')
             ->addOption('no-install', null, InputOption::VALUE_NONE, 'Skip npm install (default for build/dev/run)')
-            ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start php pinoox serve alongside dev')
+            ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start ' . ProjectCli::platformFormat('serve') . ' alongside dev')
             ->addOption('apps', null, InputOption::VALUE_REQUIRED, 'Comma-separated package names for dev:apps (e.g. com_pinoox_manager,com_pinoox_welcome)')
             ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for the dev server (defaults to the resolved package)')
-            ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for php pinoox serve (default from SERVER_HOST or 127.0.0.1)')
-            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for php pinoox serve (default from SERVER_PORT or 8000)')
+            ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_HOST or 127.0.0.1)')
+            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_PORT or 8000)')
             ->addOption('fix-vite', null, InputOption::VALUE_NONE, 'Auto-wire vite.config.js with pinooxHot/pinooxServer when missing')
             ->addOption('env-file', null, InputOption::VALUE_REQUIRED, 'Theme env file for fe dev auto-setup (default: .env)');
     }
@@ -205,7 +212,7 @@ HELP
             }
 
             throw new \RuntimeException(
-                'Action is required. Example: php pinoox fe ' . $arg1 . ' dev',
+                'Action is required. Example: ' . $this->cliFormat('fe ' . $arg1 . ' dev'),
             );
         }
 
@@ -222,7 +229,7 @@ HELP
         }
 
         throw new \RuntimeException(
-            'Could not parse arguments. Use: php pinoox fe spark dev (or php pinoox fe dev spark).',
+            'Could not parse arguments. Use: ' . $this->cliFormat('fe spark dev') . ' (or ' . $this->cliFormat('fe dev spark') . ').',
         );
     }
 
@@ -880,17 +887,14 @@ HELP
         OutputInterface $output,
         SymfonyStyle $io,
     ): Process {
-        $basePath = rtrim(str_replace('\\', '/', (string) PINOOX_BASE_PATH), '/');
-        $cli = $basePath . '/pinoox';
+        $basePath = ProjectCli::root();
         $serveApp = trim((string) ($input->getOption('serve-app') ?: $package));
 
-        $command = [
-            DevelopmentServer::phpBinary(),
-            $cli,
+        $command = ProjectCli::processCommand([
             'serve',
             '--app=' . $serveApp,
             '--no-reload',
-        ];
+        ], $basePath);
 
         $serveHost = $input->getOption('serve-host');
         if (is_string($serveHost) && trim($serveHost) !== '') {
@@ -905,7 +909,7 @@ HELP
         $process = new Process($command, $basePath, null, null, null);
         $process->setTimeout(null);
 
-        $io->writeln('<info>Starting Pinoox server</info> <fg=gray>(php pinoox serve --app=' . $serveApp . ')</>');
+        $io->writeln('<info>Starting Pinoox server</info> <fg=gray>(' . ProjectCli::platformFormat('serve --app=' . $serveApp, $basePath) . ')</>');
 
         $process->start(function (string $type, string $buffer) use ($output): void {
             foreach (preg_split("/\r\n|\n|\r/", $buffer) ?: [] as $line) {

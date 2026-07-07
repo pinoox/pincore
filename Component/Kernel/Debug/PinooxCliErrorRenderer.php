@@ -2,6 +2,8 @@
 
 namespace Pinoox\Component\Kernel\Debug;
 
+use Pinoox\Support\ProjectCli;
+
 use Pinoox\Component\Kernel\Debug\Support\ExceptionContext;
 use Pinoox\Component\Kernel\Debug\Support\ExceptionHintResolver;
 use Symfony\Component\ErrorHandler\Exception\FlattenException;
@@ -168,17 +170,13 @@ class PinooxCliErrorRenderer
 
     private function scriptName(array $argv): string
     {
-        $script = str_replace('\\', '/', (string) ($argv[0] ?? 'php pinoox'));
+        $script = str_replace('\\', '/', (string) ($argv[0] ?? ProjectCli::invoke()));
 
-        if (str_ends_with($script, '/pinoox') || $script === 'pinoox') {
-            return 'php pinoox';
+        if (ProjectCli::isCliScript($script)) {
+            return ProjectCli::invoke();
         }
 
-        if (str_ends_with($script, '/pincore') || $script === 'pincore') {
-            return 'php pincore';
-        }
-
-        return basename($script) ?: 'php pinoox';
+        return basename($script) ?: ProjectCli::invoke();
     }
 
     private function consoleUsageSuggestions(string $message, string $script, ?string $command, ?string $extra): array

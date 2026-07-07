@@ -7,6 +7,7 @@ use Pinoox\Component\Package\Pinx\PinxBuildConfig;
 use Pinoox\Component\Package\Pinx\PinxCliManifest;
 use Pinoox\Component\Package\Pinx\PinxManifest;
 use Pinoox\Component\Terminal;
+use Pinoox\Support\ProjectCli;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\Pinx;
 use Pinoox\Terminal\Concerns\SelectsPackage;
@@ -32,17 +33,15 @@ class PinxBuildCommand extends Terminal
     protected function configure(): void
     {
         $this
-            ->setHelp(
-                <<<'HELP'
-Build a .pinx package using app.php build/pinx settings.
-
-Examples:
-  php pinoox pinx:build com_my_shop
-  php pinoox pinx:build com_my_shop --sign
-  php pinoox pinx:build com_my_shop --output=/tmp/my_shop.pinx
-  php pinoox pinx:build com_my_shop --yes
-HELP
-            )
+            ->setHelp($this->cliHelp(
+                'Build a .pinx package using app.php build/pinx settings.',
+                [
+                    'pinx:build com_my_shop',
+                    'pinx:build com_my_shop --sign',
+                    'pinx:build com_my_shop --output=/tmp/my_shop.pinx',
+                    'pinx:build com_my_shop --yes',
+                ],
+            ))
             ->addArgument('package', InputArgument::OPTIONAL, 'App package name')
             ->addOption('output', 'o', InputOption::VALUE_REQUIRED, 'Output .pinx file path')
             ->addOption('sign', 's', InputOption::VALUE_NONE, 'Sign the package (auto when key exists or app.php pinx.sign.enabled)')

@@ -7,6 +7,7 @@ use Pinoox\Component\Package\AppEnv\AppEnvExample;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
 use Pinoox\Portal\FileSystem;
 use Pinoox\Portal\Pinker;
+use Pinoox\Support\ProjectCli;
 use Pinoox\Support\SystemApp;
 use Pinoox\Support\SystemConfig;
 
@@ -455,15 +456,15 @@ TWIG);
     {
         $package = $this->input->package;
         $steps = [
-            "php pinoox test {$package}",
+            ProjectCli::autoFormat("test {$package}"),
             "Read apps/{$package}/tests/README.md for helpers (inMyApp, myAppGet, …)",
         ];
 
         if ($this->input->hasViteStack()) {
-            $steps[] = "php pinoox fe {$package} install";
-            $steps[] = "php pinoox fe {$package} dev";
+            $steps[] = ProjectCli::autoFormat("fe {$package} install");
+            $steps[] = ProjectCli::autoFormat("dev {$package}");
         } elseif ($routePath !== null) {
-            $steps[] = "php pinoox serve --app={$package}";
+            $steps[] = ProjectCli::platformFormat("serve --app={$package}");
         }
 
         if ($routePath !== null) {

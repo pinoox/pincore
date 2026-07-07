@@ -115,7 +115,7 @@ HELP
         $route = $input->getArgument('route');
 
         if (!is_string($route) || $route === '') {
-            $output->writeln('<error>Route path is required. Example: php pinoox app:router remove /shop</error>');
+            $output->writeln('<error>Route path is required. Example: ' . $this->cliFormat('app:router remove /shop') . '</error>');
 
             return Command::INVALID;
         }
@@ -132,7 +132,7 @@ HELP
         $packageName = $input->getArgument('packageName');
 
         if (!is_string($route) || $route === '') {
-            $output->writeln('<error>Route path is required. Example: php pinoox app:router set /shop com_my_shop</error>');
+            $output->writeln('<error>Route path is required. Example: ' . $this->cliFormat('app:router set /shop com_my_shop') . '</error>');
 
             return Command::INVALID;
         }
@@ -146,7 +146,7 @@ HELP
         }
 
         if (!is_string($packageName) || $packageName === '') {
-            $output->writeln('<error>Package name is required. Example: php pinoox app:router set /shop com_my_shop</error>');
+            $output->writeln('<error>Package name is required. Example: ' . $this->cliFormat('app:router set /shop com_my_shop') . '</error>');
 
             return Command::INVALID;
         }
@@ -544,9 +544,9 @@ HELP
         $output->writeln('All app routes:');
         $this->printRouteTable($output, $routes);
         $output->writeln('');
-        $output->writeln('<comment>Tip: php pinoox app:router export --format=php --file=platform/app-router.config.php</comment>');
-        $output->writeln('<comment>     php pinoox app:router sync platform/app-router.config.php</comment>');
-        $output->writeln('<comment>     php pinoox app:router edit</comment>');
+        $output->writeln('<comment>Tip: ' . $this->cliFormat('app:router export --format=php --file=platform/app-router.config.php') . '</comment>');
+        $output->writeln('<comment>     ' . $this->cliFormat('app:router sync platform/app-router.config.php') . '</comment>');
+        $output->writeln('<comment>     ' . $this->cliFormat('app:router edit') . '</comment>');
         $output->writeln('');
     }
 

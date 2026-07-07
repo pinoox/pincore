@@ -4,6 +4,7 @@ namespace Pinoox\Component\Template\Frontend;
 
 use Pinoox\Component\Runtime\RuntimeMode;
 use Pinoox\Portal\App\App;
+use Pinoox\Support\ProjectCli;
 
 class FrontendConfig
 {
@@ -429,9 +430,9 @@ class FrontendConfig
 
         $next = [];
         if ($package !== '') {
-            $next[] = 'php pinoox fe ' . $package . ' install --theme=' . $themeName;
-            $next[] = 'php pinoox fe ' . $package . ' dev --theme=' . $themeName;
-            $next[] = 'php pinoox fe ' . $package . ' watch --theme=' . $themeName . '  # rebuild on file changes';
+            $next[] = ProjectCli::autoFormat('fe ' . $package . ' install --theme=' . $themeName);
+            $next[] = ProjectCli::autoFormat('fe ' . $package . ' dev --theme=' . $themeName);
+            $next[] = ProjectCli::autoFormat('fe ' . $package . ' watch --theme=' . $themeName . '  # rebuild on file changes');
         }
 
         return [

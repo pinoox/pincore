@@ -3,6 +3,7 @@
 uses()->group('non-isolated');
 
 use Pinoox\Portal\Database\DB;
+use Pinoox\Support\ProjectCli;
 
 it('allows generic CLI boot with an invalid DB_CONNECTION until DB is used', function () {
     $root = testProjectRoot();
@@ -12,7 +13,7 @@ it('allows generic CLI boot with an invalid DB_CONNECTION until DB is used', fun
     ]);
 
     $process = proc_open(
-        [PHP_BINARY, $root . DIRECTORY_SEPARATOR . 'pinoox', 'mode:show'],
+        [PHP_BINARY, ProjectCli::script($root), 'mode:show'],
         [
             0 => ['pipe', 'r'],
             1 => ['pipe', 'w'],

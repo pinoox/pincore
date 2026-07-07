@@ -134,6 +134,11 @@ class DevelopmentServer
         return $root . '/platform/launcher/server.php';
     }
 
+    public static function defaultCliScript(): string
+    {
+        return \Pinoox\Support\ProjectCli::script();
+    }
+
     public static function phpBinary(): string
     {
         if (defined('PHP_BINARY') && PHP_BINARY !== '') {

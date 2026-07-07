@@ -14,6 +14,7 @@
 namespace Pinoox\Component;
 
 use JetBrains\PhpStorm\NoReturn;
+use Pinoox\Support\ProjectCli;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Helper\Table;
 use Symfony\Component\Console\Input\InputInterface;
@@ -98,5 +99,58 @@ class Terminal extends Command
     protected function getDefaultPackage(): string
     {
         return _env('PINOOX_CLI_PACKAGE', \Pinoox\Support\Platform::PACKAGE);
+    }
+
+    protected function cliInvoke(): string
+    {
+        return ProjectCli::invoke();
+    }
+
+    protected function cliFormat(string $command): string
+    {
+        return ProjectCli::autoFormat($command);
+    }
+
+    protected function cliPlatformFormat(string $command): string
+    {
+        return ProjectCli::platformFormat($command);
+    }
+
+    protected function cliPinxFormat(string $command): string
+    {
+        return ProjectCli::autoFormat($command);
+    }
+
+    protected function cliSuggest(string $scope, string $command): string
+    {
+        return ProjectCli::suggest($scope, $command);
+    }
+
+    /**
+     * @param list<array{0: string, 1?: string}|string> $exampleEntries
+     */
+    protected function cliHelp(string $intro, array $exampleEntries, ?string $footer = null): string
+    {
+        return ProjectCli::helpBlock($intro, $exampleEntries, $footer);
+    }
+
+    /**
+     * @param list<string> $arguments
+     *
+     * @return list<string>
+     */
+    protected function cliPinxProcessCommand(array $arguments): array
+    {
+        return ProjectCli::pinxProcessCommand($arguments);
+    }
+
+    /**
+     * @param list<string> $arguments
+     *
+     * @return list<string>
+     */
+    protected function cliProcessCommand(array $arguments): array
+    {
+        return ProjectCli::processCommand($arguments);
     }
 }

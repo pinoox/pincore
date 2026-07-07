@@ -3,6 +3,7 @@
 namespace Pinoox\Cron;
 
 use DateTimeImmutable;
+use Pinoox\Support\ProjectCli;
 use Pinoox\Support\SystemConfig;
 use Symfony\Component\Process\Process;
 
@@ -155,7 +156,11 @@ class ScheduledTask
     {
         if ($this->taskType === 'command') {
             $parts = preg_split('/\s+/', trim((string)$this->taskAction), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-            return new Process(array_merge([PHP_BINARY, 'pinoox'], $parts), SystemConfig::path('~'));
+
+            return new Process(
+                ProjectCli::processCommand($parts),
+                SystemConfig::path('~'),
+            );
         }
 
         return Process::fromShellCommandline((string)$this->taskAction, SystemConfig::path('~'));

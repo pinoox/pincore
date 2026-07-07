@@ -5,6 +5,7 @@ namespace Pinoox\Terminal\Pinx;
 use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Kernel\Loader;
 use Pinoox\Component\Terminal;
+use Pinoox\Support\ProjectCli;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\Pinx;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -26,18 +27,15 @@ class PinxInstallCommand extends Terminal
     protected function configure(): void
     {
         $this
-            ->setHelp(
-                <<<'HELP'
-Install or update an app/theme package with the full pipeline:
-validate, minpin, extract, migrate, patch, registry, cache.
-
-Examples:
-  php pinoox pinx:install packages/com_my_shop_v2.pinx
-  php pinoox pinx:install com_my_shop.pinx --force
-  php pinoox pinx:install theme_spark.pinx --skip-migrate
-  php pinoox pinx:install com_my_shop.pinx --require-sign
-HELP
-            )
+            ->setHelp($this->cliHelp(
+                'Install or update an app/theme package with the full pipeline: validate, minpin, extract, migrate, patch, registry, cache.',
+                [
+                    'pinx:install packages/com_my_shop_v2.pinx',
+                    'pinx:install com_my_shop.pinx --force',
+                    'pinx:install theme_spark.pinx --skip-migrate',
+                    'pinx:install com_my_shop.pinx --require-sign',
+                ],
+            ))
             ->addArgument('package', InputArgument::REQUIRED, 'Path or filename of .pinx/.pin package')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Force install even when version is equal or lower')
             ->addOption('skip-migrate', null, InputOption::VALUE_NONE, 'Skip database migrations')
