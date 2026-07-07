@@ -58,13 +58,14 @@ final class FrontendDevSync
 
         if ($session !== null) {
             self::writeDevPortCache($themePath, $config, $session->vitePort);
+            FrontendConfig::writeBuildOutDirCache($themePath, FrontendConfig::buildOutDir($config, $themePath));
         }
 
         return [
             'vite_plugin' => self::hasVitePluginDependency($themePath),
             'vite_plugin_added' => $vitePluginAdded,
             'env_seeded' => self::seedThemeEnv($themePath),
-            'hot_path' => FrontendConfig::hotRelativePath($config),
+            'hot_path' => FrontendConfig::hotRelativePath($config, $themePath),
             'env_autodev' => $session !== null && self::shouldWriteAutoDevEnv($themePath, $envFile)
                 ? self::writeAutoDevEnv($themePath, $session, $config, $envFile)
                 : false,
@@ -334,7 +335,7 @@ final class FrontendDevSync
         $themePath = rtrim(str_replace('\\', '/', $themePath), '/');
         $envFile = self::normalizeEnvFile($envFile);
         $target = $themePath . '/' . $envFile;
-        $block = self::buildAutoDevBlock($session, $config);
+        $block = self::buildAutoDevBlock($session, $config, $themePath);
         $existing = is_file($target) ? (string) file_get_contents($target) : '';
         $merged = self::mergeAutoDevBlock($existing, $block);
 
@@ -448,13 +449,14 @@ final class FrontendDevSync
         return $merged;
     }
 
-    private static function buildAutoDevBlock(FrontendDevSession $session, array $config): string
+    private static function buildAutoDevBlock(FrontendDevSession $session, array $config, string $themePath): string
     {
         $lines = [
             self::AUTO_ENV_BEGIN,
             '# Regenerated on each `' . ProjectCli::autoFormat('fe dev') . '` run.',
             'VITE_DEV=true',
-            'VITE_HOT_FILE=' . FrontendConfig::hotRelativePath($config),
+            'VITE_HOT_FILE=' . FrontendConfig::hotRelativePath($config, $themePath),
+            'VITE_BUILD_OUT_DIR=' . FrontendConfig::buildOutDir($config, $themePath),
             'VITE_SERVER_URL=' . $session->phpAppUrl,
             'VITE_SERVE_APP=' . $session->serveAppLabel(),
             'VITE_DEV_PORT=' . $session->vitePort,
@@ -622,7 +624,7 @@ final class FrontendDevSync
      */
     private static function devPortCacheAbsolutePath(string $themePath, array $config): string
     {
-        $hotRelative = FrontendConfig::hotRelativePath($config);
+        $hotRelative = FrontendConfig::hotRelativePath($config, $themePath);
         $distDir = dirname(ltrim(str_replace('\\', '/', $hotRelative), '/'));
 
         if ($distDir === '.' || $distDir === '') {
@@ -651,7 +653,8 @@ final class FrontendDevSync
         }
 
         $env = [
-            'VITE_HOT_FILE' => FrontendConfig::hotRelativePath($config),
+            'VITE_HOT_FILE' => FrontendConfig::hotRelativePath($config, $themePath),
+            'VITE_BUILD_OUT_DIR' => FrontendConfig::buildOutDir($config, $themePath),
             'PINOOX_CORE_PATH' => $corePath ?? self::resolveCorePath(),
             'VITE_DEV_PORT' => (string) FrontendConfig::devPort($config),
         ];
@@ -689,6 +692,7 @@ final class FrontendDevSync
             'VITE_DEV_STACK',
             'VITE_DEV_PROXY',
             'VITE_HOT_FILE',
+            'VITE_BUILD_OUT_DIR',
         ];
     }
 

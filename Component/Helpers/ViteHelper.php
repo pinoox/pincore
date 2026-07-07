@@ -22,9 +22,11 @@ class ViteHelper
 
     protected function findMainDirectory(string $fileManifest): string
     {
-        $mainDirectory = explode('/', dirname($fileManifest));
-
-        return !empty($mainDirectory[0]) ? $mainDirectory[0] : 'dist';
+        return FrontendConfig::outDirFromManifestPath($fileManifest)
+            ?? FrontendConfig::buildOutDir(
+                FrontendConfig::forThemePath($this->themePath),
+                $this->themePath,
+            );
     }
 
     /**

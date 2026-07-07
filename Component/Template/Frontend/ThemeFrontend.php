@@ -550,7 +550,7 @@ class ThemeFrontend
             'package_json' => $this->hasPackageJson(),
             'dev_enabled' => FrontendConfig::isDevEnabled($this->config),
             'dev_url' => $this->config['dev']['url'] ?? null,
-            'hot_relative' => FrontendConfig::hotRelativePath($this->config),
+            'hot_relative' => FrontendConfig::hotRelativePath($this->config, $this->themePath),
             'hot_exists' => is_file(FrontendConfig::hotAbsolutePath($this->themePath, $this->config)),
             'dev_port' => FrontendConfig::devPort($this->config, $this->themePath),
             'vite_plugin' => FrontendDevSync::hasVitePluginDependency($this->themePath)

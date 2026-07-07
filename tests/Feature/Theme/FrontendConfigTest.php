@@ -67,6 +67,22 @@ test('FrontendConfig defaultStackForNewTheme is vue', function () {
     expect(FrontendConfig::defaultStackForNewTheme())->toBe('vue');
 });
 
+test('FrontendConfig syncs manifest and hot paths with build.outDir', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-theme-build-outdir-' . uniqid();
+    mkdir($themePath, 0777, true);
+    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue', 'build' => ['outDir' => 'public/build']];\n");
+
+    $config = FrontendConfig::forThemePath($themePath);
+
+    expect(FrontendConfig::buildOutDir($config, $themePath))->toBe('public/build')
+        ->and(FrontendConfig::manifestRelativePath($config, $themePath))->toBe('public/build/.vite/manifest.json')
+        ->and(FrontendConfig::hotRelativePath($config, $themePath))->toBe('public/build/hot')
+        ->and(FrontendConfig::outDirFromManifestPath('public/build/.vite/manifest.json'))->toBe('public/build');
+
+    @unlink($themePath . '/frontend.config.php');
+    @rmdir($themePath);
+});
+
 test('FrontendConfig resolves custom dev.hot path', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-theme-hot-path-' . uniqid();
     mkdir($themePath . '/dist/custom', 0777, true);

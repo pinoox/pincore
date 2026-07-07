@@ -22,6 +22,12 @@ class FrontendConfig
 
     public const VITE_MANIFEST = 'dist/.vite/manifest.json';
 
+    /** Default Vite build output directory (relative to theme root). */
+    public const DEFAULT_BUILD_OUT_DIR = 'dist';
+
+    /** Cache file written by Vite / fe dev so PHP resolves a custom build.outDir. */
+    public const PINOOX_BUILD_OUT_DIR_CACHE = '.pinoox/build-out-dir';
+
     /** Default path (relative to theme/) where Vite writes the dev-server URL for HMR. */
     public const DEFAULT_HOT_FILE = 'dist/hot';
 
@@ -116,12 +122,16 @@ class FrontendConfig
      *
      * @param array<string, mixed> $config
      */
-    public static function manifestRelativePath(array $config): ?string
+    public static function manifestRelativePath(array $config, ?string $themePath = null): ?string
     {
         if (self::usesViteAssets($config)) {
             $manifest = $config['manifest'] ?? null;
 
-            return is_string($manifest) && $manifest !== '' ? $manifest : self::VITE_MANIFEST;
+            if (is_string($manifest) && $manifest !== '') {
+                return ltrim(str_replace('\\', '/', $manifest), '/');
+            }
+
+            return self::manifestPathForOutDir(self::buildOutDir($config, $themePath ?? ''));
         }
 
         if (self::usesLegacyWebpack($config)) {
@@ -182,17 +192,17 @@ class FrontendConfig
             $config['entry'] ??= self::defaultEntry($stack);
             $config['entries'] ??= [self::defaultEntry($stack)];
             $config['refresh'] ??= self::defaultRefreshPaths();
-            $config['manifest'] ??= self::VITE_MANIFEST;
             $config['mount'] ??= '#app';
             $config['pinoox'] ??= 'pinoox';
             $config['dev'] = array_replace([
                 'enabled' => self::isDevFlagActive(),
                 'url' => rtrim((string) _env('VITE_DEV_SERVER', ''), '/'),
-                'hot' => self::resolveHotPathFromEnv(),
                 'port' => self::readRawDevPort($themePath) ?? self::readEnvDevPort(),
                 'prefer_manifest' => self::envBool('VITE_PREFER_MANIFEST', false),
                 'force' => self::envBool('VITE_DEV_FORCE', false),
             ], is_array($config['dev'] ?? null) ? $config['dev'] : []);
+
+            $config = self::applyViteBuildDirDefaults($config, $themePath);
         } elseif (self::usesLegacyWebpack(['stack' => $stack])) {
             $config['manifest'] ??= self::WEBPACK_MANIFEST;
             $config['entry'] ??= 'dist/pinoox.js';
@@ -685,6 +695,173 @@ class FrontendConfig
         return filter_var((string) $quiet, FILTER_VALIDATE_BOOLEAN);
     }
 
+    /**
+     * Resolved Vite build output directory (relative to theme root).
+     *
+     * @param array<string, mixed> $config
+     */
+    public static function buildOutDir(array $config, string $themePath = ''): string
+    {
+        if ($themePath !== '') {
+            $rawOutDir = self::readRawBuildOutDir($themePath);
+
+            if ($rawOutDir !== null) {
+                return $rawOutDir;
+            }
+        }
+
+        $fromConfig = is_array($config['build'] ?? null) ? ($config['build']['outDir'] ?? null) : null;
+
+        if (is_string($fromConfig) && trim($fromConfig) !== '') {
+            return self::normalizeRelativePath($fromConfig);
+        }
+
+        $fromEnv = trim((string) _env('VITE_BUILD_OUT_DIR', ''));
+
+        if ($fromEnv !== '') {
+            return self::normalizeRelativePath($fromEnv);
+        }
+
+        if ($themePath !== '') {
+            $cached = self::readBuildOutDirCache($themePath);
+
+            if ($cached !== null) {
+                return $cached;
+            }
+        }
+
+        $manifest = $config['manifest'] ?? null;
+
+        if (is_string($manifest) && $manifest !== '') {
+            $derived = self::outDirFromManifestPath($manifest);
+
+            if ($derived !== null) {
+                return $derived;
+            }
+        }
+
+        return self::DEFAULT_BUILD_OUT_DIR;
+    }
+
+    public static function manifestPathForOutDir(string $outDir): string
+    {
+        return self::normalizeRelativePath($outDir) . '/.vite/manifest.json';
+    }
+
+    public static function hotPathForOutDir(string $outDir): string
+    {
+        return self::normalizeRelativePath($outDir) . '/hot';
+    }
+
+    public static function outDirFromManifestPath(string $manifest): ?string
+    {
+        $manifest = ltrim(str_replace('\\', '/', $manifest), '/');
+        $suffix = '/.vite/manifest.json';
+
+        if (!str_ends_with($manifest, $suffix)) {
+            return null;
+        }
+
+        $outDir = substr($manifest, 0, -strlen($suffix));
+
+        return $outDir !== '' ? $outDir : null;
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function readRawFrontendConfig(string $themePath): array
+    {
+        $file = rtrim(str_replace('\\', '/', $themePath), '/') . '/frontend.config.php';
+
+        if (!is_file($file)) {
+            return [];
+        }
+
+        $raw = include $file;
+
+        return is_array($raw) ? $raw : [];
+    }
+
+    public static function readRawBuildOutDir(string $themePath): ?string
+    {
+        $raw = self::readRawFrontendConfig($themePath);
+        $build = is_array($raw['build'] ?? null) ? $raw['build'] : [];
+        $outDir = $build['outDir'] ?? null;
+
+        if (!is_string($outDir) || trim($outDir) === '') {
+            return null;
+        }
+
+        return self::normalizeRelativePath($outDir);
+    }
+
+    public static function readBuildOutDirCache(string $themePath): ?string
+    {
+        $path = rtrim(str_replace('\\', '/', $themePath), '/') . '/' . self::PINOOX_BUILD_OUT_DIR_CACHE;
+
+        if (!is_file($path)) {
+            return null;
+        }
+
+        $outDir = trim((string) file_get_contents($path));
+
+        return $outDir !== '' ? self::normalizeRelativePath($outDir) : null;
+    }
+
+    public static function writeBuildOutDirCache(string $themePath, string $outDir): void
+    {
+        $outDir = self::normalizeRelativePath($outDir);
+
+        if ($outDir === '') {
+            return;
+        }
+
+        $path = rtrim(str_replace('\\', '/', $themePath), '/') . '/' . self::PINOOX_BUILD_OUT_DIR_CACHE;
+        $dir = dirname($path);
+
+        if (!is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+
+        file_put_contents($path, $outDir);
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    private static function applyViteBuildDirDefaults(array $config, string $themePath): array
+    {
+        $outDir = self::buildOutDir($config, $themePath);
+        $raw = self::readRawFrontendConfig($themePath);
+
+        if (!isset($raw['manifest'])) {
+            $config['manifest'] = self::manifestPathForOutDir($outDir);
+        }
+
+        $dev = is_array($config['dev'] ?? null) ? $config['dev'] : [];
+        $hotFromEnv = trim((string) _env('VITE_HOT_FILE', ''));
+
+        if (!isset($raw['dev']['hot']) && $hotFromEnv === '') {
+            $dev['hot'] = self::hotPathForOutDir($outDir);
+        }
+
+        $config['dev'] = $dev;
+        $config['build'] = array_replace(
+            ['outDir' => $outDir],
+            is_array($config['build'] ?? null) ? $config['build'] : [],
+        );
+        $config['build']['outDir'] = $outDir;
+
+        return $config;
+    }
+
+    private static function normalizeRelativePath(string $path): string
+    {
+        return trim(str_replace('\\', '/', $path), '/');
+    }
+
     private static function resolveHotPathFromEnv(): string
     {
         $fromEnv = _env('VITE_HOT_FILE');
@@ -728,11 +905,21 @@ class FrontendConfig
      *
      * @param array<string, mixed> $config
      */
-    public static function hotRelativePath(array $config): string
+    public static function hotRelativePath(array $config, ?string $themePath = null): string
     {
-        $hot = $config['dev']['hot'] ?? self::DEFAULT_HOT_FILE;
+        $fromEnv = trim((string) _env('VITE_HOT_FILE', ''));
 
-        return is_string($hot) && $hot !== '' ? ltrim(str_replace('\\', '/', $hot), '/') : self::DEFAULT_HOT_FILE;
+        if ($fromEnv !== '') {
+            return ltrim(str_replace('\\', '/', $fromEnv), '/');
+        }
+
+        $hot = $config['dev']['hot'] ?? null;
+
+        if (is_string($hot) && $hot !== '') {
+            return ltrim(str_replace('\\', '/', $hot), '/');
+        }
+
+        return self::hotPathForOutDir(self::buildOutDir($config, $themePath ?? ''));
     }
 
     /**
@@ -740,7 +927,7 @@ class FrontendConfig
      */
     public static function hotAbsolutePath(string $themePath, array $config): string
     {
-        return rtrim(str_replace('\\', '/', $themePath), '/') . '/' . self::hotRelativePath($config);
+        return rtrim(str_replace('\\', '/', $themePath), '/') . '/' . self::hotRelativePath($config, $themePath);
     }
 
     /**
