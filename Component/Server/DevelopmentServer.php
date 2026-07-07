@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Server;
 
+use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\FrontendDevSession;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
@@ -22,6 +23,7 @@ class DevelopmentServer
         'PINOOX_BASE_PATH',
         'PINOOX_CLI_PACKAGE',
         'PINOOX_SERVE_APP',
+        'PINOOX_VITE_HMR',
         'PINX_PACKAGE',
         'PINOOX_DEV_APP',
         'SERVER_APP',
@@ -205,6 +207,10 @@ class DevelopmentServer
 
         $env['PINOOX_SERVER_LOG'] = '1';
 
+        if (!$this->hasExplicitViteHmrEnv($env)) {
+            $env['PINOOX_VITE_HMR'] = '0';
+        }
+
         if ($this->serveApp !== null && $this->serveApp !== '') {
             $env[ServeAppBinding::ENV] = $this->serveApp;
         }
@@ -219,6 +225,20 @@ class DevelopmentServer
         }
 
         return in_array($key, self::PASSTHROUGH_ENV, true);
+    }
+
+    /**
+     * @param array<string, string|false> $env
+     */
+    private function hasExplicitViteHmrEnv(array $env): bool
+    {
+        if (array_key_exists('PINOOX_VITE_HMR', $env)) {
+            return true;
+        }
+
+        $fromGetenv = getenv('PINOOX_VITE_HMR');
+
+        return is_string($fromGetenv) && $fromGetenv !== '';
     }
 
     private function handleProcessOutput(string $buffer): void
@@ -304,6 +324,46 @@ class DevelopmentServer
         }
 
         return $this->host;
+    }
+
+    /**
+     * Environment for nested `pinoox serve` started by fe dev (PHP workers must keep HMR).
+     *
+     * @return array<string, string>
+     */
+    public static function feDevServeSubprocessEnv(): array
+    {
+        $env = [];
+
+        foreach ($_ENV as $key => $value) {
+            if (is_string($key) && is_scalar($value)) {
+                $env[$key] = (string) $value;
+            }
+        }
+
+        foreach ($_SERVER as $key => $value) {
+            if (!is_string($key) || array_key_exists($key, $env) || !is_scalar($value)) {
+                continue;
+            }
+
+            $env[$key] = (string) $value;
+        }
+
+        foreach (self::PASSTHROUGH_ENV as $key) {
+            if (array_key_exists($key, $env)) {
+                continue;
+            }
+
+            $value = getenv($key);
+
+            if (is_string($value) && $value !== '') {
+                $env[$key] = $value;
+            }
+        }
+
+        $env[FrontendConfig::VITE_HMR_ENV] = '1';
+
+        return $env;
     }
 }
 

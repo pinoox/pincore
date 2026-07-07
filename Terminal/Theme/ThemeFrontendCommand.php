@@ -741,6 +741,7 @@ FOOTER
         InputInterface $input,
         OutputInterface $output,
     ): int {
+        $this->activateViteHmrMode();
         $io->section('Starting frontend dev server: ' . $frontend->themePath());
         $this->noteInstallPlan($io, $frontend, $installMode);
 
@@ -821,6 +822,7 @@ FOOTER
         OutputInterface $output,
         string $targetList = '',
     ): int {
+        $this->activateViteHmrMode();
         $packages = $this->resolveDevAppsPackages($input, $output, $io, $targetList);
 
         if ($packages === [] && !$this->devAppsAuto) {
@@ -1319,7 +1321,7 @@ FOOTER
 
         $command[] = '--port=' . $servePort;
 
-        $process = new Process($command, $basePath, null, null, null);
+        $process = new Process($command, $basePath, DevelopmentServer::feDevServeSubprocessEnv(), null, null);
         $process->setTimeout(null);
 
         $serveLabel = $platformServe
@@ -1468,5 +1470,12 @@ FOOTER
         }
 
         $io->writeln('<info>npm install: skipped (dependencies up to date)</info>');
+    }
+
+    private function activateViteHmrMode(): void
+    {
+        putenv(FrontendConfig::VITE_HMR_ENV . '=1');
+        $_ENV[FrontendConfig::VITE_HMR_ENV] = '1';
+        $_SERVER[FrontendConfig::VITE_HMR_ENV] = '1';
     }
 }

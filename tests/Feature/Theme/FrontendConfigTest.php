@@ -4,6 +4,48 @@ use Pinoox\Component\Server\WebServerFixCache;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\FrontendWebServerFixSync;
 
+/**
+ * @param callable(): void $callback
+ */
+function withViteHmrEnv(?string $value, callable $callback): void
+{
+    $key = FrontendConfig::VITE_HMR_ENV;
+    $previousEnv = $_ENV[$key] ?? null;
+    $previousServer = $_SERVER[$key] ?? null;
+    $previousGetenv = getenv($key);
+
+    if ($value === null) {
+        putenv($key);
+        unset($_ENV[$key], $_SERVER[$key]);
+    } else {
+        putenv($key . '=' . $value);
+        $_ENV[$key] = $value;
+        $_SERVER[$key] = $value;
+    }
+
+    try {
+        $callback();
+    } finally {
+        if ($previousGetenv === false) {
+            putenv($key);
+        } else {
+            putenv($key . '=' . ($previousGetenv ?: ''));
+        }
+
+        if ($previousEnv === null) {
+            unset($_ENV[$key]);
+        } else {
+            $_ENV[$key] = $previousEnv;
+        }
+
+        if ($previousServer === null) {
+            unset($_SERVER[$key]);
+        } else {
+            $_SERVER[$key] = $previousServer;
+        }
+    }
+}
+
 test('FrontendConfig omits manifest and entry defaults for twig stack', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-theme-twig-' . uniqid();
     mkdir($themePath, 0777, true);
@@ -91,8 +133,10 @@ test('FrontendConfig resolves custom dev.hot path', function () {
 
     $config = FrontendConfig::forThemePath($themePath);
 
-    expect(FrontendConfig::hotRelativePath($config))->toBe('dist/custom/hot')
-        ->and(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5199');
+    withViteHmrEnv('1', function () use ($themePath, $config): void {
+        expect(FrontendConfig::hotRelativePath($config))->toBe('dist/custom/hot')
+            ->and(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5199');
+    });
 
     @unlink($themePath . '/dist/custom/hot');
     @rmdir($themePath . '/dist/custom');
@@ -109,7 +153,9 @@ test('FrontendConfig prefer_manifest skips dev url when manifest exists', functi
 
     $config = FrontendConfig::forThemePath($themePath);
 
-    expect(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBeNull();
+    withViteHmrEnv(null, function () use ($themePath, $config): void {
+        expect(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBeNull();
+    });
 
     @unlink($themePath . '/dist/.vite/manifest.json');
     @rmdir($themePath . '/dist/.vite');
@@ -140,8 +186,10 @@ test('FrontendConfig resolveRuntimeDevPort reads fe dev cache file', function ()
 
     $config = FrontendConfig::forThemePath($themePath);
 
-    expect(FrontendConfig::resolveRuntimeDevPort($themePath, $config))->toBe(5188)
-        ->and(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5188');
+    withViteHmrEnv('1', function () use ($themePath, $config): void {
+        expect(FrontendConfig::resolveRuntimeDevPort($themePath, $config))->toBe(5188)
+            ->and(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5188');
+    });
 
     @unlink($themePath . '/dist/.vite-dev-port');
     @rmdir($themePath . '/dist');
@@ -156,7 +204,9 @@ test('FrontendConfig uses dev port when manifest is missing', function () {
 
     $config = FrontendConfig::forThemePath($themePath);
 
-    expect(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5174');
+    withViteHmrEnv('1', function () use ($themePath, $config): void {
+        expect(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5174');
+    });
 
     @unlink($themePath . '/frontend.config.php');
     @rmdir($themePath);
@@ -170,7 +220,50 @@ test('FrontendConfig prefers Vite over stale manifest by default in dev', functi
 
     $config = FrontendConfig::forThemePath($themePath);
 
-    expect(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5174');
+    withViteHmrEnv('1', function () use ($themePath, $config): void {
+        expect(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5174');
+    });
+
+    @unlink($themePath . '/dist/.vite/manifest.json');
+    @rmdir($themePath . '/dist/.vite');
+    @rmdir($themePath . '/dist');
+    @unlink($themePath . '/frontend.config.php');
+    @rmdir($themePath);
+});
+
+test('FrontendConfig serve mode ignores hot file and uses manifest', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-theme-serve-manifest-' . uniqid();
+    mkdir($themePath . '/dist/.vite', 0777, true);
+    file_put_contents($themePath . '/dist/hot', 'http://127.0.0.1:5173');
+    file_put_contents($themePath . '/dist/.vite/manifest.json', '{}');
+    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue', 'dev' => ['enabled' => true, 'url' => 'http://127.0.0.1:5173']];\n");
+
+    $config = FrontendConfig::forThemePath($themePath);
+
+    withViteHmrEnv('0', function () use ($themePath, $config): void {
+        expect(FrontendConfig::viteHmrMode())->toBeFalse()
+            ->and(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBeNull();
+    });
+
+    @unlink($themePath . '/dist/hot');
+    @unlink($themePath . '/dist/.vite/manifest.json');
+    @rmdir($themePath . '/dist/.vite');
+    @rmdir($themePath . '/dist');
+    @unlink($themePath . '/frontend.config.php');
+    @rmdir($themePath);
+});
+
+test('FrontendConfig explicit HMR mode uses dev url when manifest exists', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-theme-explicit-hmr-' . uniqid();
+    mkdir($themePath . '/dist/.vite', 0777, true);
+    file_put_contents($themePath . '/dist/.vite/manifest.json', '{}');
+    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue', 'dev' => ['port' => 5174]];\n");
+
+    $config = FrontendConfig::forThemePath($themePath);
+
+    withViteHmrEnv('1', function () use ($themePath, $config): void {
+        expect(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5174');
+    });
 
     @unlink($themePath . '/dist/.vite/manifest.json');
     @rmdir($themePath . '/dist/.vite');

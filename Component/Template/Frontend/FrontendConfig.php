@@ -31,6 +31,11 @@ class FrontendConfig
     /** Default path (relative to theme/) where Vite writes the dev-server URL for HMR. */
     public const DEFAULT_HOT_FILE = 'dist/hot';
 
+    /**
+     * PHP process flag: {@see viteHmrMode()} — set by `fe dev` / `pinoox dev`, cleared by `pinoox serve`.
+     */
+    public const VITE_HMR_ENV = 'PINOOX_VITE_HMR';
+
     public const WEBPACK_MANIFEST = 'dist/mix-manifest.json';
 
     /**
@@ -472,6 +477,29 @@ class FrontendConfig
             'assets_hint' => 'partials/scripts.twig: pinoox_bootstrap() then vite_tags(). Twig, Flow, routes, and Controller edits auto-refresh in dev (pinooxRefresh).',
             'next_steps' => $next,
         ];
+    }
+
+    /**
+     * Whether the active PHP process should load Vite HMR assets (not built manifest).
+     *
+     * - `pinoox serve` sets {@see VITE_HMR_ENV}=0 → manifest from dist
+     * - `fe dev` / `pinoox dev` sets {@see VITE_HMR_ENV}=1 → hot file / Vite dev server
+     * - Unset: legacy fallback via VITE_DEV / VITE_DEV_SERVER (MAMP + npm run dev)
+     */
+    public static function viteHmrMode(): bool
+    {
+        if (self::viteHmrEnvExplicitlySet()) {
+            return self::envBool(self::VITE_HMR_ENV, false);
+        }
+
+        return self::isDevFlagActive();
+    }
+
+    private static function viteHmrEnvExplicitlySet(): bool
+    {
+        $hmr = _env(self::VITE_HMR_ENV);
+
+        return $hmr !== null && $hmr !== '';
     }
 
     public static function isDevEnabled(array $config): bool
@@ -941,6 +969,10 @@ class FrontendConfig
             return null;
         }
 
+        if (!self::viteHmrMode()) {
+            return null;
+        }
+
         $themePath = rtrim(str_replace('\\', '/', $themePath), '/');
         $hotFile = self::hotAbsolutePath($themePath, $config);
 
@@ -956,6 +988,10 @@ class FrontendConfig
 
         if ($devUrl === null) {
             return null;
+        }
+
+        if (self::viteHmrEnvExplicitlySet() && self::envBool(self::VITE_HMR_ENV, false)) {
+            return $devUrl;
         }
 
         $manifestRelative ??= self::manifestRelativePath($config);

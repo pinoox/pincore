@@ -100,6 +100,26 @@ class ViteHelper
             }
         }
 
+        return $this->resolveStaticThemeAsset($path, $mainDirectory);
+    }
+
+    /**
+     * Public / outDir files not listed in the Vite manifest (e.g. favicon from public/).
+     */
+    protected function resolveStaticThemeAsset(string $path, string $outDir): ?string
+    {
+        $builtPath = $this->themePath . '/' . $outDir . '/' . $path;
+
+        if (is_file($builtPath)) {
+            return assets($outDir . '/' . $path);
+        }
+
+        $publicPath = $this->themePath . '/public/' . $path;
+
+        if (is_file($publicPath)) {
+            return assets('public/' . $path);
+        }
+
         return null;
     }
 

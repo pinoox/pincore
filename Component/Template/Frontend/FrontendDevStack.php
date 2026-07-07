@@ -341,7 +341,7 @@ final class FrontendDevStack
 
 
 
-        $process = new Process($command, $basePath, null, null, null);
+        $process = new Process($command, $basePath, DevelopmentServer::feDevServeSubprocessEnv(), null, null);
 
         $process->setTimeout(null);
 
