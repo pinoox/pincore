@@ -126,7 +126,8 @@ FOOTER
             ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for the dev server (defaults to the resolved package)')
             ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_HOST or 127.0.0.1)')
             ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_PORT or 8000)')
-            ->addOption('vite-host', null, InputOption::VALUE_REQUIRED, 'Vite bind host (default 127.0.0.1; use --vite-network for LAN)')
+            ->addOption('network', 'N', InputOption::VALUE_NONE, 'Serve PHP app + Vite on LAN (0.0.0.0, shows your network IP)')
+            ->addOption('vite-host', null, InputOption::VALUE_REQUIRED, 'Vite bind host (default 127.0.0.1; use --network or --vite-network for LAN)')
             ->addOption('vite-network', null, InputOption::VALUE_NONE, 'Bind Vite to 0.0.0.0 for LAN access')
             ->addOption('verbose-vite', null, InputOption::VALUE_NONE, 'Show full Vite startup URLs (Local/Network)')
             ->addOption('fix-vite', null, InputOption::VALUE_NONE, 'Auto-wire vite.config.js with pinooxHot/pinooxServer when missing')
@@ -503,7 +504,6 @@ FOOTER
         $this->noteInstallPlan($io, $frontend, $installMode);
 
         $withServe = !(bool) $input->getOption('no-serve');
-        $serveHost = $input->getOption('serve-host');
         $servePortOption = $input->getOption('serve-port');
         $servePort = $servePortOption !== null && $servePortOption !== ''
             ? (int) $servePortOption
@@ -515,7 +515,7 @@ FOOTER
         $session = FrontendDevSession::fromOptions(
             $package,
             $frontend->config(),
-            is_string($serveHost) ? trim($serveHost) : null,
+            $this->resolveServeHost($input),
             $servePort,
             $serveApp,
             $withServe,
@@ -523,6 +523,10 @@ FOOTER
             $viteOpts['host'],
             $viteOpts['quiet'],
         );
+
+        if ($this->isNetworkMode($input)) {
+            $this->renderNetworkDevNote($io, $session);
+        }
 
         $frontend->setDevSession($session);
         $frontend->setFixViteOnSync((bool) $input->getOption('fix-vite'));
@@ -606,6 +610,7 @@ FOOTER
         $sharedHost = is_string($serveHost) && trim($serveHost) !== '' ? trim($serveHost) : null;
         $forceEnvKeys = FrontendDevSync::stackForceEnvKeys();
         $viteOpts = $this->resolveViteDevOptions($input, $targets[0]['config'] ?? []);
+        $networkServeHost = $this->isNetworkMode($input) ? '0.0.0.0' : ($sharedHost !== '' ? $sharedHost : null);
 
         foreach ($targets as $index => $target) {
             $frontend = ThemeFrontend::forPackageAndTheme($target['package'], $target['theme']);
@@ -619,7 +624,7 @@ FOOTER
             $session = FrontendDevSession::fromOptions(
                 $target['package'],
                 $target['config'],
-                $sharedHost !== '' ? $sharedHost : null,
+                $networkServeHost,
                 $servePort,
                 null,
                 false,
@@ -638,7 +643,13 @@ FOOTER
 
         $io->section('Starting frontend dev:apps');
 
-        return (new FrontendDevStack())->run($io, $output, $frontends, $sessions, $sharedHost, $servePort) === 0
+        if ($this->isNetworkMode($input)) {
+            $this->renderNetworkDevNote($io, $sessions[0]);
+        }
+
+        $stackServeHost = $this->isNetworkMode($input) ? '0.0.0.0' : $sharedHost;
+
+        return (new FrontendDevStack())->run($io, $output, $frontends, $sessions, $stackServeHost, $servePort) === 0
             ? Command::SUCCESS
             : Command::FAILURE;
     }
@@ -860,7 +871,7 @@ FOOTER
         $host = FrontendConfig::devHost($config);
         $quiet = FrontendConfig::devQuiet($config);
 
-        if ((bool) $input->getOption('vite-network')) {
+        if ($this->isNetworkMode($input) || (bool) $input->getOption('vite-network')) {
             $host = '0.0.0.0';
         }
 
@@ -878,6 +889,38 @@ FOOTER
             'host' => $host,
             'quiet' => $quiet,
         ];
+    }
+
+    private function isNetworkMode(InputInterface $input): bool
+    {
+        return (bool) $input->getOption('network');
+    }
+
+    private function resolveServeHost(InputInterface $input): ?string
+    {
+        $explicit = $input->getOption('serve-host');
+
+        if (is_string($explicit) && trim($explicit) !== '') {
+            return trim($explicit);
+        }
+
+        if ($this->isNetworkMode($input)) {
+            return '0.0.0.0';
+        }
+
+        return null;
+    }
+
+    private function renderNetworkDevNote(SymfonyStyle $io, FrontendDevSession $session): void
+    {
+        $lan = FrontendDevSession::detectLanIp();
+        $io->note([
+            'Network mode: PHP + Vite listen on 0.0.0.0.',
+            $lan !== null
+                ? 'Other devices: ' . $session->phpAppUrl . ' (LAN IP ' . $lan . ')'
+                : 'Other devices: open ' . $session->phpAppUrl . ' using this PC\'s LAN IP.',
+            'Allow ports ' . $session->servePort . ' and Vite in Windows Firewall if needed.',
+        ]);
     }
 
     /**
@@ -936,7 +979,7 @@ FOOTER
             '--no-reload',
         ], $basePath);
 
-        $serveHost = $input->getOption('serve-host');
+        $serveHost = $this->resolveServeHost($input);
         if (is_string($serveHost) && trim($serveHost) !== '') {
             $command[] = '--host=' . trim($serveHost);
         }

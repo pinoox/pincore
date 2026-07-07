@@ -31,8 +31,10 @@ class DevCommand extends Terminal
                     'dev spark',
                     'dev com_pinoox_welcome',
                     'dev spark --no-serve',
+                    'dev com_pinoox_manager --network',
                 ],
                 "Use MAMP or another PHP server:\n  " . $this->cliFormat('dev spark --no-serve')
+                . "\n\nLAN (phone/tablet on same Wi‑Fi):\n  " . $this->cliFormat('dev spark --network')
                 . "\n\nOpen the PHP app URL in your browser (not :5173). Vite HMR is injected via vite_tags().",
             ))
             ->addArgument('target', InputArgument::OPTIONAL, 'App package or theme folder (interactive when omitted)')
@@ -43,6 +45,7 @@ class DevCommand extends Terminal
             ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for ' . ProjectCli::platformFormat('serve'))
             ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::platformFormat('serve'))
             ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve'))
+            ->addOption('network', 'N', InputOption::VALUE_NONE, 'Serve PHP app + Vite on LAN (same Wi‑Fi)')
             ->addOption('vite-host', null, InputOption::VALUE_REQUIRED, 'Vite bind host (default 127.0.0.1)')
             ->addOption('vite-network', null, InputOption::VALUE_NONE, 'Bind Vite to 0.0.0.0 for LAN access')
             ->addOption('verbose-vite', null, InputOption::VALUE_NONE, 'Show full Vite startup URLs');
@@ -79,6 +82,7 @@ class DevCommand extends Terminal
             '--serve-app' => $input->getOption('serve-app'),
             '--serve-host' => $input->getOption('serve-host'),
             '--serve-port' => $input->getOption('serve-port'),
+            '--network' => $input->getOption('network') ? true : null,
             '--vite-host' => $input->getOption('vite-host'),
             '--vite-network' => $input->getOption('vite-network') ? true : null,
             '--verbose-vite' => $input->getOption('verbose-vite') ? true : null,

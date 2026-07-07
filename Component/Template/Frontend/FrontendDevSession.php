@@ -122,6 +122,10 @@ final class FrontendDevSession
             $env['VITE_DEV_PROXY'] = implode(',', $this->proxyPrefixes);
         }
 
+        if ($this->viteHost === '0.0.0.0' || $this->serveHost === '0.0.0.0') {
+            $env['VITE_DEV_NETWORK'] = 'true';
+        }
+
         if ($themePath !== '') {
             $backendRefresh = FrontendConfig::appBackendRefreshGlobs($themePath);
 
@@ -171,7 +175,7 @@ final class FrontendDevSession
         bool $locked,
         string $binding,
     ): array {
-        $origin = 'http://' . self::normalizeHost($host) . ':' . $port;
+        $origin = 'http://' . self::publicHostForUrl($host) . ':' . $port;
 
         if (!$locked) {
             return [
@@ -354,5 +358,115 @@ final class FrontendDevSession
         $host = trim($host);
 
         return $host !== '' ? $host : '127.0.0.1';
+    }
+
+    /**
+     * Hostname for URLs shown to the developer (LAN IP when bound to 0.0.0.0).
+     */
+    private static function publicHostForUrl(string $host): string
+    {
+        $host = trim($host);
+
+        if ($host === '0.0.0.0' || $host === '[::]') {
+            return self::detectLanIp() ?? '127.0.0.1';
+        }
+
+        return self::normalizeHost($host);
+    }
+
+    public static function detectLanIp(): ?string
+    {
+        return self::pickBestLanIp(self::collectLanIps());
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function collectLanIps(): array
+    {
+        $ips = [];
+
+        if (function_exists('socket_create')) {
+            $socket = @socket_create(AF_INET, SOCK_DGRAM, SOL_UDP);
+
+            if ($socket !== false) {
+                @socket_connect($socket, '8.8.8.8', 80);
+
+                if (@socket_getsockname($socket, $address) && is_string($address) && $address !== '') {
+                    $ips[] = $address;
+                }
+
+                socket_close($socket);
+            }
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $output = shell_exec('ipconfig') ?? '';
+
+            if (preg_match_all('/IPv4 Address[^:\r\n]*:\s*(\d+\.\d+\.\d+\.\d+)/i', $output, $matches)) {
+                foreach ($matches[1] as $ip) {
+                    $ips[] = (string) $ip;
+                }
+            }
+        } else {
+            $hostname = gethostname();
+
+            if (is_string($hostname) && $hostname !== '') {
+                $resolved = gethostbyname($hostname);
+
+                if ($resolved !== $hostname && filter_var($resolved, FILTER_VALIDATE_IP)) {
+                    $ips[] = $resolved;
+                }
+            }
+        }
+
+        return array_values(array_unique($ips));
+    }
+
+    /**
+     * @param list<string> $ips
+     */
+    private static function pickBestLanIp(array $ips): ?string
+    {
+        $ips = array_values(array_filter($ips, static fn (string $ip): bool => filter_var(
+            $ip,
+            FILTER_VALIDATE_IP,
+            FILTER_FLAG_IPV4,
+        ) !== false && $ip !== '127.0.0.1'));
+
+        if ($ips === []) {
+            return null;
+        }
+
+        foreach ($ips as $ip) {
+            if (str_starts_with($ip, '192.168.')) {
+                return $ip;
+            }
+        }
+
+        foreach ($ips as $ip) {
+            if (str_starts_with($ip, '10.')) {
+                return $ip;
+            }
+        }
+
+        foreach ($ips as $ip) {
+            if (!self::isLikelyVirtualAdapterIp($ip)) {
+                return $ip;
+            }
+        }
+
+        return $ips[0];
+    }
+
+    private static function isLikelyVirtualAdapterIp(string $ip): bool
+    {
+        if (!preg_match('/^172\.(\d+)\./', $ip, $matches)) {
+            return false;
+        }
+
+        $second = (int) $matches[1];
+
+        return $second >= 16 && $second <= 31;
     }
 }

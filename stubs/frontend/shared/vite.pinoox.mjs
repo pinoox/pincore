@@ -88,6 +88,33 @@ function resolveViteHost(env = {}, options = {}) {
     return raw;
 }
 
+function resolveNetworkMode(env = {}, options = {}) {
+    const raw = env.VITE_DEV_NETWORK ?? process.env.VITE_DEV_NETWORK ?? options.network;
+
+    return raw === 'true' || raw === '1' || raw === true;
+}
+
+function resolveVitePublicHostname(env = {}) {
+    const merged = mergedEnv(env);
+    const appUrl = merged.VITE_SERVER_URL || process.env.VITE_SERVER_URL;
+
+    if (appUrl) {
+        try {
+            return new URL(appUrl).hostname;
+        } catch {
+            // fall through
+        }
+    }
+
+    const host = resolveViteHost(merged);
+
+    return host === true || host === '0.0.0.0' ? '127.0.0.1' : (host || '127.0.0.1');
+}
+
+function resolveVitePublicOrigin(env = {}, port = 5173) {
+    return `http://${resolveVitePublicHostname(env)}:${port}`;
+}
+
 function createPinooxViteLogger(env = {}, options = {}) {
     const quiet = resolveViteQuiet(env, options);
     const logger = createLogger('warn', { allowClearScreen: false });
@@ -122,12 +149,26 @@ function printPinooxDevBanner(env = {}, port = 5173) {
         return;
     }
 
+    const network = (env.VITE_DEV_NETWORK || process.env.VITE_DEV_NETWORK) === 'true';
     const host = resolveViteHost(env);
-    const hostname = host === true || host === '0.0.0.0' ? '127.0.0.1' : (host || '127.0.0.1');
+    let hmrHost = host === true || host === '0.0.0.0' ? '127.0.0.1' : (host || '127.0.0.1');
+
+    if (network) {
+        try {
+            hmrHost = new URL(appUrl).hostname;
+        } catch {
+            // keep default
+        }
+    }
 
     console.log('');
     console.log('  \x1b[32m\x1b[1m➜\x1b[0m  \x1b[36m\x1b[1mOpen app\x1b[0m  ' + appUrl);
-    console.log('  \x1b[90mVite HMR\x1b[0m       http://' + hostname + ':' + port + ' \x1b[90m(background)\x1b[0m');
+
+    if (network) {
+        console.log('  \x1b[90mLAN\x1b[0m           same URL on phone/tablet (same Wi‑Fi)');
+    }
+
+    console.log('  \x1b[90mVite HMR\x1b[0m       http://' + hmrHost + ':' + port + ' \x1b[90m(background)\x1b[0m');
     console.log('  \x1b[90mPress Ctrl+C to stop\x1b[0m');
     console.log('');
 }
@@ -147,7 +188,20 @@ export function pinooxHot(options = {}) {
 
     const writeHot = (server) => {
         const host = server.config.server.host;
-        const hostname = host === true || host === '0.0.0.0' ? '127.0.0.1' : (host || '127.0.0.1');
+        let hostname = host === true || host === '0.0.0.0' ? '127.0.0.1' : (host || '127.0.0.1');
+
+        if ((pluginEnv.VITE_DEV_NETWORK || process.env.VITE_DEV_NETWORK) === 'true') {
+            const appUrl = pluginEnv.VITE_SERVER_URL || process.env.VITE_SERVER_URL;
+
+            if (appUrl) {
+                try {
+                    hostname = new URL(appUrl).hostname;
+                } catch {
+                    // keep default
+                }
+            }
+        }
+
         const port = server.config.server.port ?? 5173;
         const devUrl = `http://${hostname}:${port}`;
 
@@ -169,9 +223,48 @@ export function pinooxHot(options = {}) {
             };
         },
         configureServer(server) {
+            if (resolveNetworkMode(pluginEnv, options)) {
+                server.middlewares.use((req, res, next) => {
+                    const origin = req.headers.origin;
+
+                    if (origin) {
+                        res.setHeader('Access-Control-Allow-Origin', origin);
+                        res.setHeader('Access-Control-Allow-Credentials', 'true');
+                        res.setHeader('Vary', 'Origin');
+                    } else {
+                        res.setHeader('Access-Control-Allow-Origin', '*');
+                    }
+
+                    res.setHeader('Access-Control-Allow-Methods', 'GET,HEAD,POST,PUT,PATCH,DELETE,OPTIONS');
+                    res.setHeader('Access-Control-Allow-Headers', 'Origin, Content-Type, Accept, Authorization');
+
+                    if (req.method === 'OPTIONS') {
+                        res.statusCode = 204;
+                        res.end();
+
+                        return;
+                    }
+
+                    next();
+                });
+            }
+
             const updateHot = () => writeHot(server);
 
             server.httpServer?.once('listening', () => {
+                if (resolveNetworkMode(pluginEnv, options)) {
+                    const hostname = resolveVitePublicHostname(pluginEnv);
+                    const port = server.config.server.port ?? 5173;
+
+                    server.config.server.origin = `http://${hostname}:${port}`;
+                    server.config.server.hmr = {
+                        ...(typeof server.config.server.hmr === 'object' ? server.config.server.hmr : {}),
+                        host: hostname,
+                        port,
+                        clientPort: port,
+                    };
+                }
+
                 updateHot();
                 printPinooxDevBanner(pluginEnv, server.config.server.port ?? 5173);
             });
@@ -230,7 +323,7 @@ export function pinooxDevAssets(env = {}) {
         apply: 'serve',
         configureServer(server) {
             const updateDevServerUrl = () => {
-                devServerUrl = resolveDevServerUrlFromInstance(server);
+                devServerUrl = resolveDevServerUrlFromInstance(server, env);
             };
 
             server.httpServer?.once('listening', updateDevServerUrl);
@@ -362,7 +455,10 @@ export function pinooxServer(env = {}, options = {}) {
     const serverUrl = env.VITE_SERVER_URL || options.serverUrl || 'http://127.0.0.1:8000';
     const port = Number(env.VITE_DEV_PORT || options.port || 5173);
     const phpOrigin = parseOrigin(serverUrl);
-    const viteOrigin = resolveViteDevOrigin(env, port, options);
+    const network = resolveNetworkMode(env, options);
+    const viteOrigin = network
+        ? resolveVitePublicOrigin(env, port)
+        : resolveViteDevOrigin(env, port, options);
     const strictPort = options.strictPort ?? false;
     const prefixes = resolveProxyPrefixes(env, options, serverUrl);
     const proxy = {};
@@ -379,16 +475,33 @@ export function pinooxServer(env = {}, options = {}) {
         printUrls: false,
     };
 
-    if (strictPort) {
+    if (network) {
+        server.cors = true;
+        server.origin = viteOrigin;
+    } else if (strictPort) {
         server.origin = viteOrigin;
     }
 
     return server;
 }
 
-function resolveDevServerUrlFromInstance(server) {
+function resolveDevServerUrlFromInstance(server, env = {}) {
+    const merged = mergedEnv(env);
     const host = server.config.server.host;
-    const hostname = host === true || host === '0.0.0.0' ? '127.0.0.1' : (host || '127.0.0.1');
+    let hostname = host === true || host === '0.0.0.0' ? '127.0.0.1' : (host || '127.0.0.1');
+
+    if ((merged.VITE_DEV_NETWORK || process.env.VITE_DEV_NETWORK) === 'true') {
+        const appUrl = merged.VITE_SERVER_URL || process.env.VITE_SERVER_URL;
+
+        if (appUrl) {
+            try {
+                hostname = new URL(appUrl).hostname;
+            } catch {
+                // keep default
+            }
+        }
+    }
+
     const port = server.config.server.port ?? 5173;
 
     return `http://${hostname}:${port}`;
