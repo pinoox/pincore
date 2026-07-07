@@ -406,7 +406,7 @@ class ThemeFrontend
 
         if ($code === 0) {
             FrontendWebServerFixSync::syncFromThemeConfig($this->package, $this->themePath, $this->config);
-            FrontendDevSync::removeHotFile($this->themePath, $this->config);
+            FrontendDevSync::removeDevState($this->themePath);
         }
 
         return $code;
@@ -444,7 +444,6 @@ class ThemeFrontend
             return false;
         }
 
-        $hotFile = FrontendConfig::hotAbsolutePath($this->themePath, $this->config);
         $probeUrl = rtrim($this->devSession->viteDevServerUrl(), '/') . '/@vite/client';
         $deadline = microtime(true) + max(1, $timeoutSeconds);
 
@@ -453,7 +452,7 @@ class ThemeFrontend
                 return false;
             }
 
-            if (is_file($hotFile) && trim((string) file_get_contents($hotFile)) !== '') {
+            if (FrontendDevState::isActive($this->themePath)) {
                 return true;
             }
 
@@ -465,7 +464,7 @@ class ThemeFrontend
         }
 
         return $this->hasRunningDevProcess()
-            && (is_file($hotFile) || $this->viteDevServerResponds($probeUrl));
+            && (FrontendDevState::isActive($this->themePath) || $this->viteDevServerResponds($probeUrl));
     }
 
     public function awaitRunningDevProcess(): int
@@ -506,10 +505,10 @@ class ThemeFrontend
     public function prepareDev(string $installMode = self::INSTALL_SKIP): void
     {
         $this->assertFrontendProject();
-        FrontendDevSync::removeHotFile($this->themePath, $this->config);
+        FrontendDevSync::removeDevState($this->themePath);
 
         if ($this->devSession !== null) {
-            FrontendDevSync::writeDevPortCache($this->themePath, $this->config, $this->devSession->vitePort);
+            FrontendDevSync::writeDevState($this->themePath, $this->config, $this->devSession->vitePort);
         }
 
         $this->syncDev();
@@ -566,7 +565,7 @@ class ThemeFrontend
      *     vite_plugin: bool,
      *     vite_plugin_added: bool,
      *     env_seeded: bool,
-     *     hot_path: string,
+     *     dev_state_path: string,
      *     env_autodev: bool,
      *     env_file: string,
      *     vite_wired: bool,
@@ -639,8 +638,8 @@ class ThemeFrontend
             'package_json' => $this->hasPackageJson(),
             'dev_enabled' => FrontendConfig::isDevEnabled($this->config),
             'dev_url' => $this->config['dev']['url'] ?? null,
-            'hot_relative' => FrontendConfig::hotRelativePath($this->config, $this->themePath),
-            'hot_exists' => is_file(FrontendConfig::hotAbsolutePath($this->themePath, $this->config)),
+            'dev_state_path' => FrontendDevState::relativePath(),
+            'dev_active' => FrontendDevState::isActive($this->themePath),
             'dev_port' => FrontendConfig::devPort($this->config, $this->themePath),
             'vite_plugin' => FrontendDevSync::hasVitePluginDependency($this->themePath)
                 || is_file($this->themePath . '/vite.pinoox.mjs'),

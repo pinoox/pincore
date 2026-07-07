@@ -236,7 +236,6 @@ final class FrontendDevSession
     public function npmEnvironment(array $config, array $themeEnv = [], string $themePath = '', array $forceKeys = []): array
     {
         $env = [
-            'VITE_HOT_FILE' => FrontendConfig::hotRelativePath($config, $themePath),
             'VITE_BUILD_OUT_DIR' => FrontendConfig::buildOutDir($config, $themePath),
             'PINOOX_CORE_PATH' => FrontendDevSync::resolveCorePath(),
             'VITE_DEV_PORT' => (string) $this->vitePort,
@@ -276,7 +275,7 @@ final class FrontendDevSession
         $lines = [
             ['level' => 'info', 'message' => 'PHP app URL: ' . $this->phpAppUrl],
             ['level' => 'info', 'message' => 'Vite dev server: ' . $this->viteDevServerUrl()],
-            ['level' => 'info', 'message' => 'Hot file: dist/hot (written when Vite starts)'],
+            ['level' => 'info', 'message' => 'Dev state: .pinoox/dev.json (written when Vite starts)'],
         ];
 
         if ($this->platformServe) {

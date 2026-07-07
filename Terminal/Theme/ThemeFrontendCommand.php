@@ -114,7 +114,7 @@ Dev auto-setup (no manual .env required):
   - Requires @pinooxhq/vite-plugin in theme package.json (use --fix-vite to add it)
   - Merges dev keys into theme .env (default) — use --env-file for a custom name
   - Injects env into npm run dev (VITE_SERVER_URL, VITE_DEV_PROXY, …)
-  - Use --fix-vite to patch vite.config.js when pinooxHot/pinooxServer are missing
+  - Use --fix-vite to patch vite.config.js when pinooxDevState/pinooxServer are missing
 
 build, dev, and run skip npm install by default (faster workflow).
 Use --install to install dependencies alongside the command when needed.
@@ -124,8 +124,7 @@ Development (.env):
   VITE_DEV=true
   VITE_DEV_SERVER=http://127.0.0.1:5173
 
-HMR: @pinooxhq/vite-plugin writes theme/dist/hot on Vite start.
-Override hot path in frontend.config.php dev.hot or VITE_HOT_FILE.
+HMR: @pinooxhq/vite-plugin writes theme/.pinoox/dev.json on Vite start.
 FOOTER
             ))
             ->addArgument('target', InputArgument::OPTIONAL, 'App package (com_my_shop) or theme folder (spark). Leave empty to pick interactively.')
@@ -144,7 +143,7 @@ FOOTER
             ->addOption('vite-host', null, InputOption::VALUE_REQUIRED, 'Vite bind host (default 127.0.0.1; use --network or --vite-network for LAN)')
             ->addOption('vite-network', null, InputOption::VALUE_NONE, 'Bind Vite to 0.0.0.0 for LAN access')
             ->addOption('verbose-vite', null, InputOption::VALUE_NONE, 'Show full Vite startup URLs (Local/Network)')
-            ->addOption('fix-vite', null, InputOption::VALUE_NONE, 'Auto-wire vite.config.js with pinooxHot/pinooxServer when missing')
+            ->addOption('fix-vite', null, InputOption::VALUE_NONE, 'Auto-wire vite.config.js with pinooxDevState/pinooxServer when missing')
             ->addOption('env-file', null, InputOption::VALUE_REQUIRED, 'Theme env file for fe dev auto-setup (default: .env)');
     }
 
@@ -663,7 +662,7 @@ FOOTER
             ['Manifest' => ($info['manifest_exists'] ?? false) ? 'built' : 'missing — run fe build'],
             ['Dev' => !empty($info['dev_enabled']) ? (string) ($info['dev_url'] ?? 'on') : 'off'],
             ['Dev port' => (string) ($info['dev_port'] ?? '-')],
-            ['Hot file' => ($info['hot_exists'] ?? false) ? (string) ($info['hot_relative'] ?? '-') : 'missing'],
+            ['Dev state' => ($info['dev_active'] ?? false) ? (string) ($info['dev_state_path'] ?? '-') : 'missing'],
             ['@pinooxhq/vite-plugin' => !empty($info['vite_plugin']) ? 'installed' : 'missing — npm install or fe dev --fix-vite --install'],
             ['vite.config wired' => !empty($info['vite_wired']) ? 'yes' : 'no — run fe dev --fix-vite'],
             ['Theme .env' => !empty($info['env_autodev'])
@@ -791,7 +790,7 @@ FOOTER
             $frontend->setDevEnvFile(trim($envFileOption));
         }
 
-        FrontendDevSync::writeDevPortCache($frontend->themePath(), $frontend->config(), $session->vitePort);
+        FrontendDevSync::writeDevState($frontend->themePath(), $frontend->config(), $session->vitePort);
         $sync = $frontend->syncDev();
         $this->renderDevDiagnostics($io, $frontend, $sync);
 
@@ -927,7 +926,7 @@ FOOTER
             );
 
             $frontend->setDevSession($session);
-            FrontendDevSync::writeDevPortCache($frontend->themePath(), $frontend->config(), $session->vitePort);
+            FrontendDevSync::writeDevState($frontend->themePath(), $frontend->config(), $session->vitePort);
             $sync = $frontend->syncDev();
 
             if (!$quietStack) {
@@ -1310,7 +1309,7 @@ FOOTER
         }
 
         if (!empty($sync['vite_wired'])) {
-            $io->writeln('<info>Vite config:</info> pinooxHot + pinooxServer wired');
+            $io->writeln('<info>Vite config:</info> pinooxDevState + pinooxServer wired');
         } elseif (!empty($sync['vite_inspection']['patched'])) {
             $io->writeln('<info>Vite config:</info> auto-wired with --fix-vite');
         }

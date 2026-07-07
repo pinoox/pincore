@@ -4,48 +4,6 @@ use Pinoox\Component\Server\WebServerFixCache;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\FrontendWebServerFixSync;
 
-/**
- * @param callable(): void $callback
- */
-function withViteHmrEnv(?string $value, callable $callback): void
-{
-    $key = FrontendConfig::VITE_HMR_ENV;
-    $previousEnv = $_ENV[$key] ?? null;
-    $previousServer = $_SERVER[$key] ?? null;
-    $previousGetenv = getenv($key);
-
-    if ($value === null) {
-        putenv($key);
-        unset($_ENV[$key], $_SERVER[$key]);
-    } else {
-        putenv($key . '=' . $value);
-        $_ENV[$key] = $value;
-        $_SERVER[$key] = $value;
-    }
-
-    try {
-        $callback();
-    } finally {
-        if ($previousGetenv === false) {
-            putenv($key);
-        } else {
-            putenv($key . '=' . ($previousGetenv ?: ''));
-        }
-
-        if ($previousEnv === null) {
-            unset($_ENV[$key]);
-        } else {
-            $_ENV[$key] = $previousEnv;
-        }
-
-        if ($previousServer === null) {
-            unset($_SERVER[$key]);
-        } else {
-            $_SERVER[$key] = $previousServer;
-        }
-    }
-}
-
 test('FrontendConfig omits manifest and entry defaults for twig stack', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-theme-twig-' . uniqid();
     mkdir($themePath, 0777, true);
@@ -109,7 +67,7 @@ test('FrontendConfig defaultStackForNewTheme is vue', function () {
     expect(FrontendConfig::defaultStackForNewTheme())->toBe('vue');
 });
 
-test('FrontendConfig syncs manifest and hot paths with build.outDir', function () {
+test('FrontendConfig syncs manifest path with build.outDir', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-theme-build-outdir-' . uniqid();
     mkdir($themePath, 0777, true);
     file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue', 'build' => ['outDir' => 'public/build']];\n");
@@ -118,29 +76,31 @@ test('FrontendConfig syncs manifest and hot paths with build.outDir', function (
 
     expect(FrontendConfig::buildOutDir($config, $themePath))->toBe('public/build')
         ->and(FrontendConfig::manifestRelativePath($config, $themePath))->toBe('public/build/.vite/manifest.json')
-        ->and(FrontendConfig::hotRelativePath($config, $themePath))->toBe('public/build/hot')
+        ->and(FrontendConfig::devStateRelativePath())->toBe('.pinoox/dev.json')
         ->and(FrontendConfig::outDirFromManifestPath('public/build/.vite/manifest.json'))->toBe('public/build');
 
     @unlink($themePath . '/frontend.config.php');
     @rmdir($themePath);
 });
 
-test('FrontendConfig resolves custom dev.hot path', function () {
-    $themePath = sys_get_temp_dir() . '/pinoox-theme-hot-path-' . uniqid();
-    mkdir($themePath . '/dist/custom', 0777, true);
-    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue', 'dev' => ['hot' => 'dist/custom/hot']];\n");
-    file_put_contents($themePath . '/dist/custom/hot', 'http://127.0.0.1:5199');
+test('FrontendConfig resolves dev server URL from dev.json', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-theme-dev-state-' . uniqid();
+    mkdir($themePath . '/.pinoox', 0777, true);
+    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue'];\n");
+    file_put_contents($themePath . '/.pinoox/dev.json', json_encode([
+        'viteUrl' => 'http://127.0.0.1:5199',
+        'port' => 5199,
+    ], JSON_PRETTY_PRINT));
 
     $config = FrontendConfig::forThemePath($themePath);
 
     withViteHmrEnv('1', function () use ($themePath, $config): void {
-        expect(FrontendConfig::hotRelativePath($config))->toBe('dist/custom/hot')
+        expect(FrontendConfig::devStateRelativePath())->toBe('.pinoox/dev.json')
             ->and(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5199');
     });
 
-    @unlink($themePath . '/dist/custom/hot');
-    @rmdir($themePath . '/dist/custom');
-    @rmdir($themePath . '/dist');
+    @unlink($themePath . '/.pinoox/dev.json');
+    @rmdir($themePath . '/.pinoox');
     @unlink($themePath . '/frontend.config.php');
     @rmdir($themePath);
 });
@@ -178,11 +138,11 @@ test('FrontendConfig allocates free port when dev.port is omitted', function () 
     @rmdir($themePath);
 });
 
-test('FrontendConfig resolveRuntimeDevPort reads fe dev cache file', function () {
+test('FrontendConfig resolveRuntimeDevPort reads fe dev state file', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-theme-dev-port-cache-' . uniqid();
-    mkdir($themePath . '/dist', 0777, true);
+    mkdir($themePath . '/.pinoox', 0777, true);
     file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue'];\n");
-    file_put_contents($themePath . '/dist/.vite-dev-port', '5188');
+    file_put_contents($themePath . '/.pinoox/dev.json', json_encode(['port' => 5188], JSON_PRETTY_PRINT));
 
     $config = FrontendConfig::forThemePath($themePath);
 
@@ -191,8 +151,8 @@ test('FrontendConfig resolveRuntimeDevPort reads fe dev cache file', function ()
             ->and(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBe('http://127.0.0.1:5188');
     });
 
-    @unlink($themePath . '/dist/.vite-dev-port');
-    @rmdir($themePath . '/dist');
+    @unlink($themePath . '/.pinoox/dev.json');
+    @rmdir($themePath . '/.pinoox');
     @unlink($themePath . '/frontend.config.php');
     @rmdir($themePath);
 });
@@ -231,10 +191,11 @@ test('FrontendConfig prefers Vite over stale manifest by default in dev', functi
     @rmdir($themePath);
 });
 
-test('FrontendConfig serve mode ignores hot file and uses manifest', function () {
+test('FrontendConfig serve mode ignores dev state and uses manifest', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-theme-serve-manifest-' . uniqid();
+    mkdir($themePath . '/.pinoox', 0777, true);
     mkdir($themePath . '/dist/.vite', 0777, true);
-    file_put_contents($themePath . '/dist/hot', 'http://127.0.0.1:5173');
+    file_put_contents($themePath . '/.pinoox/dev.json', json_encode(['viteUrl' => 'http://127.0.0.1:5173'], JSON_PRETTY_PRINT));
     file_put_contents($themePath . '/dist/.vite/manifest.json', '{}');
     file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue', 'dev' => ['enabled' => true, 'url' => 'http://127.0.0.1:5173']];\n");
 
@@ -245,7 +206,8 @@ test('FrontendConfig serve mode ignores hot file and uses manifest', function ()
             ->and(FrontendConfig::resolveDevServerUrl($themePath, $config))->toBeNull();
     });
 
-    @unlink($themePath . '/dist/hot');
+    @unlink($themePath . '/.pinoox/dev.json');
+    @rmdir($themePath . '/.pinoox');
     @unlink($themePath . '/dist/.vite/manifest.json');
     @rmdir($themePath . '/dist/.vite');
     @rmdir($themePath . '/dist');
@@ -300,10 +262,10 @@ test('FrontendConfig reads PINOOX_VITE_HMR from getenv when absent in _ENV', fun
     @rmdir($themePath);
 });
 
-test('FrontendConfig ignores hot file and dev url when runtime is production', function () {
-    $themePath = sys_get_temp_dir() . '/pinoox-theme-prod-hot-' . uniqid();
-    mkdir($themePath . '/dist', 0777, true);
-    file_put_contents($themePath . '/dist/hot', 'http://127.0.0.1:5173');
+test('FrontendConfig ignores dev state and dev url when runtime is production', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-theme-prod-dev-state-' . uniqid();
+    mkdir($themePath . '/.pinoox', 0777, true);
+    file_put_contents($themePath . '/.pinoox/dev.json', json_encode(['viteUrl' => 'http://127.0.0.1:5173'], JSON_PRETTY_PRINT));
     file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue', 'dev' => ['enabled' => true, 'url' => 'http://127.0.0.1:5173']];\n");
 
     $previous = $_ENV['APP_ENV'] ?? null;
@@ -329,8 +291,8 @@ test('FrontendConfig ignores hot file and dev url when runtime is production', f
 
     \Pinoox\Support\SystemConfig::clearCache();
 
-    @unlink($themePath . '/dist/hot');
-    @rmdir($themePath . '/dist');
+    @unlink($themePath . '/.pinoox/dev.json');
+    @rmdir($themePath . '/.pinoox');
     @unlink($themePath . '/frontend.config.php');
     @rmdir($themePath);
 });

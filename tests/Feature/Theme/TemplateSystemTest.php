@@ -57,20 +57,22 @@ test('SeoMeta renders title, description, canonical and json-ld', function () {
         ->toContain('application/ld+json');
 });
 
-test('ViteHelper uses dev server tags when hot file exists', function () {
-    $themePath = sys_get_temp_dir() . '/pinoox-vite-hot-' . uniqid();
-    mkdir($themePath . '/dist', 0777, true);
-    file_put_contents($themePath . '/dist/hot', 'http://127.0.0.1:5173');
+test('ViteHelper uses dev server tags when dev state is active', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-vite-dev-state-' . uniqid();
+    mkdir($themePath . '/.pinoox', 0777, true);
+    file_put_contents($themePath . '/.pinoox/dev.json', json_encode(['viteUrl' => 'http://127.0.0.1:5173'], JSON_PRETTY_PRINT));
 
-    $helper = new ViteHelper($themePath);
-    $tags = $helper->vite('src/main.js');
+    withViteHmrEnv('1', function () use ($themePath): void {
+        $helper = new ViteHelper($themePath);
+        $tags = $helper->vite('src/main.js');
 
-    expect($tags)->toHaveCount(2)
-        ->and($tags[0])->toContain('@vite/client')
-        ->and($tags[1])->toContain('src/main.js');
+        expect($tags)->toHaveCount(2)
+            ->and($tags[0])->toContain('@vite/client')
+            ->and($tags[1])->toContain('src/main.js');
+    });
 
-    @unlink($themePath . '/dist/hot');
-    @rmdir($themePath . '/dist');
+    @unlink($themePath . '/.pinoox/dev.json');
+    @rmdir($themePath . '/.pinoox');
     @rmdir($themePath);
 });
 
@@ -102,19 +104,21 @@ test('ViteHelper reads production manifest chunks', function () {
 
 test('ViteHelper supports multiple entry points', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-vite-multi-' . uniqid();
-    mkdir($themePath . '/dist', 0777, true);
-    file_put_contents($themePath . '/dist/hot', 'http://127.0.0.1:5173');
+    mkdir($themePath . '/.pinoox', 0777, true);
+    file_put_contents($themePath . '/.pinoox/dev.json', json_encode(['viteUrl' => 'http://127.0.0.1:5173'], JSON_PRETTY_PRINT));
 
-    $helper = new ViteHelper($themePath);
-    $tags = $helper->vite(['src/main.js', 'src/admin.js']);
+    withViteHmrEnv('1', function () use ($themePath): void {
+        $helper = new ViteHelper($themePath);
+        $tags = $helper->vite(['src/main.js', 'src/admin.js']);
 
-    expect($tags)->toHaveCount(3)
-        ->and($tags[0])->toContain('@vite/client')
-        ->and($tags[1])->toContain('src/main.js')
-        ->and($tags[2])->toContain('src/admin.js');
+        expect($tags)->toHaveCount(3)
+            ->and($tags[0])->toContain('@vite/client')
+            ->and($tags[1])->toContain('src/main.js')
+            ->and($tags[2])->toContain('src/admin.js');
+    });
 
-    @unlink($themePath . '/dist/hot');
-    @rmdir($themePath . '/dist');
+    @unlink($themePath . '/.pinoox/dev.json');
+    @rmdir($themePath . '/.pinoox');
     @rmdir($themePath);
 });
 

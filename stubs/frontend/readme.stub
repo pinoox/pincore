@@ -27,7 +27,7 @@ Include `{{ pinoox_bootstrap(bootstrap|default({}))|raw }}` before Vite tags so 
 
 `frontend.config.php` only needs `stack` and `profile` — entry, manifest, and dev server settings are applied automatically.
 
-HMR uses the npm package `@pinooxhq/vite-plugin` (`createPinooxViteConfig`, `pinooxHot`, `pinooxServer`, `pinooxRefresh`). Add it to theme `package.json` — scaffold stubs include it; run `npm install` after scaffold.
+HMR uses the npm package `@pinooxhq/vite-plugin` (`pinoox()`, `pinooxDevState`, `pinooxServer`, `pinooxRefresh`). Add it to theme `package.json` — scaffold stubs include it; run `npm install` after scaffold.
 
 After scaffold: `php pinoox fe {{package}} install --theme=default` then `dev`.
 

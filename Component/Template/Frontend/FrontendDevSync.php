@@ -27,7 +27,7 @@ final class FrontendDevSync
      *     vite_plugin: bool,
      *     vite_plugin_added: bool,
      *     env_seeded: bool,
-     *     hot_path: string,
+     *     dev_state_path: string,
      *     env_autodev: bool,
      *     env_file: string,
      *     vite_wired: bool,
@@ -57,15 +57,14 @@ final class FrontendDevSync
         }
 
         if ($session !== null) {
-            self::writeDevPortCache($themePath, $config, $session->vitePort);
-            FrontendConfig::writeBuildOutDirCache($themePath, FrontendConfig::buildOutDir($config, $themePath));
+            self::writeDevState($themePath, $config, $session->vitePort);
         }
 
         return [
             'vite_plugin' => self::hasVitePluginDependency($themePath),
             'vite_plugin_added' => $vitePluginAdded,
             'env_seeded' => self::seedThemeEnv($themePath),
-            'hot_path' => FrontendConfig::hotRelativePath($config, $themePath),
+            'dev_state_path' => FrontendDevState::relativePath(),
             'env_autodev' => $session !== null && self::shouldWriteAutoDevEnv($themePath, $envFile)
                 ? self::writeAutoDevEnv($themePath, $session, $config, $envFile)
                 : false,
@@ -85,7 +84,7 @@ final class FrontendDevSync
         if (!is_file($path)) {
             return [
                 'exists' => false,
-                'has_pinoox_hot' => false,
+                'has_pinoox_dev_state' => false,
                 'has_pinoox_server' => false,
                 'wired' => false,
             ];
@@ -94,7 +93,8 @@ final class FrontendDevSync
         $content = (string) file_get_contents($path);
         $usesPackage = str_contains($content, self::VITE_PLUGIN_PACKAGE);
         $usesLegacy = str_contains($content, './vite.pinoox.mjs');
-        $hasHot = str_contains($content, 'pinooxHot')
+        $hasDevState = str_contains($content, 'pinooxDevState')
+            || str_contains($content, 'pinooxHot')
             || str_contains($content, 'createPinooxViteConfig')
             || ($usesPackage && preg_match('/\bpinoox\s*\(/', $content) === 1);
         $hasServer = str_contains($content, 'pinooxServer')
@@ -104,12 +104,12 @@ final class FrontendDevSync
 
         return [
             'exists' => true,
-            'has_pinoox_hot' => $hasHot,
+            'has_pinoox_dev_state' => $hasDevState,
             'has_pinoox_server' => $hasServer,
             'has_pinoox_refresh' => $hasRefresh,
             'uses_vite_plugin_package' => $usesPackage,
             'uses_legacy_bundle' => $usesLegacy,
-            'wired' => $hasHot && $hasServer,
+            'wired' => $hasDevState && $hasServer,
             'path' => $path,
         ];
     }
@@ -131,14 +131,14 @@ final class FrontendDevSync
 
         $updated = $content;
 
-        if (!$inspection['has_pinoox_hot'] && !$inspection['has_pinoox_server']) {
-            $updated = 'import pinooxHot, { pinooxServer } from \'' . self::VITE_PLUGIN_PACKAGE . "';\n" . $updated;
+        if (!$inspection['has_pinoox_dev_state'] && !$inspection['has_pinoox_server']) {
+            $updated = 'import pinooxDevState, { pinooxServer } from \'' . self::VITE_PLUGIN_PACKAGE . "';\n" . $updated;
         }
 
-        if (!$inspection['has_pinoox_hot'] && preg_match('/plugins\s*:\s*\[/', $updated)) {
+        if (!$inspection['has_pinoox_dev_state'] && preg_match('/plugins\s*:\s*\[/', $updated)) {
             $updated = (string) preg_replace(
                 '/plugins\s*:\s*\[/',
-                "plugins: [\n            pinooxHot(),",
+                "plugins: [\n            pinooxDevState(),",
                 $updated,
                 1,
             );
@@ -455,7 +455,6 @@ final class FrontendDevSync
             self::AUTO_ENV_BEGIN,
             '# Regenerated on each `' . ProjectCli::autoFormat('fe dev') . '` run.',
             'VITE_DEV=true',
-            'VITE_HOT_FILE=' . FrontendConfig::hotRelativePath($config, $themePath),
             'VITE_BUILD_OUT_DIR=' . FrontendConfig::buildOutDir($config, $themePath),
             'VITE_SERVER_URL=' . $session->phpAppUrl,
             'VITE_SERVE_APP=' . $session->serveAppLabel(),
@@ -517,7 +516,7 @@ final class FrontendDevSync
         } elseif (!$inspection['wired']) {
             $issues[] = [
                 'level' => 'warning',
-                'message' => 'vite.config.js is not wired to pinooxHot/pinooxServer — HMR will not work. Run: ' . ProjectCli::autoFormat('fe dev --fix-vite'),
+                'message' => 'vite.config.js is not wired to pinooxDevState/pinooxServer — HMR will not work. Run: ' . ProjectCli::autoFormat('fe dev --fix-vite'),
             ];
         } elseif ($inspection['uses_legacy_bundle'] ?? false) {
             $issues[] = [
@@ -528,10 +527,10 @@ final class FrontendDevSync
 
         $manifest = FrontendConfig::manifestAbsolutePath($themePath, $config);
 
-        if ($manifest !== null && is_file($manifest) && !is_file(FrontendConfig::hotAbsolutePath($themePath, $config))) {
+        if ($manifest !== null && is_file($manifest) && !FrontendDevState::isActive($themePath)) {
             $issues[] = [
                 'level' => 'comment',
-                'message' => 'Built manifest present — Vite HMR will load after the dev server starts (dist/hot is written by Vite).',
+                'message' => 'Built manifest present — Vite HMR will load after the dev server starts (.pinoox/dev.json is written by Vite).',
             ];
         }
 
@@ -559,77 +558,47 @@ final class FrontendDevSync
         return copy($example, $env);
     }
 
-    public static function removeHotFile(string $themePath, array $config): void
+    public static function removeDevState(string $themePath): void
     {
-        $hotFile = FrontendConfig::hotAbsolutePath($themePath, $config);
-
-        if (is_file($hotFile)) {
-            @unlink($hotFile);
-        }
-
-        self::removeDevPortCache($themePath, $config);
+        FrontendDevState::remove($themePath);
     }
 
     /**
-     * Written during `fe dev` so PHP can resolve the allocated Vite port before dist/hot exists.
+     * Written during `fe dev` so PHP can resolve the allocated Vite port before dev.json has viteUrl.
+     *
+     * @param array<string, mixed> $config
      */
-    public static function writeDevPortCache(string $themePath, array $config, int $port): void
+    public static function writeDevState(string $themePath, array $config, int $port): void
     {
         if ($port < 1 || $port > 65535) {
             return;
         }
 
-        $path = self::devPortCacheAbsolutePath($themePath, $config);
-        $dir = dirname($path);
-
-        if (!is_dir($dir)) {
-            mkdir($dir, 0777, true);
-        }
-
-        file_put_contents($path, (string) $port);
+        FrontendDevState::write(
+            $themePath,
+            port: $port,
+            outDir: FrontendConfig::buildOutDir($config, $themePath),
+        );
     }
 
     /**
+     * @deprecated Use removeDevState()
+     *
      * @param array<string, mixed> $config
      */
-    public static function readDevPortCache(string $themePath, array $config): ?int
+    public static function removeHotFile(string $themePath, array $config): void
     {
-        $path = self::devPortCacheAbsolutePath($themePath, $config);
-
-        if (!is_file($path)) {
-            return null;
-        }
-
-        $port = trim((string) file_get_contents($path));
-
-        return is_numeric($port) && (int) $port > 0 ? (int) $port : null;
+        self::removeDevState($themePath);
     }
 
     /**
+     * @deprecated Use writeDevState()
+     *
      * @param array<string, mixed> $config
      */
-    public static function removeDevPortCache(string $themePath, array $config): void
+    public static function writeDevPortCache(string $themePath, array $config, int $port): void
     {
-        $path = self::devPortCacheAbsolutePath($themePath, $config);
-
-        if (is_file($path)) {
-            @unlink($path);
-        }
-    }
-
-    /**
-     * @param array<string, mixed> $config
-     */
-    private static function devPortCacheAbsolutePath(string $themePath, array $config): string
-    {
-        $hotRelative = FrontendConfig::hotRelativePath($config, $themePath);
-        $distDir = dirname(ltrim(str_replace('\\', '/', $hotRelative), '/'));
-
-        if ($distDir === '.' || $distDir === '') {
-            $distDir = 'dist';
-        }
-
-        return rtrim(str_replace('\\', '/', $themePath), '/') . '/' . $distDir . '/.vite-dev-port';
+        self::writeDevState($themePath, $config, $port);
     }
 
     /**
@@ -651,7 +620,6 @@ final class FrontendDevSync
         }
 
         $env = [
-            'VITE_HOT_FILE' => FrontendConfig::hotRelativePath($config, $themePath),
             'VITE_BUILD_OUT_DIR' => FrontendConfig::buildOutDir($config, $themePath),
             'PINOOX_CORE_PATH' => $corePath ?? self::resolveCorePath(),
             'VITE_DEV_PORT' => (string) FrontendConfig::devPort($config),
@@ -689,7 +657,6 @@ final class FrontendDevSync
             'VITE_SERVE_APP',
             'VITE_DEV_STACK',
             'VITE_DEV_PROXY',
-            'VITE_HOT_FILE',
             'VITE_BUILD_OUT_DIR',
         ];
     }

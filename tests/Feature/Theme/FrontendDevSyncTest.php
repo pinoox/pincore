@@ -3,7 +3,7 @@
 use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\FrontendDevSync;
 
-const FRONTEND_DEV_SYNC_ENV_KEYS = ['VITE_HOT_FILE', 'VITE_DEV_PORT', 'VITE_DEV', 'VITE_DEV_SERVER', 'VITE_DEV_FORCE'];
+const FRONTEND_DEV_SYNC_ENV_KEYS = ['VITE_DEV_PORT', 'VITE_DEV', 'VITE_DEV_SERVER', 'VITE_DEV_FORCE'];
 
 function frontendDevSyncEnvSnapshot(): array
 {
@@ -94,25 +94,22 @@ test('FrontendDevSync adds vite plugin dependency and seeds theme env', function
     expect($result['vite_plugin'])->toBeTrue()
         ->and($result['vite_plugin_added'])->toBeTrue()
         ->and($result['env_seeded'])->toBeTrue()
-        ->and($result['hot_path'])->toBe('dist/hot')
+        ->and($result['dev_state_path'])->toBe('.pinoox/dev.json')
         ->and(is_file($themePath . '/vite.pinoox.mjs'))->toBeFalse()
         ->and(is_file($themePath . '/.env'))->toBeTrue()
         ->and(file_get_contents($themePath . '/package.json'))->toContain('@pinooxhq/vite-plugin');
 });
 
-test('FrontendConfig reads VITE_HOT_FILE and VITE_DEV_PORT from env', function () {
+test('FrontendConfig reads VITE_DEV_PORT from env', function () {
     $themePath = frontendDevSyncThemeDir();
     $GLOBALS['__frontendDevSyncThemePath'] = $themePath;
 
     file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue'];\n");
 
-    $_ENV['VITE_HOT_FILE'] = 'dist/custom/hot';
-    $_SERVER['VITE_HOT_FILE'] = 'dist/custom/hot';
     $_ENV['VITE_DEV_PORT'] = '5199';
     $_SERVER['VITE_DEV_PORT'] = '5199';
 
     $config = FrontendConfig::forThemePath($themePath);
 
-    expect(FrontendConfig::hotRelativePath($config))->toBe('dist/custom/hot')
-        ->and(FrontendConfig::devPort($config))->toBe(5199);
+    expect(FrontendConfig::devPort($config))->toBe(5199);
 });

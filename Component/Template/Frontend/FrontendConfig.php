@@ -25,11 +25,8 @@ class FrontendConfig
     /** Default Vite build output directory (relative to theme root). */
     public const DEFAULT_BUILD_OUT_DIR = 'dist';
 
-    /** Cache file written by Vite / fe dev so PHP resolves a custom build.outDir. */
-    public const PINOOX_BUILD_OUT_DIR_CACHE = '.pinoox/build-out-dir';
-
-    /** Default path (relative to theme/) where Vite writes the dev-server URL for HMR. */
-    public const DEFAULT_HOT_FILE = 'dist/hot';
+    /** Shared dev/build state between PHP and @pinooxhq/vite-plugin. */
+    public const PINOOX_DEV_STATE = FrontendDevState::RELATIVE_PATH;
 
     /**
      * PHP process flag: {@see viteHmrMode()} — set by `fe dev` / `pinoox dev`, cleared by `pinoox serve`.
@@ -483,7 +480,7 @@ class FrontendConfig
      * Whether the active PHP process should load Vite HMR assets (not built manifest).
      *
      * - `pinoox serve` sets {@see VITE_HMR_ENV}=0 → manifest from dist
-     * - `fe dev` / `pinoox dev` sets {@see VITE_HMR_ENV}=1 → hot file / Vite dev server
+     * - `fe dev` / `pinoox dev` sets {@see VITE_HMR_ENV}=1 → `.pinoox/dev.json` / Vite dev server
      * - Unset: legacy fallback via VITE_DEV / VITE_DEV_SERVER (MAMP + npm run dev)
      */
     public static function viteHmrMode(): bool
@@ -543,7 +540,7 @@ class FrontendConfig
     }
 
     /**
-     * Vite HMR is only active in non-production runtime (ignores hot file in production).
+     * Vite HMR is only active in non-production runtime (ignores dev state in production).
      */
     public static function viteDevAllowed(): bool
     {
@@ -630,16 +627,10 @@ class FrontendConfig
      */
     public static function resolveRuntimeDevPort(string $themePath, array $config): int
     {
-        $fromHot = self::readHotFilePort($themePath, $config);
+        $fromState = FrontendDevState::port($themePath);
 
-        if ($fromHot !== null) {
-            return $fromHot;
-        }
-
-        $cached = FrontendDevSync::readDevPortCache($themePath, $config);
-
-        if ($cached !== null) {
-            return $cached;
+        if ($fromState !== null) {
+            return $fromState;
         }
 
         $explicit = self::readRawDevPort($themePath);
@@ -661,31 +652,6 @@ class FrontendConfig
         }
 
         return ServerPort::DEFAULT_VITE_PORT;
-    }
-
-    /**
-     * Port parsed from dist/hot when Vite is running (authoritative over .vite-dev-port cache).
-     *
-     * @param array<string, mixed> $config
-     */
-    private static function readHotFilePort(string $themePath, array $config): ?int
-    {
-        $hotFile = self::hotAbsolutePath($themePath, $config);
-
-        if (!is_file($hotFile)) {
-            return null;
-        }
-
-        $url = trim((string) file_get_contents($hotFile));
-
-        if ($url === '') {
-            return null;
-        }
-
-        $parsed = parse_url($url);
-        $port = $parsed['port'] ?? null;
-
-        return is_numeric($port) && (int) $port > 0 ? (int) $port : null;
     }
 
     /**
@@ -769,10 +735,10 @@ class FrontendConfig
         }
 
         if ($themePath !== '') {
-            $cached = self::readBuildOutDirCache($themePath);
+            $fromState = FrontendDevState::outDir($themePath);
 
-            if ($cached !== null) {
-                return $cached;
+            if ($fromState !== null) {
+                return $fromState;
             }
         }
 
@@ -792,11 +758,6 @@ class FrontendConfig
     public static function manifestPathForOutDir(string $outDir): string
     {
         return self::normalizeRelativePath($outDir) . '/.vite/manifest.json';
-    }
-
-    public static function hotPathForOutDir(string $outDir): string
-    {
-        return self::normalizeRelativePath($outDir) . '/hot';
     }
 
     public static function outDirFromManifestPath(string $manifest): ?string
@@ -842,35 +803,9 @@ class FrontendConfig
         return self::normalizeRelativePath($outDir);
     }
 
-    public static function readBuildOutDirCache(string $themePath): ?string
-    {
-        $path = rtrim(str_replace('\\', '/', $themePath), '/') . '/' . self::PINOOX_BUILD_OUT_DIR_CACHE;
-
-        if (!is_file($path)) {
-            return null;
-        }
-
-        $outDir = trim((string) file_get_contents($path));
-
-        return $outDir !== '' ? self::normalizeRelativePath($outDir) : null;
-    }
-
     public static function writeBuildOutDirCache(string $themePath, string $outDir): void
     {
-        $outDir = self::normalizeRelativePath($outDir);
-
-        if ($outDir === '') {
-            return;
-        }
-
-        $path = rtrim(str_replace('\\', '/', $themePath), '/') . '/' . self::PINOOX_BUILD_OUT_DIR_CACHE;
-        $dir = dirname($path);
-
-        if (!is_dir($dir)) {
-            mkdir($dir, 0777, true);
-        }
-
-        file_put_contents($path, $outDir);
+        FrontendDevState::write($themePath, outDir: $outDir);
     }
 
     /**
@@ -886,14 +821,6 @@ class FrontendConfig
             $config['manifest'] = self::manifestPathForOutDir($outDir);
         }
 
-        $dev = is_array($config['dev'] ?? null) ? $config['dev'] : [];
-        $hotFromEnv = trim((string) _env('VITE_HOT_FILE', ''));
-
-        if (!isset($raw['dev']['hot']) && $hotFromEnv === '') {
-            $dev['hot'] = self::hotPathForOutDir($outDir);
-        }
-
-        $config['dev'] = $dev;
         $config['build'] = array_replace(
             ['outDir' => $outDir],
             is_array($config['build'] ?? null) ? $config['build'] : [],
@@ -906,17 +833,6 @@ class FrontendConfig
     private static function normalizeRelativePath(string $path): string
     {
         return trim(str_replace('\\', '/', $path), '/');
-    }
-
-    private static function resolveHotPathFromEnv(): string
-    {
-        $fromEnv = _env('VITE_HOT_FILE');
-
-        if (is_string($fromEnv) && trim($fromEnv) !== '') {
-            return ltrim(str_replace('\\', '/', trim($fromEnv)), '/');
-        }
-
-        return self::DEFAULT_HOT_FILE;
     }
 
     private static function resolveDevPortFromEnv(): int
@@ -946,38 +862,18 @@ class FrontendConfig
         return filter_var($value, FILTER_VALIDATE_BOOLEAN);
     }
 
-    /**
-     * Relative hot-file path from theme root (frontend.config.php dev.hot).
-     *
-     * @param array<string, mixed> $config
-     */
-    public static function hotRelativePath(array $config, ?string $themePath = null): string
+    public static function devStateRelativePath(): string
     {
-        $fromEnv = trim((string) _env('VITE_HOT_FILE', ''));
+        return FrontendDevState::RELATIVE_PATH;
+    }
 
-        if ($fromEnv !== '') {
-            return ltrim(str_replace('\\', '/', $fromEnv), '/');
-        }
-
-        $hot = $config['dev']['hot'] ?? null;
-
-        if (is_string($hot) && $hot !== '') {
-            return ltrim(str_replace('\\', '/', $hot), '/');
-        }
-
-        return self::hotPathForOutDir(self::buildOutDir($config, $themePath ?? ''));
+    public static function devStateAbsolutePath(string $themePath): string
+    {
+        return FrontendDevState::absolutePath($themePath);
     }
 
     /**
-     * @param array<string, mixed> $config
-     */
-    public static function hotAbsolutePath(string $themePath, array $config): string
-    {
-        return rtrim(str_replace('\\', '/', $themePath), '/') . '/' . self::hotRelativePath($config, $themePath);
-    }
-
-    /**
-     * Resolve Vite dev-server URL: hot file → dev fallback → null (use manifest).
+     * Resolve Vite dev-server URL: `.pinoox/dev.json` → dev fallback → null (use manifest).
      *
      * @param array<string, mixed> $config
      */
@@ -992,14 +888,10 @@ class FrontendConfig
         }
 
         $themePath = rtrim(str_replace('\\', '/', $themePath), '/');
-        $hotFile = self::hotAbsolutePath($themePath, $config);
+        $fromState = FrontendDevState::viteUrl($themePath);
 
-        if (is_file($hotFile)) {
-            $url = trim((string) file_get_contents($hotFile));
-
-            if ($url !== '') {
-                return rtrim($url, '/');
-            }
+        if ($fromState !== null) {
+            return $fromState;
         }
 
         $devUrl = self::resolveConfiguredDevServerUrl($config, $themePath);

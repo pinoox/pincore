@@ -34,20 +34,28 @@ it('renders seo_tags helper from shared meta', function () {
 
 it('renders vite_tags helper without throwing', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-vite-tags-' . uniqid();
+    mkdir($themePath . '/.pinoox', 0777, true);
     mkdir($themePath . '/dist/.vite', 0777, true);
     file_put_contents($themePath . '/dist/.vite/manifest.json', json_encode([
         'src/main.js' => ['file' => 'assets/main.js', 'isEntry' => true],
     ]));
 
-    // vite_tags uses active theme; verify helper exists and returns string for hot file
-    file_put_contents($themePath . '/dist/hot', 'http://127.0.0.1:5173');
+    file_put_contents($themePath . '/.pinoox/dev.json', json_encode(['viteUrl' => 'http://127.0.0.1:5173'], JSON_PRETTY_PRINT));
+
+    putenv('PINOOX_VITE_HMR=1');
+    $_ENV['PINOOX_VITE_HMR'] = '1';
+    $_SERVER['PINOOX_VITE_HMR'] = '1';
 
     $helper = new Pinoox\Component\Helpers\ViteHelper($themePath);
     $tags = implode('', $helper->vite('src/main.js'));
 
     expect($tags)->toContain('@vite/client');
 
-    @unlink($themePath . '/dist/hot');
+    putenv('PINOOX_VITE_HMR');
+    unset($_ENV['PINOOX_VITE_HMR'], $_SERVER['PINOOX_VITE_HMR']);
+
+    @unlink($themePath . '/.pinoox/dev.json');
+    @rmdir($themePath . '/.pinoox');
     @unlink($themePath . '/dist/.vite/manifest.json');
     @rmdir($themePath . '/dist/.vite');
     @rmdir($themePath . '/dist');
@@ -85,16 +93,23 @@ it('splits vite css and js tags for head and body placement', function () {
 
 it('returns dev js tags only from vite_js_tags and empty css in dev mode', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-vite-dev-split-' . uniqid();
-    mkdir($themePath . '/dist', 0777, true);
-    file_put_contents($themePath . '/dist/hot', 'http://127.0.0.1:5173');
+    mkdir($themePath . '/.pinoox', 0777, true);
+    file_put_contents($themePath . '/.pinoox/dev.json', json_encode(['viteUrl' => 'http://127.0.0.1:5173'], JSON_PRETTY_PRINT));
+
+    putenv('PINOOX_VITE_HMR=1');
+    $_ENV['PINOOX_VITE_HMR'] = '1';
+    $_SERVER['PINOOX_VITE_HMR'] = '1';
 
     $helper = new Pinoox\Component\Helpers\ViteHelper($themePath);
 
     expect($helper->cssTags('src/main.js'))->toBe('')
         ->and($helper->jsTags('src/main.js'))->toContain('@vite/client');
 
-    @unlink($themePath . '/dist/hot');
-    @rmdir($themePath . '/dist');
+    putenv('PINOOX_VITE_HMR');
+    unset($_ENV['PINOOX_VITE_HMR'], $_SERVER['PINOOX_VITE_HMR']);
+
+    @unlink($themePath . '/.pinoox/dev.json');
+    @rmdir($themePath . '/.pinoox');
     @rmdir($themePath);
 });
 
