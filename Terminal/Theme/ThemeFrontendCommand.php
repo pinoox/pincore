@@ -11,6 +11,8 @@ use Pinoox\Component\Template\Frontend\FrontendDevSession;
 use Pinoox\Component\Template\Frontend\FrontendDevStack;
 use Pinoox\Component\Template\Frontend\FrontendDevSync;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
+use Pinoox\Component\Template\Frontend\ThemeFrontendDevTarget;
+use Pinoox\Component\Template\Theme\ThemeContextRegistry;
 use Pinoox\Component\Terminal;
 use Pinoox\Support\CliText;
 use Pinoox\Support\ProjectCli;
@@ -128,7 +130,7 @@ FOOTER
             ->addArgument('target', InputArgument::OPTIONAL, 'App package (com_my_shop) or theme folder (spark). Leave empty to pick interactively.')
             ->addArgument('action', InputArgument::OPTIONAL, 'Action: info, install, build, dev, dev:apps, run, scaffold')
             ->addOption('stack', null, InputOption::VALUE_REQUIRED, 'Frontend stack for scaffold: twig, vite, vue, react (default: auto or vue)')
-            ->addOption('theme', null, InputOption::VALUE_REQUIRED, 'Theme folder name (defaults to app.php theme or interactive pick)')
+            ->addOption('theme', null, InputOption::VALUE_REQUIRED, 'Theme folder or theme context (site, panel, …) — defaults to app.php theme-context or interactive pick')
             ->addOption('script', null, InputOption::VALUE_REQUIRED, 'npm script name for the run action')
             ->addOption('install', null, InputOption::VALUE_NONE, 'Run npm install alongside the command (or force reinstall with the install action)')
             ->addOption('no-install', null, InputOption::VALUE_NONE, 'Skip npm install (default for build/dev/run)')
@@ -199,7 +201,8 @@ FOOTER
             }
         }
 
-        $frontend = ThemeFrontend::forPackageAndTheme($package, $themeName);
+        $resolvedTarget = ThemeFrontendDevTarget::resolve($package, $themeName);
+        $frontend = ThemeFrontend::forPackageAndTheme($package, $resolvedTarget['theme'], $resolvedTarget['context']);
         $frontend->setOutputWriter(static fn (string $buffer) => $output->write($buffer));
 
         $installMode = $this->resolveInstallMode($input, $action);
@@ -475,18 +478,27 @@ FOOTER
         }
 
         $this->devAppsAuto = true;
-        $this->devAppsAutoPackages = $packages;
+        $targets = ThemeFrontendDevTarget::platformTargets();
+        $this->devAppsAutoPackages = array_values(array_unique(array_map(
+            static fn (array $target): string => $target['package'],
+            $targets,
+        )));
         $this->platformServe = true;
 
-        $package = $packages[0];
+        $labels = array_map(
+            static fn (array $target): string => $target['package']
+                . ($target['context'] !== null && $target['context'] !== '' ? ':' . $target['context'] : ''),
+            $targets,
+        );
+        $package = $this->devAppsAutoPackages[0] ?? $packages[0];
         $io->note([
             'Platform serve: all apps available via the router (like `php pinoox serve`).',
-            'Auto Vite HMR for: ' . implode(', ', $packages),
+            'Auto Vite HMR for: ' . implode(', ', $labels),
         ]);
 
         return [
             'package' => $package,
-            'theme' => $this->resolveThemeForPackage($input, $output, $io, $package, 'dev', ''),
+            'theme' => $targets[0]['theme'] ?? ThemeFrontendDevTarget::defaultChoice($package),
         ];
     }
 
@@ -530,10 +542,36 @@ FOOTER
         string $action,
         string $themeOption,
     ): string {
-        $themeChoices = ThemeFrontend::listThemeFolders($package);
-        $defaultTheme = (string) AppEngine::config($package)->get('theme', 'default');
+        $appConfig = AppManifest::load($package);
+        $hasContexts = ThemeContextRegistry::hasContexts($appConfig);
+        $devPick = in_array($action, ['dev', 'dev:apps'], true);
+        $themeChoices = ($hasContexts && $devPick)
+            ? ThemeFrontendDevTarget::choices($package, true)
+            : ThemeFrontend::listThemeFolders($package);
+        $defaultTheme = ($hasContexts && $devPick)
+            ? ThemeFrontendDevTarget::defaultChoice($package)
+            : (string) AppEngine::config($package)->get('theme', 'default');
 
         if ($themeOption !== '') {
+            if ($hasContexts && $devPick) {
+                if (!isset($themeChoices[$themeOption])) {
+                    $resolved = ThemeFrontendDevTarget::resolve($package, $themeOption);
+                    $context = $resolved['context'] ?? $themeOption;
+
+                    if ($context === null || !isset($themeChoices[$context])) {
+                        throw new \RuntimeException(sprintf(
+                            "Theme context '%s' was not found in package '%s'.",
+                            $themeOption,
+                            $package,
+                        ));
+                    }
+
+                    return $context;
+                }
+
+                return $themeOption;
+            }
+
             if (!isset($themeChoices[$themeOption]) && $action !== 'scaffold') {
                 throw new \RuntimeException(sprintf("Theme '%s' was not found in package '%s'.", $themeOption, $package));
             }
@@ -551,7 +589,10 @@ FOOTER
 
         return $this->resolveThemeChoice($input, $output, $io, $package, $themeChoices, [
             'default' => $defaultTheme,
-            'sectionTitle' => 'Themes in ' . $package,
+            'sectionTitle' => ($hasContexts && $devPick)
+                ? 'Theme contexts in ' . $package
+                : 'Themes in ' . $package,
+            'labelColumn' => ($hasContexts && $devPick) ? 'Context' : 'Theme',
         ]);
     }
 
@@ -780,7 +821,7 @@ FOOTER
     ): int {
         $packages = $this->resolveDevAppsPackages($input, $output, $io, $targetList);
 
-        if ($packages === []) {
+        if ($packages === [] && !$this->devAppsAuto) {
             $io->error('Select at least one app for dev:apps.');
 
             return Command::FAILURE;
@@ -797,14 +838,36 @@ FOOTER
             ? trim($envFileOption)
             : null;
         $fixVite = (bool) $input->getOption('fix-vite');
+        $themeOption = $this->readThemeInput($input);
+
+        $devTargets = [];
+
+        if ($this->devAppsAuto) {
+            $devTargets = ThemeFrontendDevTarget::platformTargets();
+        } else {
+            foreach ($packages as $package) {
+                $selection = $this->resolveThemeForPackage($input, $output, $io, $package, 'dev', $themeOption);
+
+                foreach (ThemeFrontendDevTarget::targetsForPackage($package, $selection) as $target) {
+                    $devTargets[] = $target;
+                }
+            }
+        }
+
+        if ($devTargets === []) {
+            $io->error('No Vite dev targets were found for the selected apps.');
+
+            return Command::FAILURE;
+        }
 
         $targets = [];
         $frontends = [];
         $sessions = [];
 
-        foreach ($packages as $package) {
-            $themeName = $this->resolveThemeForPackage($input, $output, $io, $package, 'dev', '');
-            $frontend = ThemeFrontend::forPackageAndTheme($package, $themeName);
+        foreach ($devTargets as $devTarget) {
+            $package = $devTarget['package'];
+            $themeName = $devTarget['theme'];
+            $frontend = ThemeFrontend::forPackageAndTheme($package, $themeName, $devTarget['context'] ?? null);
             $frontend->setFixViteOnSync($fixVite);
 
             if ($envFile !== null) {
@@ -814,7 +877,9 @@ FOOTER
             $targets[] = [
                 'package' => $package,
                 'theme' => $themeName,
+                'context' => $devTarget['context'] ?? null,
                 'config' => $frontend->config(),
+                'themePath' => $frontend->themePath(),
             ];
         }
 
@@ -827,10 +892,14 @@ FOOTER
         ]);
         $viteOpts = $this->resolveViteDevOptions($input, $targets[0]['config'] ?? []);
         $networkServeHost = $this->isNetworkMode($input) ? '0.0.0.0' : ($sharedHost !== '' ? $sharedHost : null);
-        $quietStack = $this->devAppsAuto || count($packages) > 1;
+        $quietStack = $this->devAppsAuto || count($devTargets) > 1;
 
         foreach ($targets as $index => $target) {
-            $frontend = ThemeFrontend::forPackageAndTheme($target['package'], $target['theme']);
+            $frontend = ThemeFrontend::forPackageAndTheme(
+                $target['package'],
+                $target['theme'],
+                $target['context'] ?? null,
+            );
             $frontend->setFixViteOnSync($fixVite);
             $frontend->setForceDevEnvKeys($forceEnvKeys);
 
@@ -874,7 +943,7 @@ FOOTER
             $this->noteResolvedServePort($io, $resolvedServePort, false);
         }
 
-        return (new FrontendDevStack())->run($io, $output, $frontends, $sessions, $stackServeHost, $resolvedServePort) === 0
+        return (new FrontendDevStack())->run($io, $output, $frontends, $sessions, $stackServeHost, $resolvedServePort, $targets) === 0
             ? Command::SUCCESS
             : Command::FAILURE;
     }

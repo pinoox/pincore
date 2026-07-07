@@ -11,6 +11,7 @@ use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Server\DevelopmentServer;
 use Pinoox\Component\Server\ServerPort;
 
+use Pinoox\Component\Template\Frontend\ThemeFrontendDevTarget;
 use Pinoox\Support\ProjectCli;
 
 use Symfony\Component\Console\Output\OutputInterface;
@@ -166,6 +167,8 @@ final class FrontendDevStack
 
      * @param list<FrontendDevSession> $sessions
 
+     * @param list<array{package?: string, theme?: string, context?: ?string}> $stackTargets
+
      */
 
     public function run(
@@ -182,6 +185,8 @@ final class FrontendDevStack
 
         ?int $servePort,
 
+        array $stackTargets = [],
+
     ): int {
 
         if ($frontends === [] || $sessions === [] || count($frontends) !== count($sessions)) {
@@ -192,7 +197,7 @@ final class FrontendDevStack
 
 
 
-        $this->renderBanner($io, $frontends, $sessions);
+        $this->renderBanner($io, $frontends, $sessions, $stackTargets);
 
 
 
@@ -206,7 +211,7 @@ final class FrontendDevStack
 
             foreach ($frontends as $index => $frontend) {
 
-                $label = self::stackLabel($frontend->package());
+                $label = self::stackLabel($frontend->package(), $stackTargets[$index]['context'] ?? null);
 
                 $process = $this->startViteProcess($frontend, $label, $output);
 
@@ -248,7 +253,7 @@ final class FrontendDevStack
 
      */
 
-    private function renderBanner(SymfonyStyle $io, array $frontends, array $sessions): void
+    private function renderBanner(SymfonyStyle $io, array $frontends, array $sessions, array $stackTargets = []): void
 
     {
 
@@ -308,7 +313,7 @@ final class FrontendDevStack
 
             $session = $sessions[$index];
 
-            $label = self::stackLabel($frontend->package());
+            $label = self::stackLabel($frontend->package(), $stackTargets[$index]['context'] ?? null);
 
 
 
@@ -776,19 +781,11 @@ final class FrontendDevStack
 
 
 
-    private static function stackLabel(string $package): string
+    private static function stackLabel(string $package, ?string $context = null): string
 
     {
 
-        if (str_starts_with($package, 'com_pinoox_')) {
-
-            return PackageName::shortLabel($package);
-
-        }
-
-
-
-        return $package;
+        return ThemeFrontendDevTarget::stackLabel($package, $context);
 
     }
 

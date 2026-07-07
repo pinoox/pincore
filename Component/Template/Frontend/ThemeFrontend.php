@@ -4,6 +4,7 @@ namespace Pinoox\Component\Template\Frontend;
 
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Package\PackageName;
+use Pinoox\Component\Template\Theme\ThemeContextRegistry;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\Path;
@@ -52,11 +53,63 @@ class ThemeFrontend
         return new self($package, $themePath, FrontendConfig::forThemePath($themePath));
     }
 
-    public static function forPackageAndTheme(string $package, string $themeName): self
+    public static function forPackageAndTheme(string $package, string $themeName, ?string $contextName = null): self
     {
         $themePath = rtrim(str_replace('\\', '/', AppEngine::path($package) . '/theme/' . $themeName), '/');
+        $config = FrontendConfig::forThemePath($themePath);
+        $config = self::mergeContextFrontendConfig($package, $config, $themePath, $contextName, $themeName);
 
-        return new self($package, $themePath, FrontendConfig::forThemePath($themePath));
+        return new self($package, $themePath, $config);
+    }
+
+    public static function forDevTarget(string $package, ?string $contextOrTheme = null): self
+    {
+        $resolved = ThemeFrontendDevTarget::resolve($package, $contextOrTheme ?? '');
+
+        return self::forPackageAndTheme($package, $resolved['theme'], $resolved['context']);
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     * @return array<string, mixed>
+     */
+    private static function mergeContextFrontendConfig(
+        string $package,
+        array $config,
+        string $themePath,
+        ?string $contextName,
+        string $themeName,
+    ): array {
+        $appConfig = AppManifest::load($package);
+
+        if (!ThemeContextRegistry::hasContexts($appConfig)) {
+            return $config;
+        }
+
+        $context = $contextName;
+
+        if ($context === null || $context === '') {
+            foreach (ThemeContextRegistry::names($appConfig) as $name) {
+                $ctx = ThemeContextRegistry::context($appConfig, $name);
+                if (($ctx['theme'] ?? '') === $themeName) {
+                    $context = $name;
+                    break;
+                }
+            }
+        }
+
+        if ($context === null || $context === '') {
+            return $config;
+        }
+
+        $effective = ThemeContextRegistry::effectiveConfig($appConfig, $context);
+        $frontend = $effective['frontend'] ?? null;
+
+        if (!is_array($frontend) || $frontend === []) {
+            return $config;
+        }
+
+        return array_replace_recursive($config, $frontend);
     }
 
     /**
@@ -113,49 +166,9 @@ class ThemeFrontend
         return $themes;
     }
 
-    public static function supportsViteDev(string $package, ?string $themeName = null): bool
+    public static function supportsViteDev(string $package, ?string $themeOrContext = null): bool
     {
-        if (!AppEngine::exists($package)) {
-            return false;
-        }
-
-        $themes = self::listThemeFolders($package);
-
-        if ($themes === []) {
-            return false;
-        }
-
-        if ($themeName === null || trim($themeName) === '') {
-            $defaultTheme = (string) AppEngine::config($package)->get('theme', 'default');
-            $themeName = isset($themes[$defaultTheme]) ? $defaultTheme : array_key_first($themes);
-        }
-
-        if (!is_string($themeName) || !isset($themes[$themeName])) {
-            return false;
-        }
-
-        $themePath = rtrim(str_replace('\\', '/', AppEngine::path($package) . '/theme/' . $themeName), '/');
-        $config = FrontendConfig::forThemePath($themePath);
-
-        if (!FrontendConfig::usesViteAssets($config)) {
-            return false;
-        }
-
-        $packageJson = $themePath . '/package.json';
-
-        if (!is_file($packageJson)) {
-            return false;
-        }
-
-        $data = json_decode((string) file_get_contents($packageJson), true);
-
-        if (!is_array($data)) {
-            return false;
-        }
-
-        $scripts = $data['scripts'] ?? [];
-
-        return isset($scripts['dev']) && trim((string) $scripts['dev']) !== '';
+        return ThemeFrontendDevTarget::supportsVite($package, $themeOrContext);
     }
 
     /**
@@ -231,11 +244,34 @@ class ThemeFrontend
 
         foreach (AppEngine::all() as $package => $manager) {
             $themes = self::listThemeFolders($package);
-            if (!isset($themes[$themeName])) {
+            if (isset($themes[$themeName])) {
+                $matches[$package] = AppManifest::displayName($package);
+
                 continue;
             }
 
-            $matches[$package] = AppManifest::displayName($package);
+            $config = AppManifest::load($package);
+
+            if (!ThemeContextRegistry::hasContexts($config)) {
+                continue;
+            }
+
+            foreach (ThemeContextRegistry::names($config) as $context) {
+                if ($context === $themeName) {
+                    $matches[$package] = AppManifest::displayName($package);
+
+                    continue 2;
+                }
+
+                $ctx = ThemeContextRegistry::context($config, $context);
+                $folder = $ctx['theme'] ?? null;
+
+                if (is_string($folder) && $folder === $themeName) {
+                    $matches[$package] = AppManifest::displayName($package);
+
+                    continue 2;
+                }
+            }
         }
 
         ksort($matches);

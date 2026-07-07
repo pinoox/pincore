@@ -59,7 +59,8 @@ trait SelectsTheme
         }
 
         $io->section($sectionTitle);
-        $io->table(['#', 'Theme', 'Details'], $this->themeRows($candidates));
+        $labelColumn = (string) ($config['labelColumn'] ?? 'Theme');
+        $io->table(['#', $labelColumn, 'Details'], $this->themeRows($candidates));
 
         $prompt = sprintf('Select theme [%s]: ', $default);
         $question = new Question($prompt, $default);
