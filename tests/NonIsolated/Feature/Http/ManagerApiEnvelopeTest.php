@@ -2,12 +2,11 @@
 
 uses()->group('non-isolated');
 
-use App\com_pinoox_manager\Controller\Api;
 use Pinoox\Component\Http\Api\ApiResponse;
 use Pinoox\Component\Kernel\Controller\ApiController;
 
 it('maps manager message with payload to the standard success envelope', function () {
-    $controller = new class extends Api {
+    $controller = new class extends ApiController {
         public function callMessage(mixed $messageOrData = null, mixed $data = null)
         {
             return $this->message($messageOrData, $data);
@@ -26,7 +25,7 @@ it('maps manager message with payload to the standard success envelope', functio
 });
 
 it('maps manager message with result false to success data false', function () {
-    $controller = new class extends Api {
+    $controller = new class extends ApiController {
         public function callMessage(mixed $messageOrData = null, mixed $data = null)
         {
             return $this->message($messageOrData, $data);
@@ -41,7 +40,7 @@ it('maps manager message with result false to success data false', function () {
 });
 
 it('maps manager message with secondary result to data field', function () {
-    $controller = new class extends Api {
+    $controller = new class extends ApiController {
         public function callMessage(mixed $messageOrData = null, mixed $data = null)
         {
             return $this->message($messageOrData, $data);
@@ -56,7 +55,7 @@ it('maps manager message with secondary result to data field', function () {
 });
 
 it('maps manager error to the standard error envelope', function () {
-    $controller = new class extends Api {
+    $controller = new class extends ApiController {
         public function callError(string $message, int $status = 400)
         {
             return $this->error($message, $status);

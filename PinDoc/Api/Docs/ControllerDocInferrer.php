@@ -742,8 +742,8 @@ class ControllerDocInferrer
 
     private function isManagerApiController(ReflectionClass $class): bool
     {
-        return $class->getName() === 'App\\com_pinoox_manager\\Controller\\Api'
-            || $class->isSubclassOf('App\\com_pinoox_manager\\Controller\\Api');
+        return $class->getName() === 'Pinoox\\Component\\Kernel\Controller\\ApiController'
+            || $class->isSubclassOf('Pinoox\\Component\\Kernel\\Controller\\ApiController');
     }
 
     private function applyCallArguments(array $template, string $args): array

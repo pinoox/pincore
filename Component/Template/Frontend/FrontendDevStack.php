@@ -204,21 +204,29 @@ final class FrontendDevStack
      */
     private function waitUntilStopped(array $viteProcesses, Process $serveProcess, OutputInterface $output): int
     {
-        if (function_exists('pcntl_signal')) {
-            $stop = false;
+        $stop = false;
+
+        if (function_exists('pcntl_async_signals') && function_exists('pcntl_signal')) {
+            pcntl_async_signals(true);
             pcntl_signal(SIGINT, static function () use (&$stop): void {
                 $stop = true;
             });
             pcntl_signal(SIGTERM, static function () use (&$stop): void {
                 $stop = true;
             });
+        } elseif (PHP_OS_FAMILY === 'Windows' && function_exists('sapi_windows_set_ctrl_handler')) {
+            sapi_windows_set_ctrl_handler(static function (int $event) use (&$stop): void {
+                if ($event === PHP_WINDOWS_EVENT_CTRL_C || $event === PHP_WINDOWS_EVENT_CTRL_BREAK) {
+                    $stop = true;
+                }
+            }, true);
         }
 
         /** @var array<string, true> $warned */
         $warned = [];
 
         while (true) {
-            if (isset($stop) && $stop) {
+            if ($stop) {
                 break;
             }
 

@@ -543,6 +543,7 @@ FOOTER
         try {
             return $frontend->dev($installMode) === 0 ? Command::SUCCESS : Command::FAILURE;
         } finally {
+            $frontend->stopRunningProcess();
             $this->stopServeProcess($serveProcess, $io);
         }
     }

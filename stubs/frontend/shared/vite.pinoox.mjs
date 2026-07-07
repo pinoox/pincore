@@ -81,11 +81,28 @@ export function pinooxHot(options = {}) {
     return {
         name: 'pinoox-hot-file',
         configureServer(server) {
-            writeHot(server);
+            const updateHot = () => writeHot(server);
+
+            server.httpServer?.once('listening', updateHot);
+
+            if (server.httpServer?.listening) {
+                updateHot();
+            }
+
+            const shutdown = () => {
+                cleanup();
+
+                const httpServer = server.httpServer;
+
+                if (httpServer?.listening) {
+                    httpServer.close();
+                }
+            };
 
             server.httpServer?.once('close', cleanup);
-            process.once('SIGINT', cleanup);
-            process.once('SIGTERM', cleanup);
+            process.once('SIGINT', shutdown);
+            process.once('SIGTERM', shutdown);
+            process.once('exit', cleanup);
         },
     };
 }
@@ -115,12 +132,23 @@ export function pinooxVueTemplateOptions(extra = {}) {
  * Needed when the page is served from PHP (e.g. /manager) but scripts load from Vite.
  */
 export function pinooxDevAssets(env = {}) {
+    let devServerUrl = resolveViteDevOrigin(env);
+
     return {
         name: 'pinoox-dev-assets',
         apply: 'serve',
-        transform(code) {
-            const devServerUrl = resolveViteDevOrigin(env);
+        configureServer(server) {
+            const updateDevServerUrl = () => {
+                devServerUrl = resolveDevServerUrlFromInstance(server);
+            };
 
+            server.httpServer?.once('listening', updateDevServerUrl);
+
+            if (server.httpServer?.listening) {
+                updateDevServerUrl();
+            }
+        },
+        transform(code) {
             if (!devServerUrl || !code.includes('/src/')) {
                 return null;
             }
@@ -244,6 +272,7 @@ export function pinooxServer(env = {}, options = {}) {
     const port = Number(env.VITE_DEV_PORT || options.port || 5173);
     const phpOrigin = parseOrigin(serverUrl);
     const viteOrigin = resolveViteDevOrigin(env, port, options);
+    const strictPort = options.strictPort ?? false;
     const prefixes = resolveProxyPrefixes(env, options, serverUrl);
     const proxy = {};
 
@@ -251,14 +280,27 @@ export function pinooxServer(env = {}, options = {}) {
         proxy[prefix] = { target: phpOrigin, changeOrigin: true };
     }
 
-    return {
+    const server = {
         port,
         host: options.host ?? true,
-        strictPort: options.strictPort ?? true,
-        origin: viteOrigin,
+        strictPort,
         proxy,
         printUrls: options.printUrls ?? false,
     };
+
+    if (strictPort) {
+        server.origin = viteOrigin;
+    }
+
+    return server;
+}
+
+function resolveDevServerUrlFromInstance(server) {
+    const host = server.config.server.host;
+    const hostname = host === true || host === '0.0.0.0' ? '127.0.0.1' : (host || '127.0.0.1');
+    const port = server.config.server.port ?? 5173;
+
+    return `http://${hostname}:${port}`;
 }
 
 function resolveViteDevOrigin(env = {}, port = 5173, options = {}) {

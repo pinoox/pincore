@@ -17,6 +17,8 @@ class ThemeFrontend
     /** @var callable(string): void|null */
     private $outputWriter = null;
 
+    private ?Process $runningProcess = null;
+
     private ?FrontendDevSession $devSession = null;
 
     private bool $fixViteOnSync = false;
@@ -182,6 +184,16 @@ class ThemeFrontend
     public function setOutputWriter(callable $writer): void
     {
         $this->outputWriter = $writer;
+    }
+
+    public function stopRunningProcess(): void
+    {
+        if ($this->runningProcess === null || !$this->runningProcess->isRunning()) {
+            return;
+        }
+
+        $this->runningProcess->stop(5, defined('SIGINT') ? SIGINT : null);
+        $this->runningProcess = null;
     }
 
     public function package(): string
@@ -530,6 +542,11 @@ class ThemeFrontend
         $binary = $this->npmBinary();
         $env = $extraEnv === [] ? null : $this->inheritedEnvironment($extraEnv);
         $process = new Process(array_merge([$binary], $command), $this->themePath, $env, null, null);
+
+        if ($longRunning) {
+            return $this->runLongNpmProcess($process);
+        }
+
         $process->run(function ($type, $buffer) {
             $this->emit($buffer);
         });
@@ -541,11 +558,57 @@ class ThemeFrontend
             });
         }
 
-        if ($longRunning) {
-            return (int) ($process->getExitCode() ?? 0);
+        return (int) $process->getExitCode();
+    }
+
+    private function runLongNpmProcess(Process $process): int
+    {
+        $this->runningProcess = $process;
+
+        $stopProcess = function () use ($process): void {
+            if ($process->isRunning()) {
+                $process->stop(5, defined('SIGINT') ? SIGINT : null);
+            }
+
+            $this->runningProcess = null;
+        };
+
+        if (\function_exists('pcntl_async_signals') && \function_exists('pcntl_signal')) {
+            pcntl_async_signals(true);
+            pcntl_signal(SIGINT, static function () use ($stopProcess): never {
+                $stopProcess();
+                exit(130);
+            });
+            pcntl_signal(SIGTERM, static function () use ($stopProcess): never {
+                $stopProcess();
+                exit(143);
+            });
+        } elseif (PHP_OS_FAMILY === 'Windows' && \function_exists('sapi_windows_set_ctrl_handler')) {
+            sapi_windows_set_ctrl_handler(static function (int $event) use ($stopProcess): void {
+                if ($event === PHP_WINDOWS_EVENT_CTRL_C || $event === PHP_WINDOWS_EVENT_CTRL_BREAK) {
+                    $stopProcess();
+                    exit(130);
+                }
+            }, true);
         }
 
-        return (int) $process->getExitCode();
+        register_shutdown_function($stopProcess);
+
+        $process->start(function ($type, $buffer) {
+            $this->emit($buffer);
+        });
+
+        while ($process->isRunning()) {
+            if (\function_exists('pcntl_signal_dispatch')) {
+                pcntl_signal_dispatch();
+            }
+
+            usleep(100_000);
+        }
+
+        $this->runningProcess = null;
+
+        return (int) ($process->getExitCode() ?? 0);
     }
 
     private function emit(string $buffer): void
