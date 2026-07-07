@@ -7,6 +7,7 @@ use Pinoox\Component\Package\Engine\AppEngine;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
 use Pinoox\Component\Terminal;
+use Pinoox\Support\ProjectCli;
 use Pinoox\Terminal\Concerns\SelectsPackage;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -32,20 +33,20 @@ class ThemeCreateCommand extends Terminal
     protected function configure(): void
     {
         $this
-            ->setHelp(
-                <<<'HELP'
+            ->setHelp($this->cliHelp(
+                <<<'INTRO'
 Create apps/{package}/theme/{name}/ with theme.php and frontend stack files.
 
 Default stack: vue (Vite + vite_tags in Twig). Use --stack=twig for HTML-only themes.
 
 frontend.config.php only needs stack + profile — entry, manifest, and dev.* are auto-filled.
-
-Examples:
-  php pinoox theme:create panel
-  php pinoox theme:create admin com_my_shop --stack=twig
-  pinx theme:create storefront --stack=vite
-HELP
-            )
+INTRO,
+                [
+                    'theme:create panel',
+                    'theme:create admin com_my_shop --stack=twig',
+                    'theme:create storefront --stack=vite',
+                ],
+            ))
             ->addArgument('theme', InputArgument::REQUIRED, 'Theme folder name (e.g. panel, admin)')
             ->addArgument('package', InputArgument::OPTIONAL, 'App package (defaults to interactive pick)')
             ->addOption('stack', null, InputOption::VALUE_REQUIRED, 'Stack: twig, vite, vue, react (default: vue)');

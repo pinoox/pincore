@@ -456,15 +456,15 @@ TWIG);
     {
         $package = $this->input->package;
         $steps = [
-            ProjectCli::format("test {$package}"),
+            ProjectCli::autoFormat("test {$package}"),
             "Read apps/{$package}/tests/README.md for helpers (inMyApp, myAppGet, …)",
         ];
 
         if ($this->input->hasViteStack()) {
-            $steps[] = ProjectCli::pinxFormat("fe {$package} install");
-            $steps[] = ProjectCli::pinxFormat("dev {$package}");
+            $steps[] = ProjectCli::autoFormat("fe {$package} install");
+            $steps[] = ProjectCli::autoFormat("dev {$package}");
         } elseif ($routePath !== null) {
-            $steps[] = ProjectCli::format("serve --app={$package}");
+            $steps[] = ProjectCli::platformFormat("serve --app={$package}");
         }
 
         if ($routePath !== null) {

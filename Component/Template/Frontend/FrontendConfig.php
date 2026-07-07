@@ -430,9 +430,9 @@ class FrontendConfig
 
         $next = [];
         if ($package !== '') {
-            $next[] = ProjectCli::pinxFormat('fe ' . $package . ' install --theme=' . $themeName);
-            $next[] = ProjectCli::pinxFormat('fe ' . $package . ' dev --theme=' . $themeName);
-            $next[] = ProjectCli::pinxFormat('fe ' . $package . ' watch --theme=' . $themeName . '  # rebuild on file changes');
+            $next[] = ProjectCli::autoFormat('fe ' . $package . ' install --theme=' . $themeName);
+            $next[] = ProjectCli::autoFormat('fe ' . $package . ' dev --theme=' . $themeName);
+            $next[] = ProjectCli::autoFormat('fe ' . $package . ' watch --theme=' . $themeName . '  # rebuild on file changes');
         }
 
         return [

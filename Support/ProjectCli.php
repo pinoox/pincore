@@ -10,9 +10,10 @@ use Pinoox\Component\Server\DevelopmentServer;
 /**
  * Resolve project CLI entry scripts and format user-facing command hints.
  *
- * Convention:
- * - pinx package/app workflows → {@see pinxFormat()} (`pinx …` when bin/pinx exists)
- * - platform/pincore workflows → {@see format()} (`php pinoox` or standalone bootstrap)
+ * Convention (via {@see autoFormat()}):
+ * - Single-app projects → `pinx …` when bin/pinx exists, otherwise `php pinoox …`
+ * - Multi-app projects → `php pinoox …` (or standalone bootstrap path)
+ * - Multi-app workflows (`dev:apps`, `serve`, …) → always platform CLI ({@see format()})
  */
 final class ProjectCli
 {
@@ -142,6 +143,67 @@ final class ProjectCli
         return self::joinCommand(self::pinxInvoke($root), $command);
     }
 
+    /** Always format with the platform CLI (`php pinoox` or launcher bootstrap). */
+    public static function platformFormat(string $command, ?string $root = null): string
+    {
+        return self::format($command, $root);
+    }
+
+    public static function isSingleAppProject(?string $root = null): bool
+    {
+        return DevApp::package($root) !== null;
+    }
+
+    /**
+     * Hints that must stay on the platform CLI even in single-app / pinx projects.
+     */
+    public static function isMultiAppHint(string $command): bool
+    {
+        $command = trim($command);
+
+        if ($command === '') {
+            return true;
+        }
+
+        if (preg_match('/\b(dev:apps|dev-stack)\b/', $command)) {
+            return true;
+        }
+
+        if (str_contains($command, '--apps=')) {
+            return true;
+        }
+
+        if (preg_match('/com_[a-z0-9_]+,\s*com_[a-z0-9_]+/i', $command)) {
+            return true;
+        }
+
+        if (preg_match('/(?:^|\s)(all|--all)(?:\s|$)/', $command)) {
+            return true;
+        }
+
+        $first = strtok($command, ' ') ?: $command;
+
+        return in_array($first, ['serve', 'version', 'reset'], true);
+    }
+
+    /**
+     * @return self::SCOPE_*
+     */
+    public static function inferScope(string $command, ?string $root = null): string
+    {
+        if (self::isMultiAppHint($command) || !self::isSingleAppProject($root)) {
+            return self::SCOPE_PINOOX;
+        }
+
+        return self::SCOPE_PINX;
+    }
+
+    /** Pick pinx vs php pinoox from project layout and command intent. */
+    public static function autoFormat(string $command, ?string $root = null): string
+    {
+        return self::suggest(self::inferScope($command, $root), $command, $root);
+    }
+
     /**
      * @param self::SCOPE_* $scope
      */
@@ -161,12 +223,18 @@ final class ProjectCli
 
         foreach ($entries as $entry) {
             if (is_string($entry)) {
-                $lines[] = '  ' . self::format($entry, $root);
+                $lines[] = '  ' . self::autoFormat($entry, $root);
                 continue;
             }
 
-            $scope = $entry[0] ?? self::SCOPE_PINOOX;
-            $command = $entry[1] ?? '';
+            $scope = $entry[0] ?? null;
+            $command = (string) ($entry[1] ?? '');
+
+            if (!is_string($scope) || $scope === '') {
+                $lines[] = '  ' . self::autoFormat($command, $root);
+                continue;
+            }
+
             $lines[] = '  ' . self::suggest($scope, $command, $root);
         }
 

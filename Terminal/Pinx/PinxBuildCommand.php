@@ -36,10 +36,10 @@ class PinxBuildCommand extends Terminal
             ->setHelp($this->cliHelp(
                 'Build a .pinx package using app.php build/pinx settings.',
                 [
-                    [ProjectCli::SCOPE_PINX, 'pinx:build com_my_shop'],
-                    [ProjectCli::SCOPE_PINX, 'pinx:build com_my_shop --sign'],
-                    [ProjectCli::SCOPE_PINX, 'pinx:build com_my_shop --output=/tmp/my_shop.pinx'],
-                    [ProjectCli::SCOPE_PINX, 'pinx:build com_my_shop --yes'],
+                    'pinx:build com_my_shop',
+                    'pinx:build com_my_shop --sign',
+                    'pinx:build com_my_shop --output=/tmp/my_shop.pinx',
+                    'pinx:build com_my_shop --yes',
                 ],
             ))
             ->addArgument('package', InputArgument::OPTIONAL, 'App package name')

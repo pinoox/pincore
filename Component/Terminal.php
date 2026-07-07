@@ -108,12 +108,17 @@ class Terminal extends Command
 
     protected function cliFormat(string $command): string
     {
-        return ProjectCli::format($command);
+        return ProjectCli::autoFormat($command);
+    }
+
+    protected function cliPlatformFormat(string $command): string
+    {
+        return ProjectCli::platformFormat($command);
     }
 
     protected function cliPinxFormat(string $command): string
     {
-        return ProjectCli::pinxFormat($command);
+        return ProjectCli::autoFormat($command);
     }
 
     protected function cliSuggest(string $scope, string $command): string

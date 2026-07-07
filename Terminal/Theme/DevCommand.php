@@ -21,28 +21,28 @@ class DevCommand extends Terminal
 {
     protected function configure(): void
     {
-        $serve = ProjectCli::format('serve');
+        $serve = ProjectCli::platformFormat('serve');
         $this
             ->setHelp($this->cliHelp(
                 "One-command local development: starts {$serve} + npm run dev for a theme.\n\nSame as: "
-                . $this->cliPinxFormat('fe {target} dev'),
+                . $this->cliFormat('fe {target} dev'),
                 [
-                    [ProjectCli::SCOPE_PINX, 'dev'],
-                    [ProjectCli::SCOPE_PINX, 'dev spark'],
-                    [ProjectCli::SCOPE_PINX, 'dev com_pinoox_welcome'],
-                    [ProjectCli::SCOPE_PINX, 'dev spark --no-serve'],
+                    'dev',
+                    'dev spark',
+                    'dev com_pinoox_welcome',
+                    'dev spark --no-serve',
                 ],
-                "Use MAMP or another PHP server:\n  " . $this->cliPinxFormat('dev spark --no-serve')
+                "Use MAMP or another PHP server:\n  " . $this->cliFormat('dev spark --no-serve')
                 . "\n\nOpen the PHP app URL in your browser (not :5173). Vite HMR is injected via vite_tags().",
             ))
             ->addArgument('target', InputArgument::OPTIONAL, 'App package or theme folder (interactive when omitted)')
             ->addOption('theme', null, InputOption::VALUE_REQUIRED, 'Theme folder when target is a package')
             ->addOption('install', null, InputOption::VALUE_NONE, 'Run npm install when needed')
             ->addOption('no-install', null, InputOption::VALUE_NONE, 'Skip npm install')
-            ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start ' . ProjectCli::format('serve') . ' (MAMP, Docker, etc.)')
-            ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for ' . ProjectCli::format('serve'))
-            ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::format('serve'))
-            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::format('serve'));
+            ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start ' . ProjectCli::platformFormat('serve') . ' (MAMP, Docker, etc.)')
+            ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for ' . ProjectCli::platformFormat('serve'))
+            ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::platformFormat('serve'))
+            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve'));
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int

@@ -2,6 +2,8 @@
 
 namespace Pinoox\Component\Template\Frontend;
 
+use Pinoox\Support\ProjectCli;
+
 /**
  * Keeps Vite HMR assets in a theme aligned with pincore (hot plugin, optional .env seed).
  */
@@ -376,7 +378,7 @@ final class FrontendDevSync
     {
         $lines = [
             self::AUTO_ENV_BEGIN,
-            '# Regenerated on each `php pinoox fe dev` run.',
+            '# Regenerated on each `' . ProjectCli::autoFormat('fe dev') . '` run.',
             'VITE_HOT_FILE=' . FrontendConfig::hotRelativePath($config),
             'VITE_SERVER_URL=' . $session->phpAppUrl,
             'VITE_DEV_PORT=' . $session->vitePort,
@@ -432,7 +434,7 @@ final class FrontendDevSync
         } elseif (!$inspection['wired']) {
             $issues[] = [
                 'level' => 'warning',
-                'message' => 'vite.config.js is not wired to pinooxHot/pinooxServer — HMR will not work. Run: php pinoox fe dev --fix-vite',
+                'message' => 'vite.config.js is not wired to pinooxHot/pinooxServer — HMR will not work. Run: ' . ProjectCli::autoFormat('fe dev --fix-vite'),
             ];
         }
 

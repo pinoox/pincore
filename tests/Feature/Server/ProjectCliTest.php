@@ -89,17 +89,68 @@ it('builds mixed help examples for pinx and platform commands', function () {
     file_put_contents($root . '/platform/launcher/bootstrap.php', "<?php\n");
 
     try {
-        $block = ProjectCli::examplesBlock([
-            [ProjectCli::SCOPE_PINX, 'dev'],
-            [ProjectCli::SCOPE_PINOOX, 'serve'],
-        ], $root);
+        $block = ProjectCli::examplesBlock(['dev', 'serve'], $root);
 
-        expect($block)->toContain('pinx dev')
+        expect($block)->toContain('php platform/launcher/bootstrap.php dev')
             ->and($block)->toContain('php platform/launcher/bootstrap.php serve');
     } finally {
         @unlink($root . '/bin/pinx');
         @unlink($root . '/platform/launcher/bootstrap.php');
         @rmdir($root . '/bin');
+        @rmdir($root . '/platform/launcher');
+        @rmdir($root . '/platform');
+        @rmdir($root);
+    }
+});
+
+it('auto-formats single-app hints with pinx when bin/pinx exists', function () {
+    $root = sys_get_temp_dir() . '/pinoox-auto-cli-' . uniqid('', true);
+    mkdir($root . '/bin', 0777, true);
+    file_put_contents($root . '/bin/pinx', "#!/usr/bin/env php\n");
+    file_put_contents($root . '/app.php', "<?php\n\nreturn ['package' => 'com_test_single', 'enable' => true];\n");
+
+    try {
+        expect(ProjectCli::isSingleAppProject($root))->toBeTrue()
+            ->and(ProjectCli::inferScope('fe info', $root))->toBe(ProjectCli::SCOPE_PINX)
+            ->and(ProjectCli::autoFormat('fe info', $root))->toBe('pinx fe info')
+            ->and(ProjectCli::autoFormat('dev spark', $root))->toBe('pinx dev spark');
+    } finally {
+        @unlink($root . '/app.php');
+        @unlink($root . '/bin/pinx');
+        @rmdir($root . '/bin');
+        @rmdir($root);
+    }
+});
+
+it('keeps multi-app workflows on platform CLI even in single-app projects', function () {
+    $root = sys_get_temp_dir() . '/pinoox-auto-cli-' . uniqid('', true);
+    mkdir($root . '/bin', 0777, true);
+    file_put_contents($root . '/bin/pinx', "#!/usr/bin/env php\n");
+    file_put_contents($root . '/app.php', "<?php\n\nreturn ['package' => 'com_test_single', 'enable' => true];\n");
+
+    try {
+        expect(ProjectCli::inferScope('fe dev:apps', $root))->toBe(ProjectCli::SCOPE_PINOOX)
+            ->and(ProjectCli::autoFormat('fe dev:apps', $root))->toBe('php pinoox fe dev:apps')
+            ->and(ProjectCli::autoFormat('serve', $root))->toBe('php pinoox serve');
+    } finally {
+        @unlink($root . '/app.php');
+        @unlink($root . '/bin/pinx');
+        @rmdir($root . '/bin');
+        @rmdir($root);
+    }
+});
+
+it('auto-formats multi-app project hints with platform CLI', function () {
+    $root = sys_get_temp_dir() . '/pinoox-auto-cli-' . uniqid('', true);
+    mkdir($root . '/platform/launcher', 0777, true);
+    file_put_contents($root . '/platform/launcher/bootstrap.php', "<?php\n");
+
+    try {
+        expect(ProjectCli::isSingleAppProject($root))->toBeFalse()
+            ->and(ProjectCli::autoFormat('fe info', $root))
+            ->toBe('php platform/launcher/bootstrap.php fe info');
+    } finally {
+        @unlink($root . '/platform/launcher/bootstrap.php');
         @rmdir($root . '/platform/launcher');
         @rmdir($root . '/platform');
         @rmdir($root);

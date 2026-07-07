@@ -32,11 +32,11 @@ class PinxUninstallCommand extends Terminal
             ->setHelp($this->cliHelp(
                 'Uninstall pipeline for apps installed via pinx or app:create: validate, dependents, migrate rollback, routes, pinker, remove files.',
                 [
-                    [ProjectCli::SCOPE_PINX, 'pinx:uninstall com_my_shop'],
-                    [ProjectCli::SCOPE_PINX, 'pinx:uninstall com_my_shop --keep-files'],
-                    [ProjectCli::SCOPE_PINX, 'pinx:uninstall com_my_shop --skip-migrate'],
-                    [ProjectCli::SCOPE_PINX, 'pinx:uninstall com_my_shop --theme=spark'],
-                    [ProjectCli::SCOPE_PINX, 'pinx:uninstall com_my_shop --force -y'],
+                    'pinx:uninstall com_my_shop',
+                    'pinx:uninstall com_my_shop --keep-files',
+                    'pinx:uninstall com_my_shop --skip-migrate',
+                    'pinx:uninstall com_my_shop --theme=spark',
+                    'pinx:uninstall com_my_shop --force -y',
                 ],
                 'For route-only removal without DB rollback, see: ' . $this->cliFormat('app:delete --route-only'),
             ))

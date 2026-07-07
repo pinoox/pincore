@@ -43,7 +43,7 @@ class ThemeFrontendCommand extends Terminal
 
     protected function configure(): void
     {
-        $serve = ProjectCli::format('serve');
+        $serve = ProjectCli::platformFormat('serve');
         $this
             ->setHelp($this->cliHelp(
                 <<<'INTRO'
@@ -69,22 +69,22 @@ Create a new theme:
 INTRO
                 . '  ' . $this->cliFormat('theme:create {name}'),
                 [
-                    [ProjectCli::SCOPE_PINX, 'fe info'],
-                    [ProjectCli::SCOPE_PINX, 'fe spark dev'],
-                    [ProjectCli::SCOPE_PINX, 'fe dev:apps'],
-                    [ProjectCli::SCOPE_PINX, 'fe dev:apps com_pinoox_manager,com_pinoox_welcome'],
-                    [ProjectCli::SCOPE_PINX, 'fe dev:apps --apps=com_pinoox_manager,com_pinoox_welcome'],
-                    [ProjectCli::SCOPE_PINX, 'fe spark build'],
-                    [ProjectCli::SCOPE_PINX, 'fe spark watch'],
-                    [ProjectCli::SCOPE_PINX, 'fe com_my_shop build'],
-                    [ProjectCli::SCOPE_PINX, 'fe com_my_shop dev --theme=admin'],
-                    [ProjectCli::SCOPE_PINX, 'fe spark run --script=preview'],
-                    [ProjectCli::SCOPE_PINX, 'fe spark install --install'],
-                    [ProjectCli::SCOPE_PINX, 'fe com_my_shop scaffold --stack=vue'],
+                    'fe info',
+                    'fe spark dev',
+                    'fe dev:apps',
+                    'fe dev:apps com_pinoox_manager,com_pinoox_welcome',
+                    'fe dev:apps --apps=com_pinoox_manager,com_pinoox_welcome',
+                    'fe spark build',
+                    'fe spark watch',
+                    'fe com_my_shop build',
+                    'fe com_my_shop dev --theme=admin',
+                    'fe spark run --script=preview',
+                    'fe spark install --install',
+                    'fe com_my_shop scaffold --stack=vue',
                 ],
                 <<<FOOTER
 The first argument is an app package (com_my_shop) or theme folder (spark), then the action.
-Legacy order (action first) still works: {$this->cliPinxFormat('fe dev spark')}
+Legacy order (action first) still works: {$this->cliFormat('fe dev spark')}
 
 If the theme name exists in one app only, the package is resolved automatically.
 If it exists in multiple apps, pick the package from a list.
@@ -120,11 +120,11 @@ FOOTER
             ->addOption('script', null, InputOption::VALUE_REQUIRED, 'npm script name for the run action')
             ->addOption('install', null, InputOption::VALUE_NONE, 'Run npm install alongside the command (or force reinstall with the install action)')
             ->addOption('no-install', null, InputOption::VALUE_NONE, 'Skip npm install (default for build/dev/run)')
-            ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start ' . ProjectCli::format('serve') . ' alongside dev')
+            ->addOption('no-serve', null, InputOption::VALUE_NONE, 'Do not start ' . ProjectCli::platformFormat('serve') . ' alongside dev')
             ->addOption('apps', null, InputOption::VALUE_REQUIRED, 'Comma-separated package names for dev:apps (e.g. com_pinoox_manager,com_pinoox_welcome)')
             ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for the dev server (defaults to the resolved package)')
-            ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::format('serve') . ' (default from SERVER_HOST or 127.0.0.1)')
-            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::format('serve') . ' (default from SERVER_PORT or 8000)')
+            ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_HOST or 127.0.0.1)')
+            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_PORT or 8000)')
             ->addOption('fix-vite', null, InputOption::VALUE_NONE, 'Auto-wire vite.config.js with pinooxHot/pinooxServer when missing')
             ->addOption('env-file', null, InputOption::VALUE_REQUIRED, 'Theme env file for fe dev auto-setup (default: .env)');
     }
@@ -212,7 +212,7 @@ FOOTER
             }
 
             throw new \RuntimeException(
-                'Action is required. Example: ' . $this->cliPinxFormat('fe ' . $arg1 . ' dev'),
+                'Action is required. Example: ' . $this->cliFormat('fe ' . $arg1 . ' dev'),
             );
         }
 
@@ -229,7 +229,7 @@ FOOTER
         }
 
         throw new \RuntimeException(
-            'Could not parse arguments. Use: ' . $this->cliPinxFormat('fe spark dev') . ' (or ' . $this->cliPinxFormat('fe dev spark') . ').',
+            'Could not parse arguments. Use: ' . $this->cliFormat('fe spark dev') . ' (or ' . $this->cliFormat('fe dev spark') . ').',
         );
     }
 
@@ -909,7 +909,7 @@ FOOTER
         $process = new Process($command, $basePath, null, null, null);
         $process->setTimeout(null);
 
-        $io->writeln('<info>Starting Pinoox server</info> <fg=gray>(' . ProjectCli::format('serve --app=' . $serveApp, $basePath) . ')</>');
+        $io->writeln('<info>Starting Pinoox server</info> <fg=gray>(' . ProjectCli::platformFormat('serve --app=' . $serveApp, $basePath) . ')</>');
 
         $process->start(function (string $type, string $buffer) use ($output): void {
             foreach (preg_split("/\r\n|\n|\r/", $buffer) ?: [] as $line) {

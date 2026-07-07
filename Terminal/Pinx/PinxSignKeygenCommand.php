@@ -31,8 +31,8 @@ class PinxSignKeygenCommand extends Terminal
             ->setHelp($this->cliHelp(
                 "Creates a signing key for pinx:build. Keys are stored locally and never included in .pinx files.\n\nDefault locations:\n  apps/{package}/pinx/sign.key.json\n  storage/pinx/keys/{package}.key.json",
                 [
-                    [ProjectCli::SCOPE_PINX, 'pinx:sign-keygen com_my_shop'],
-                    [ProjectCli::SCOPE_PINX, 'pinx:sign-keygen com_my_shop --global'],
+                    'pinx:sign-keygen com_my_shop',
+                    'pinx:sign-keygen com_my_shop --global',
                 ],
             ))
             ->addArgument('package', InputArgument::OPTIONAL, 'App package name')

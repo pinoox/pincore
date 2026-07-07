@@ -30,10 +30,10 @@ class PinxInstallCommand extends Terminal
             ->setHelp($this->cliHelp(
                 'Install or update an app/theme package with the full pipeline: validate, minpin, extract, migrate, patch, registry, cache.',
                 [
-                    [ProjectCli::SCOPE_PINX, 'pinx:install packages/com_my_shop_v2.pinx'],
-                    [ProjectCli::SCOPE_PINX, 'pinx:install com_my_shop.pinx --force'],
-                    [ProjectCli::SCOPE_PINX, 'pinx:install theme_spark.pinx --skip-migrate'],
-                    [ProjectCli::SCOPE_PINX, 'pinx:install com_my_shop.pinx --require-sign'],
+                    'pinx:install packages/com_my_shop_v2.pinx',
+                    'pinx:install com_my_shop.pinx --force',
+                    'pinx:install theme_spark.pinx --skip-migrate',
+                    'pinx:install com_my_shop.pinx --require-sign',
                 ],
             ))
             ->addArgument('package', InputArgument::REQUIRED, 'Path or filename of .pinx/.pin package')
