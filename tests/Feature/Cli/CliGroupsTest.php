@@ -34,6 +34,7 @@ use Pinoox\Terminal\Pinker\PinkerRebuildCommand;
 use Pinoox\Terminal\Pinker\PinkerStatusCommand;
 use Pinoox\Terminal\Pinx\PinxBuildCommand;
 use Pinoox\Terminal\Pinx\PinxInfoCommand;
+use Pinoox\Terminal\Pinx\ReleaseCommand;
 use Pinoox\Terminal\Pinx\PinxInstallCommand;
 use Pinoox\Terminal\Pinx\PinxSignKeygenCommand;
 use Pinoox\Terminal\Portal\CreatePortalCommand;
@@ -110,6 +111,7 @@ it('registers pinx packaging CLI commands', function () {
     $application = cliApplication([
         new PinxInfoCommand(),
         new PinxBuildCommand(),
+        new ReleaseCommand(),
         new PinxInstallCommand(),
         new PinxSignKeygenCommand(),
         new WizardListCommand(),
@@ -119,6 +121,8 @@ it('registers pinx packaging CLI commands', function () {
 
     expect($application->has('pinx:info'))->toBeTrue()
         ->and($application->has('pinx:build'))->toBeTrue()
+        ->and($application->has('build'))->toBeTrue()
+        ->and($application->has('release'))->toBeTrue()
         ->and($application->has('wizard:list'))->toBeTrue();
 });
 
