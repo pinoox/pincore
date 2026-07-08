@@ -100,7 +100,7 @@ final class ComposerVendorGuard
         ));
     }
 
-    public static function copyVendorTree(string $sourceVendor, string $targetVendor): void
+    public static function copyVendorTree(string $sourceVendor, string $targetVendor, bool $prune = false): void
     {
         $sourceVendor = rtrim(str_replace('\\', '/', $sourceVendor), '/');
         $targetVendor = rtrim(str_replace('\\', '/', $targetVendor), '/');
@@ -125,6 +125,10 @@ final class ComposerVendorGuard
             $relativePath = ltrim(substr($absolutePath, strlen($sourceVendor)), '/');
 
             if ($relativePath === '' || str_ends_with($relativePath, '.gitignore')) {
+                continue;
+            }
+
+            if ($prune && VendorPruner::shouldSkipPath($relativePath)) {
                 continue;
             }
 

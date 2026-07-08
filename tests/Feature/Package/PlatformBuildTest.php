@@ -168,19 +168,36 @@ it('requires composer vendor before platform build', function () {
 it('copies installed vendor for platform build', function () {
     $root = sys_get_temp_dir() . '/platform_vendor_copy_' . uniqid('', true);
     mkdir($root . '/vendor/composer', 0777, true);
+    mkdir($root . '/vendor/acme/pkg/tests', 0777, true);
+    mkdir($root . '/vendor/acme/pkg/src', 0777, true);
     file_put_contents($root . '/composer.json', json_encode([
         'name' => 'pinoox/pinoox',
         'require' => ['php' => '^8.2'],
     ]));
     file_put_contents($root . '/vendor/autoload.php', '<?php');
     file_put_contents($root . '/vendor/composer/installed.json', json_encode(['packages' => []]));
+    file_put_contents($root . '/vendor/acme/pkg/tests/CaseTest.php', '<?php');
+    file_put_contents($root . '/vendor/acme/pkg/src/Run.php', '<?php');
 
-    $result = PlatformComposer::prepare($root, stripRequireDev: false);
+    $result = PlatformComposer::prepare($root, stripRequireDev: false, vendorPrune: true);
 
     expect($result['prepared'])->toBeTrue()
-        ->and(is_file(PlatformComposer::vendorPath($root) . '/autoload.php'))->toBeTrue();
+        ->and(is_file(PlatformComposer::vendorPath($root) . '/autoload.php'))->toBeTrue()
+        ->and(is_file(PlatformComposer::vendorPath($root) . '/acme/pkg/src/Run.php'))->toBeTrue()
+        ->and(is_dir(PlatformComposer::vendorPath($root) . '/acme/pkg/tests'))->toBeFalse();
 
     PlatformComposer::cleanup($root);
+});
+
+it('resolves vendor_prune from build.config.php', function () {
+    $root = sys_get_temp_dir() . '/platform_vendor_prune_cfg_' . uniqid('', true);
+    mkdir($root . '/platform', 0777, true);
+    file_put_contents($root . '/platform/build.config.php', <<<'PHP'
+<?php
+return ['vendor_prune' => false];
+PHP);
+
+    expect(PlatformBuildConfig::resolve($root)['vendor_prune'])->toBeFalse();
 });
 
 it('requires composer vendor before app pinx build', function () {

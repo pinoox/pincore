@@ -90,6 +90,7 @@ final class PlatformBuildConfig
      *     app_composer: bool,
      *     exclude_theme_src: bool,
      *     strip_require_dev: bool,
+     *     vendor_prune: bool,
      *     output_dir: ?string,
      *     manifest: bool
      * }
@@ -124,6 +125,9 @@ final class PlatformBuildConfig
                 : true,
             'strip_require_dev' => array_key_exists('strip_require_dev', $raw)
                 ? (bool) $raw['strip_require_dev']
+                : true,
+            'vendor_prune' => array_key_exists('vendor_prune', $raw)
+                ? (bool) $raw['vendor_prune']
                 : true,
             'output_dir' => $outputDir !== '' ? SystemConfig::resolvePath($outputDir) : null,
             'manifest' => array_key_exists('manifest', $raw)

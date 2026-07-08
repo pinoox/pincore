@@ -4,6 +4,8 @@ namespace Pinoox\Component\Package\Pinx;
 
 use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Package\AppComposerVendor;
+use Pinoox\Component\Package\ComposerVendorGuard;
+use Pinoox\Component\Package\VendorPruner;
 use Pinoox\Support\SystemConfig;
 use ZipArchive;
 
@@ -52,7 +54,11 @@ final class PlatformBuilder
 
             if ($build['composer'] && is_file(PlatformComposer::composerJsonPath($projectRoot))) {
                 $this->reportProgress($options, 'composer', 'Bundling Composer vendor from project...', 15);
-                $composerResult = PlatformComposer::prepare($projectRoot, $build['strip_require_dev']);
+                $composerResult = PlatformComposer::prepare(
+                    $projectRoot,
+                    $build['strip_require_dev'],
+                    $build['vendor_prune'],
+                );
                 $composerPrepared = $composerResult['prepared'];
                 $composerPackages = $composerResult['packages'];
                 $materializedPackages = is_array($composerResult['materialized'] ?? null)
@@ -81,7 +87,7 @@ final class PlatformBuilder
 
             if ($build['app_composer']) {
                 $this->reportProgress($options, 'app-composer', 'Preparing app Composer vendor trees...', 60);
-                $appComposers = $this->prepareAppComposers($projectRoot, $archiveRoot);
+                $appComposers = $this->prepareAppComposers($projectRoot, $archiveRoot, $build['vendor_prune']);
             }
 
             $fileCount = $this->countFiles($archiveRoot);
@@ -196,7 +202,7 @@ final class PlatformBuilder
     /**
      * @return list<string>
      */
-    private function prepareAppComposers(string $projectRoot, string $archiveRoot): array
+    private function prepareAppComposers(string $projectRoot, string $archiveRoot, bool $vendorPrune = true): array
     {
         $prepared = [];
         $appsRoot = rtrim(str_replace('\\', '/', $projectRoot), '/') . '/apps';
@@ -230,7 +236,12 @@ final class PlatformBuilder
             $targetVendor = $archiveRoot . '/apps/' . $entry . '/vendor';
 
             if (is_dir($sourceVendor)) {
-                $this->copyDirectory($sourceVendor, $targetVendor);
+                ComposerVendorGuard::copyVendorTree($sourceVendor, $targetVendor, $vendorPrune);
+
+                if ($vendorPrune) {
+                    VendorPruner::prune($targetVendor);
+                }
+
                 $prepared[] = $entry;
             }
         }

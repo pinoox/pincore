@@ -5,6 +5,7 @@ namespace Pinoox\Component\Package\Pinx;
 use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Package\AppComposerVendor;
 use Pinoox\Component\Package\ComposerVendorGuard;
+use Pinoox\Component\Package\VendorPruner;
 
 /**
  * Bundle the project Composer vendor tree for platform .zip builds.
@@ -22,7 +23,7 @@ final class PlatformComposer
      *     materialized: list<string>
      * }
      */
-    public static function prepare(string $projectRoot, bool $stripRequireDev = true): array
+    public static function prepare(string $projectRoot, bool $stripRequireDev = true, bool $vendorPrune = true): array
     {
         $projectRoot = rtrim(str_replace('\\', '/', $projectRoot), '/');
         $composerJson = self::composerJsonPath($projectRoot);
@@ -46,8 +47,12 @@ final class PlatformComposer
         $stagingVendor = self::vendorPath($projectRoot);
         $sourceVendor = ComposerVendorGuard::vendorDir($projectRoot);
 
-        ComposerVendorGuard::copyVendorTree($sourceVendor, $stagingVendor);
+        ComposerVendorGuard::copyVendorTree($sourceVendor, $stagingVendor, $vendorPrune);
         $materialized = PlatformVendorMaterializer::materialize($stagingVendor, $projectRoot);
+
+        if ($vendorPrune) {
+            VendorPruner::prune($stagingVendor);
+        }
 
         return [
             'prepared' => true,
