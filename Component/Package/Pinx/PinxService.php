@@ -40,6 +40,11 @@ final class PinxService
         return new PinxBuilder($this->engine);
     }
 
+    public function platformBuilder(): PlatformBuilder
+    {
+        return new PlatformBuilder();
+    }
+
     /**
      * @param array<string, mixed> $options
      */

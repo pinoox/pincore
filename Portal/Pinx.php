@@ -36,6 +36,7 @@ use Pinoox\Support\SystemConfig;
  * @method static PinxInstaller installer()
  * @method static PinxUninstaller uninstaller()
  * @method static PinxBuilder builder()
+ * @method static PlatformBuilder platformBuilder()
  * @method static string tmpPath()
  * @method static \Pinoox\Component\Package\Engine\AppEngine engine()
  * @method static PinxService ___()
