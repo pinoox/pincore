@@ -324,6 +324,61 @@ PHP);
     }
 });
 
+it('omits .git and nested vendor from materialized path packages', function () {
+    $root = sys_get_temp_dir() . '/platform_materialize_prune_' . uniqid('', true);
+    $packageSource = $root . '/packages/pinion';
+    $sourceVendor = $root . '/vendor';
+    $targetVendor = $root . '/staging/vendor';
+
+    mkdir($packageSource . '/src', 0777, true);
+    mkdir($packageSource . '/vendor/acme/pkg', 0777, true);
+    mkdir($packageSource . '/.git/objects', 0777, true);
+    mkdir($sourceVendor . '/composer', 0777, true);
+    mkdir($targetVendor . '/composer', 0777, true);
+
+    file_put_contents($packageSource . '/composer.json', json_encode([
+        'name' => 'pinoox/pinion',
+        'type' => 'library',
+        'autoload' => ['psr-4' => ['Pinoox\\Pinion\\' => 'src/']],
+    ]));
+    file_put_contents($packageSource . '/src/Pinion.php', '<?php namespace Pinoox\\Pinion; class Pinion {}');
+    file_put_contents($packageSource . '/vendor/acme/pkg/secret.php', '<?php');
+    file_put_contents($packageSource . '/.git/HEAD', 'ref: refs/heads/main');
+    file_put_contents($root . '/composer.json', json_encode([
+        'name' => 'pinoox/pinoox',
+        'require' => ['php' => '^8.2', 'pinoox/pinion' => '*'],
+        'repositories' => [[
+            'type' => 'path',
+            'url' => 'packages/pinion',
+        ]],
+    ]));
+    file_put_contents($sourceVendor . '/autoload.php', '<?php');
+    file_put_contents($sourceVendor . '/composer/installed.php', <<<'PHP'
+<?php return [
+    'root' => ['name' => 'pinoox/pinoox', 'dev' => false],
+    'versions' => [
+        'pinoox/pinion' => [
+            'pretty_version' => '1.0.0',
+            'version' => '1.0.0.0',
+            'reference' => null,
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../pinoox/pinion',
+            'aliases' => [],
+            'dev_requirement' => false,
+        ],
+    ],
+];
+PHP);
+    file_put_contents($targetVendor . '/composer/installed.php', file_get_contents($sourceVendor . '/composer/installed.php'));
+
+    PlatformVendorMaterializer::materialize($targetVendor, $root, $sourceVendor);
+    \Pinoox\Component\Package\VendorPruner::pruneLinkedPackageArtifacts($targetVendor);
+
+    expect(is_file($targetVendor . '/pinoox/pinion/src/Pinion.php'))->toBeTrue()
+        ->and(is_dir($targetVendor . '/pinoox/pinion/.git'))->toBeFalse()
+        ->and(is_dir($targetVendor . '/pinoox/pinion/vendor'))->toBeFalse();
+});
+
 it('requires composer vendor before platform build', function () {
     $root = sys_get_temp_dir() . '/platform_vendor_guard_' . uniqid('', true);
     mkdir($root, 0777, true);

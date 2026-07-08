@@ -123,6 +123,10 @@ final class ComposerVendorGuard
                 continue;
             }
 
+            if (VendorPruner::shouldSkipBundledVendorPath($relativePath)) {
+                continue;
+            }
+
             if ($prune && VendorPruner::shouldSkipPath($relativePath)) {
                 continue;
             }
@@ -507,6 +511,10 @@ final class ComposerVendorGuard
             }
 
             if ($excludeVendorPaths !== [] && self::matchesVendorPathPrefix($relativePath, $excludeVendorPaths)) {
+                continue;
+            }
+
+            if (VendorPruner::shouldSkipPathPackageSourcePath($relativePath)) {
                 continue;
             }
 

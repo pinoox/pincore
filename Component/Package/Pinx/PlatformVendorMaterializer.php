@@ -3,6 +3,7 @@
 namespace Pinoox\Component\Package\Pinx;
 
 use Pinoox\Component\Kernel\Exception;
+use Pinoox\Component\Package\VendorPruner;
 
 /**
  * Resolve Composer path repositories and materialize vendor/pinoox/* symlinks.
@@ -605,6 +606,10 @@ final class PlatformVendorMaterializer
             $relativePath = ltrim(substr($absolutePath, strlen($sourceRoot)), '/');
 
             if ($relativePath === '' || str_ends_with($relativePath, '.gitignore')) {
+                continue;
+            }
+
+            if (VendorPruner::shouldSkipPathPackageSourcePath($relativePath)) {
                 continue;
             }
 
