@@ -200,7 +200,7 @@ class PinxBuildCommand extends Terminal
                 'Output: <info>' . ($outputPath ?: '(auto in ~/pinx/export/platform/)') . '</info>',
             ]);
 
-            if (!$io->confirm('Proceed with platform build?', false)) {
+            if (!$io->confirm('Proceed with platform build?', true)) {
                 $io->warning('Build canceled.');
 
                 return Command::SUCCESS;

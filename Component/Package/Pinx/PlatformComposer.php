@@ -20,7 +20,8 @@ final class PlatformComposer
      *     prepared: bool,
      *     reason: ?string,
      *     packages: list<string>,
-     *     materialized: list<string>
+     *     materialized: list<string>,
+     *     excluded_dev_packages: list<string>
      * }
      */
     public static function prepare(string $projectRoot, bool $stripRequireDev = true, bool $vendorPrune = true): array
@@ -34,24 +35,37 @@ final class PlatformComposer
                 'reason' => 'composer.json not found',
                 'packages' => [],
                 'materialized' => [],
+                'excluded_dev_packages' => [],
             ];
         }
 
         ComposerVendorGuard::requireInstalled($projectRoot, 'platform');
 
-        if ($stripRequireDev) {
-            ComposerVendorGuard::assertProductionVendor($projectRoot, 'platform');
-        }
+        $excludedDevPackages = $stripRequireDev
+            ? ComposerVendorGuard::installedDevPackageNames($projectRoot)
+            : [];
+        $excludedDevPaths = $stripRequireDev
+            ? ComposerVendorGuard::installedDevVendorPaths($projectRoot)
+            : [];
 
         $distributionComposer = self::distributionComposer($composerJson, $stripRequireDev);
         $stagingVendor = self::vendorPath($projectRoot);
         $sourceVendor = ComposerVendorGuard::vendorDir($projectRoot);
 
-        ComposerVendorGuard::copyVendorTree($sourceVendor, $stagingVendor, $vendorPrune);
+        ComposerVendorGuard::copyVendorTree($sourceVendor, $stagingVendor, $vendorPrune, $excludedDevPaths);
         $materialized = PlatformVendorMaterializer::materialize($stagingVendor, $projectRoot);
 
         if ($vendorPrune) {
             VendorPruner::prune($stagingVendor);
+        }
+
+        if ($stripRequireDev && $excludedDevPackages !== []) {
+            ComposerVendorGuard::pruneInstalledMetadata($stagingVendor, $excludedDevPackages);
+            ComposerVendorGuard::regenerateProductionAutoload(
+                self::stagingRoot($projectRoot),
+                $distributionComposer,
+                $projectRoot,
+            );
         }
 
         return [
@@ -59,6 +73,7 @@ final class PlatformComposer
             'reason' => null,
             'packages' => array_keys($distributionComposer['require'] ?? []),
             'materialized' => $materialized,
+            'excluded_dev_packages' => $excludedDevPackages,
         ];
     }
 

@@ -13,8 +13,6 @@ final class PlatformBuildConfig
 
     public const STAGING_DIR = 'storage/.platform-build/staging';
 
-    public const SKELETON_DIR = 'storage/.platform-build/skeleton';
-
     public static function buildPath(string $projectRoot, string $relative = ''): string
     {
         $root = rtrim(str_replace('\\', '/', $projectRoot), '/');
@@ -40,8 +38,7 @@ final class PlatformBuildConfig
             'pinker',
             'uploads',
             'downloads',
-            'storage',
-            AppComposerVendor::BUILD_DIR,
+            self::BUILD_DIR,
             '.env',
             'phpunit.xml',
             '.phpunit.result.cache',

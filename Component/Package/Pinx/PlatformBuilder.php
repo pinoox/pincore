@@ -27,6 +27,7 @@ final class PlatformBuilder
      *     composer_packages: list<string>,
      *     app_composers: list<string>,
      *     materialized_packages: list<string>,
+     *     excluded_dev_packages: list<string>,
      *     version_name: string,
      *     version_code: ?int
      * }
@@ -46,12 +47,10 @@ final class PlatformBuilder
         $composerPrepared = false;
         $composerPackages = [];
         $materializedPackages = [];
+        $excludedDevPackages = [];
         $appComposers = [];
 
         try {
-            $this->reportProgress($options, 'storage', 'Preparing storage skeleton...', 8);
-            $storageWorkspace = PlatformStorageScaffold::prepare($projectRoot);
-
             if ($build['composer'] && is_file(PlatformComposer::composerJsonPath($projectRoot))) {
                 $this->reportProgress($options, 'composer', 'Bundling Composer vendor from project...', 15);
                 $composerResult = PlatformComposer::prepare(
@@ -63,6 +62,9 @@ final class PlatformBuilder
                 $composerPackages = $composerResult['packages'];
                 $materializedPackages = is_array($composerResult['materialized'] ?? null)
                     ? $composerResult['materialized']
+                    : [];
+                $excludedDevPackages = is_array($composerResult['excluded_dev_packages'] ?? null)
+                    ? $composerResult['excluded_dev_packages']
                     : [];
             }
 
@@ -79,7 +81,6 @@ final class PlatformBuilder
 
             $this->reportProgress($options, 'stage', 'Staging files for archive...', 45);
             $this->copyPayloadFiles($payloadFiles, $projectRoot, $archiveRoot, $build);
-            $this->copyDirectory(PlatformStorageScaffold::workspaceDir($projectRoot), $archiveRoot . '/storage');
 
             if ($composerPrepared && is_dir(PlatformComposer::vendorPath($projectRoot))) {
                 $this->copyDirectory(PlatformComposer::vendorPath($projectRoot), $archiveRoot . '/vendor');
@@ -87,7 +88,12 @@ final class PlatformBuilder
 
             if ($build['app_composer']) {
                 $this->reportProgress($options, 'app-composer', 'Preparing app Composer vendor trees...', 60);
-                $appComposers = $this->prepareAppComposers($projectRoot, $archiveRoot, $build['vendor_prune']);
+                $appComposers = $this->prepareAppComposers(
+                    $projectRoot,
+                    $archiveRoot,
+                    $build['vendor_prune'],
+                    $build['strip_require_dev'],
+                );
             }
 
             $fileCount = $this->countFiles($archiveRoot);
@@ -129,6 +135,7 @@ final class PlatformBuilder
                 'composer_packages' => $composerPackages,
                 'app_composers' => $appComposers,
                 'materialized_packages' => $materializedPackages,
+                'excluded_dev_packages' => $excludedDevPackages,
                 'version_name' => $version['name'],
                 'version_code' => $version['code'],
             ];
@@ -202,8 +209,12 @@ final class PlatformBuilder
     /**
      * @return list<string>
      */
-    private function prepareAppComposers(string $projectRoot, string $archiveRoot, bool $vendorPrune = true): array
-    {
+    private function prepareAppComposers(
+        string $projectRoot,
+        string $archiveRoot,
+        bool $vendorPrune = true,
+        bool $stripRequireDev = true,
+    ): array {
         $prepared = [];
         $appsRoot = rtrim(str_replace('\\', '/', $projectRoot), '/') . '/apps';
 
@@ -236,10 +247,30 @@ final class PlatformBuilder
             $targetVendor = $archiveRoot . '/apps/' . $entry . '/vendor';
 
             if (is_dir($sourceVendor)) {
-                ComposerVendorGuard::copyVendorTree($sourceVendor, $targetVendor, $vendorPrune);
+                $excludedDevPaths = $stripRequireDev
+                    ? ComposerVendorGuard::installedDevVendorPaths($appPath)
+                    : [];
+
+                ComposerVendorGuard::copyVendorTree($sourceVendor, $targetVendor, $vendorPrune, $excludedDevPaths);
 
                 if ($vendorPrune) {
                     VendorPruner::prune($targetVendor);
+                }
+
+                if ($stripRequireDev && $excludedDevPaths !== []) {
+                    $excludedDevPackages = ComposerVendorGuard::installedDevPackageNames($appPath);
+                    ComposerVendorGuard::pruneInstalledMetadata($targetVendor, $excludedDevPackages);
+
+                    if (AppComposerVendor::hasComposerJson($appPath)) {
+                        ComposerVendorGuard::regenerateProductionAutoload(
+                            $archiveRoot . '/apps/' . $entry,
+                            PlatformComposer::distributionComposerForApp(
+                                AppComposerVendor::composerJsonPath($appPath),
+                                true,
+                            ),
+                            $projectRoot,
+                        );
+                    }
                 }
 
                 $prepared[] = $entry;

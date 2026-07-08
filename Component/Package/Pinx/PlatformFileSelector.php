@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Package\Pinx;
 
+use Pinoox\Component\Package\GitignorePathMatcher;
 use Symfony\Component\Finder\Finder;
 
 final class PlatformFileSelector
@@ -51,6 +52,10 @@ final class PlatformFileSelector
             $files[$relativePath] = $absolutePath;
         }
 
+        if (!empty($buildConfig['gitignore'])) {
+            $files = $this->withoutGitignoredFiles($projectRoot, $files);
+        }
+
         ksort($files);
 
         return $files;
@@ -74,7 +79,7 @@ final class PlatformFileSelector
             ->exclude(PlatformBuildConfig::directoryExcludes());
 
         if (!empty($buildConfig['gitignore'])) {
-            $finder->ignoreVCSIgnored(!$this->isRepositoryIgnoredPath($projectRoot));
+            $finder->ignoreVCSIgnored(true);
         }
 
         foreach ($buildConfig['exclude'] ?? [] as $excludePath) {
@@ -160,6 +165,23 @@ final class PlatformFileSelector
         return $files;
     }
 
+    /**
+     * @param array<string, string> $files
+     * @return array<string, string>
+     */
+    private function withoutGitignoredFiles(string $projectRoot, array $files): array
+    {
+        $matcher = new GitignorePathMatcher($projectRoot);
+
+        foreach (array_keys($files) as $relativePath) {
+            if ($matcher->isIgnored($projectRoot . '/' . $relativePath)) {
+                unset($files[$relativePath]);
+            }
+        }
+
+        return $files;
+    }
+
     private function isDirectoryExclude(string $excludePath): bool
     {
         $excludePath = trim(str_replace('\\', '/', $excludePath), '/');
@@ -205,41 +227,5 @@ final class PlatformFileSelector
             $relativePath = str_replace('\\', '/', substr($actualPath, strlen(rtrim($projectRoot, '/\\')) + 1));
             $finder->notPath($relativePath);
         }
-    }
-
-    private function isRepositoryIgnoredPath(string $sourcePath): bool
-    {
-        $normalized = str_replace('\\', '/', realpath($sourcePath) ?: $sourcePath);
-        $gitRoot = $this->gitRepositoryRoot($normalized);
-
-        if ($gitRoot === null) {
-            return false;
-        }
-
-        $process = new \Symfony\Component\Process\Process(
-            ['git', '-C', $gitRoot, 'check-ignore', '-q', $normalized],
-        );
-        $process->run();
-
-        return match ($process->getExitCode()) {
-            0 => true,
-            1 => false,
-            default => false,
-        };
-    }
-
-    private function gitRepositoryRoot(string $path): ?string
-    {
-        $dir = is_dir($path) ? $path : dirname($path);
-
-        while ($dir !== dirname($dir)) {
-            if (is_dir($dir . '/.git')) {
-                return $dir;
-            }
-
-            $dir = dirname($dir);
-        }
-
-        return null;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Package\Pinx;
 
+use Pinoox\Component\Package\GitignorePathMatcher;
 use Symfony\Component\Finder\Finder;
 
 class PinxFileSelector
@@ -106,11 +107,32 @@ class PinxFileSelector
             $files[str_replace('\\', '/', $file->getRelativePathname())] = $realPath;
         }
 
+        if (!empty($buildConfig['gitignore']) && !$this->isRepositoryIgnoredPath($sourcePath)) {
+            $files = $this->withoutGitignoredFiles($sourcePath, $files);
+        }
+
         foreach ($buildConfig['always_include'] ?? [] as $entry) {
             [$relativeDir, $payloadPrefix] = $this->resolveAlwaysIncludeEntry($entry);
 
             foreach ($this->forcedDirectoryFiles($sourcePath, $relativeDir) as $relativePath => $realPath) {
                 $files[$this->remapAlwaysIncludePath($relativePath, $relativeDir, $payloadPrefix)] = $realPath;
+            }
+        }
+
+        return $files;
+    }
+
+    /**
+     * @param array<string, string> $files
+     * @return array<string, string>
+     */
+    private function withoutGitignoredFiles(string $sourcePath, array $files): array
+    {
+        $matcher = new GitignorePathMatcher($sourcePath);
+
+        foreach (array_keys($files) as $relativePath) {
+            if ($matcher->isIgnored(rtrim(str_replace('\\', '/', $sourcePath), '/') . '/' . $relativePath)) {
+                unset($files[$relativePath]);
             }
         }
 

@@ -1,11 +1,11 @@
 <?php
 
 use Pinoox\Component\Package\AppComposerVendor;
+use Pinoox\Component\Package\ComposerVendorGuard;
 use Pinoox\Component\Package\Pinx\PinxPaths;
 use Pinoox\Component\Package\Pinx\PlatformBuildConfig;
 use Pinoox\Component\Package\Pinx\PlatformComposer;
 use Pinoox\Component\Package\Pinx\PlatformFileSelector;
-use Pinoox\Component\Package\Pinx\PlatformStorageScaffold;
 use Pinoox\Component\Package\Pinx\PlatformVendorMaterializer;
 
 it('resolves platform build defaults from build.config.php', function () {
@@ -28,7 +28,8 @@ PHP);
         ->and($config['exclude_theme_src'])->toBeFalse()
         ->and($config['exclude'])->toContain('custom-dir')
         ->and($config['exclude'])->toContain('pincore')
-        ->and($config['exclude'])->toContain('storage');
+        ->and($config['exclude'])->toContain('storage/.platform-build')
+        ->and($config['exclude'])->not->toContain('storage');
 });
 
 it('strips require-dev from distribution composer.json', function () {
@@ -108,23 +109,61 @@ it('includes htaccess files in platform payload selection', function () {
         ->toContain('apps/com_demo/.htaccess');
 });
 
-it('prepares storage skeleton in platform build workspace', function () {
-    $root = sys_get_temp_dir() . '/platform_storage_' . uniqid('', true);
-    mkdir($root . '/storage', 0777, true);
+it('respects nested gitignore rules in platform payload selection', function () {
+    $root = sys_get_temp_dir() . '/platform_nested_gitignore_' . uniqid('', true);
+    mkdir($root . '/apps/com_demo/private', 0777, true);
+    mkdir($root . '/apps/com_demo/public', 0777, true);
+
+    file_put_contents($root . '/.gitignore', "/vendor/\n");
+    file_put_contents($root . '/apps/com_demo/.gitignore', "private/\n");
+    file_put_contents($root . '/apps/com_demo/private/secret.txt', 'secret');
+    file_put_contents($root . '/apps/com_demo/public/page.php', '<?php');
+    file_put_contents($root . '/index.php', '<?php');
+
+    $selector = new PlatformFileSelector();
+    $files = $selector->payloadFiles($root, [
+        'gitignore' => true,
+        'exclude' => [],
+        'include' => [],
+        'exclude_theme_src' => false,
+    ]);
+
+    expect(array_keys($files))
+        ->toContain('index.php')
+        ->toContain('apps/com_demo/public/page.php')
+        ->not->toContain('apps/com_demo/private/secret.txt');
+});
+
+it('includes storage skeleton files according to gitignore rules', function () {
+    $root = sys_get_temp_dir() . '/platform_storage_gitignore_' . uniqid('', true);
+    mkdir($root . '/storage/logs', 0777, true);
+    mkdir($root . '/storage/apps/com_demo', 0777, true);
+
+    file_put_contents($root . '/.gitignore', <<<'GITIGNORE'
+/storage/*
+!/storage/.gitkeep
+!/storage/.htaccess
+!/storage/**/.gitkeep
+GITIGNORE);
     file_put_contents($root . '/storage/.htaccess', 'deny');
-    file_put_contents($root . '/storage/web.config', 'iis');
+    file_put_contents($root . '/storage/.gitkeep', '');
+    file_put_contents($root . '/storage/logs/app.log', 'log');
+    file_put_contents($root . '/storage/apps/com_demo/.gitkeep', '');
+    file_put_contents($root . '/index.php', '<?php');
 
-    $files = PlatformStorageScaffold::prepare($root);
-    $workspace = PlatformStorageScaffold::workspaceDir($root);
+    $selector = new PlatformFileSelector();
+    $files = $selector->payloadFiles($root, [
+        'gitignore' => true,
+        'exclude' => [],
+        'include' => [],
+        'exclude_theme_src' => false,
+    ]);
 
-    expect($workspace)->toEndWith('/storage/.platform-build/skeleton')
-        ->and(is_file($workspace . '/.htaccess'))->toBeTrue()
-        ->and(is_file($workspace . '/logs/.gitkeep'))->toBeTrue()
-        ->and($files)->toHaveKey('.htaccess')
-        ->and($files)->toHaveKey('logs/.gitkeep');
-
-    PlatformComposer::cleanup($root);
-    expect(is_dir(PlatformBuildConfig::buildPath($root)))->toBeFalse();
+    expect(array_keys($files))
+        ->toContain('storage/.htaccess')
+        ->toContain('storage/.gitkeep')
+        ->toContain('storage/apps/com_demo/.gitkeep')
+        ->not->toContain('storage/logs/app.log');
 });
 
 it('discovers composer path repositories for pinoox packages', function () {
@@ -187,6 +226,62 @@ it('copies installed vendor for platform build', function () {
         ->and(is_dir(PlatformComposer::vendorPath($root) . '/acme/pkg/tests'))->toBeFalse();
 
     PlatformComposer::cleanup($root);
+});
+
+it('excludes installed dev packages from bundled vendor tree', function () {
+    $root = sys_get_temp_dir() . '/platform_vendor_dev_' . uniqid('', true);
+    $target = $root . '/staging/vendor';
+    mkdir($root . '/vendor/composer', 0777, true);
+    mkdir($root . '/vendor/acme/pkg/src', 0777, true);
+    mkdir($root . '/vendor/acme/dev-tool/src', 0777, true);
+    file_put_contents($root . '/composer.json', json_encode([
+        'name' => 'pinoox/pinoox',
+        'require' => ['php' => '^8.2', 'acme/pkg' => '^1.0'],
+        'require-dev' => ['acme/dev-tool' => '^1.0'],
+    ]));
+    file_put_contents($root . '/vendor/autoload.php', '<?php');
+    file_put_contents($root . '/vendor/acme/pkg/src/Run.php', '<?php');
+    file_put_contents($root . '/vendor/acme/dev-tool/src/Dev.php', '<?php');
+    file_put_contents($root . '/vendor/composer/installed.php', <<<'PHP'
+<?php return [
+    'root' => ['dev' => true],
+    'versions' => [
+        'acme/pkg' => [
+            'pretty_version' => '1.0.0',
+            'version' => '1.0.0.0',
+            'reference' => 'abc',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../acme/pkg',
+            'aliases' => [],
+            'dev_requirement' => false,
+        ],
+        'acme/dev-tool' => [
+            'pretty_version' => '1.0.0',
+            'version' => '1.0.0.0',
+            'reference' => 'def',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../acme/dev-tool',
+            'aliases' => [],
+            'dev_requirement' => true,
+        ],
+    ],
+];
+PHP);
+
+    expect(ComposerVendorGuard::installedDevPackageNames($root))
+        ->toBe(['acme/dev-tool'])
+        ->and(ComposerVendorGuard::installedDevVendorPaths($root))
+        ->toBe(['acme/dev-tool']);
+
+    ComposerVendorGuard::copyVendorTree(
+        $root . '/vendor',
+        $target,
+        false,
+        ComposerVendorGuard::installedDevVendorPaths($root),
+    );
+
+    expect(is_file($target . '/acme/pkg/src/Run.php'))->toBeTrue()
+        ->and(is_file($target . '/acme/dev-tool/src/Dev.php'))->toBeFalse();
 });
 
 it('resolves vendor_prune from build.config.php', function () {

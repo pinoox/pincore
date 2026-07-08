@@ -131,7 +131,6 @@ final class AppComposerVendor
 
         $appPath = rtrim(str_replace('\\', '/', $appPath), '/');
         ComposerVendorGuard::requireInstalled($appPath, 'app');
-        ComposerVendorGuard::assertProductionVendor($appPath, 'app');
 
         return [
             'prepared' => true,
