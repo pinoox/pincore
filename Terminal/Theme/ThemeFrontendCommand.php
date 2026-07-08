@@ -307,6 +307,10 @@ FOOTER
 
         $themeOption = $this->readThemeInput($input);
 
+        if ($action === 'dev' && strtolower($positional) === FrontendDevSession::SERVE_PLATFORM) {
+            return $this->resolveDevTarget($input, $output, $io, $targetInput !== '' ? $targetInput : $positional);
+        }
+
         if ($positional !== '' && AppEngine::exists($positional)) {
             return [
                 'package' => $positional,
@@ -363,6 +367,11 @@ FOOTER
 
         if (strtolower($positional) === FrontendDevSession::SERVE_PLATFORM) {
             $this->platformServe = true;
+
+            if ($targetInput !== '') {
+                return $this->resolveAutoViteDevTarget($input, $output, $io);
+            }
+
             $positional = '';
         }
 

@@ -31,6 +31,7 @@ class DevCommand extends Terminal
                 [
                     'dev',
                     'dev com_pinoox_manager',
+                    'dev platform',
                     'dev spark',
                     'dev spark --no-serve',
                     'dev com_pinoox_manager --network',
@@ -39,7 +40,7 @@ class DevCommand extends Terminal
                 "Use MAMP or another PHP server:\n  " . $this->cliFormat('dev spark --no-serve')
                 . "\n\nLAN (phone/tablet on same Wi‑Fi):\n  " . $this->cliFormat('dev spark --network')
                 . "\n\nSingle-app dev mounts at / (package@/). For the platform router use "
-                . $this->cliFormat('fe dev:apps') . ".\n\n"
+                . $this->cliFormat('dev platform') . ' or ' . $this->cliFormat('fe dev:apps') . ".\n\n"
                 . "Built manifest assets only: use {$serve} — not dev.",
             ))
             ->addArgument('target', InputArgument::OPTIONAL, 'App package or theme folder (interactive when omitted)')
