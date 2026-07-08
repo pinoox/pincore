@@ -129,7 +129,13 @@ final class ComposerVendorGuard
 
             $targetPath = $targetVendor . '/' . $relativePath;
 
-            if ($item->isDir() && !$item->isLink()) {
+            if ($item->isLink() || self::isVendorReparsePoint($absolutePath)) {
+                self::copyVendorLinkTarget($item->getPathname(), $targetPath, $prune, $excludeVendorPaths);
+
+                continue;
+            }
+
+            if ($item->isDir()) {
                 if (!is_dir($targetPath)) {
                     mkdir($targetPath, 0777, true);
                 }
@@ -432,6 +438,134 @@ final class ComposerVendorGuard
         sort($paths);
 
         return array_values(array_unique(array_filter($paths)));
+    }
+
+    /**
+     * @param list<string> $excludeVendorPaths
+     */
+    private static function copyVendorLinkTarget(
+        string $linkPath,
+        string $targetPath,
+        bool $prune,
+        array $excludeVendorPaths,
+    ): void {
+        $resolved = realpath($linkPath);
+
+        if ($resolved === false) {
+            return;
+        }
+
+        if (is_dir($resolved)) {
+            self::copyVendorDirectory($resolved, $targetPath, $prune, $excludeVendorPaths);
+
+            return;
+        }
+
+        if (!is_file($resolved)) {
+            return;
+        }
+
+        $targetDir = dirname($targetPath);
+
+        if (!is_dir($targetDir)) {
+            mkdir($targetDir, 0777, true);
+        }
+
+        if (!copy($resolved, $targetPath)) {
+            throw new Exception('Failed to copy vendor link target: ' . $targetPath);
+        }
+    }
+
+    /**
+     * @param list<string> $excludeVendorPaths
+     */
+    private static function copyVendorDirectory(
+        string $sourceDir,
+        string $targetDir,
+        bool $prune,
+        array $excludeVendorPaths,
+    ): void {
+        $sourceDir = rtrim(str_replace('\\', '/', realpath($sourceDir) ?: $sourceDir), '/');
+        $targetDir = rtrim(str_replace('\\', '/', $targetDir), '/');
+        $sourcePrefix = $sourceDir . '/';
+
+        if (!is_dir($targetDir) && !mkdir($targetDir, 0777, true) && !is_dir($targetDir)) {
+            throw new Exception('Failed to create vendor directory: ' . $targetDir);
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($sourceDir, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST,
+        );
+
+        foreach ($iterator as $item) {
+            $absolutePath = str_replace('\\', '/', $item->getPathname());
+            $relativePath = ltrim(substr($absolutePath, strlen($sourceDir)), '/');
+
+            if ($relativePath === '' || str_ends_with($relativePath, '.gitignore')) {
+                continue;
+            }
+
+            if ($excludeVendorPaths !== [] && self::matchesVendorPathPrefix($relativePath, $excludeVendorPaths)) {
+                continue;
+            }
+
+            if ($prune && VendorPruner::shouldSkipPath($relativePath)) {
+                continue;
+            }
+
+            $targetPath = $targetDir . '/' . $relativePath;
+
+            if ($item->isLink() || self::isVendorReparsePoint($absolutePath)) {
+                self::copyVendorLinkTarget($item->getPathname(), $targetPath, $prune, $excludeVendorPaths);
+
+                continue;
+            }
+
+            if ($item->isDir()) {
+                if (!is_dir($targetPath)) {
+                    mkdir($targetPath, 0777, true);
+                }
+
+                continue;
+            }
+
+            if (!$item->isFile()) {
+                continue;
+            }
+
+            $targetParent = dirname($targetPath);
+
+            if (!is_dir($targetParent)) {
+                mkdir($targetParent, 0777, true);
+            }
+
+            if (!copy($item->getPathname(), $targetPath)) {
+                throw new Exception('Failed to copy vendor file: ' . $targetPath);
+            }
+        }
+    }
+
+    private static function isVendorReparsePoint(string $path): bool
+    {
+        if (is_link($path)) {
+            return true;
+        }
+
+        if (!is_dir($path)) {
+            return false;
+        }
+
+        $real = realpath($path);
+
+        if ($real === false) {
+            return false;
+        }
+
+        $normalizedPath = str_replace('\\', '/', $path);
+        $normalizedReal = str_replace('\\', '/', $real);
+
+        return strcasecmp(rtrim($normalizedPath, '/'), rtrim($normalizedReal, '/')) !== 0;
     }
 
     /**

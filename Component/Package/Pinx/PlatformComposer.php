@@ -53,7 +53,7 @@ final class PlatformComposer
         $sourceVendor = ComposerVendorGuard::vendorDir($projectRoot);
 
         ComposerVendorGuard::copyVendorTree($sourceVendor, $stagingVendor, $vendorPrune, $excludedDevPaths);
-        $materialized = PlatformVendorMaterializer::materialize($stagingVendor, $projectRoot);
+        $materialized = PlatformVendorMaterializer::materialize($stagingVendor, $projectRoot, $sourceVendor);
 
         if ($vendorPrune) {
             VendorPruner::prune($stagingVendor);
