@@ -258,7 +258,7 @@ class PinxBuilder
     {
         $path = $options['sign_key']
             ?? ($build['sign']['key_path'] !== null
-                ? PinxPaths::resolveKeyPath($packagePath, $build['sign']['key_path'])
+                ? PinxPaths::resolveKeyPath($package, $packagePath, $build['sign']['key_path'])
                 : null)
             ?? PinxSignKey::defaultKeyPath($package, $packagePath);
 
@@ -285,9 +285,7 @@ class PinxBuilder
 
     private function defaultOutputPath(string $package, PinxManifest $manifest): string
     {
-        $packagePath = $this->engine->path($package);
-
-        return PinxPaths::defaultReleasePath($packagePath, $package, $manifest);
+        return PinxPaths::defaultReleasePath($package, $manifest);
     }
 
     /**

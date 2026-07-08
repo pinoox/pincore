@@ -350,6 +350,7 @@ class SystemConfig
                 : self::join(self::rootPath(), 'config'),
             '~pincore' => self::corePath(),
             '~pinker' => self::pathWithoutAlias('pinker', 'pinker'),
+            '~pinx' => self::path('pinx', '~/pinx'),
             '~storage' => self::pathWithoutAlias('storage', 'storage'),
         ] as $alias => $basePath) {
             if ($path === $alias) {

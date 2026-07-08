@@ -3,7 +3,6 @@
 namespace Pinoox\Component\Package\Pinx;
 
 use Pinoox\Component\Kernel\Exception;
-use Pinoox\Support\SystemConfig;
 
 final class PinxSignKey
 {
@@ -85,25 +84,13 @@ final class PinxSignKey
 
     public static function defaultKeyPath(string $package, string $appPath): string
     {
-        $resolved = self::resolveLocalKeyPath($appPath);
-        if ($resolved !== null) {
-            return $resolved;
-        }
-
-        $globalDir = SystemConfig::resolvePath(PinxSignConfig::system()['keys_path']);
-
-        return rtrim($globalDir, '/\\') . '/' . $package . '.key.json';
-    }
-
-    private static function resolveLocalKeyPath(string $appPath): ?string
-    {
-        foreach ([PinxPaths::defaultKeyPath($appPath), PinxPaths::legacyKeyPath($appPath)] as $candidate) {
+        foreach (PinxPaths::keyPathCandidates($package, $appPath) as $candidate) {
             if (is_file($candidate)) {
                 return $candidate;
             }
         }
 
-        return null;
+        return PinxPaths::defaultKeyPath($package);
     }
 
     public static function fingerprint(string $publicKeyBase64): string

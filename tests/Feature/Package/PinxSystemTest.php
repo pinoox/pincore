@@ -518,6 +518,16 @@ function pinxSystemCleanupArtifacts(): void
             }
         }
 
+        $projectPinx = testProjectRoot() . '/pinx/export/' . $package;
+        if (is_dir($projectPinx)) {
+            pinxSystemDeleteDirectory($projectPinx);
+        }
+
+        $projectKeys = testProjectRoot() . '/pinx/keys/' . $package;
+        if (is_dir($projectKeys)) {
+            pinxSystemDeleteDirectory($projectKeys);
+        }
+
         $identityDir = pinxSystemAppDir($package) . '/.pinx';
         if (is_dir($identityDir)) {
             pinxSystemDeleteDirectory($identityDir);

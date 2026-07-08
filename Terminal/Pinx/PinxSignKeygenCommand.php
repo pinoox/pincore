@@ -7,7 +7,6 @@ use Pinoox\Component\Package\Pinx\PinxSignKey;
 use Pinoox\Component\Terminal;
 use Pinoox\Support\ProjectCli;
 use Pinoox\Portal\App\AppEngine;
-use Pinoox\Support\SystemConfig;
 use Pinoox\Terminal\Concerns\SelectsPackage;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -30,14 +29,13 @@ class PinxSignKeygenCommand extends Terminal
     {
         $this
             ->setHelp($this->cliHelp(
-                "Creates a signing key for pinx:build. Keys are stored locally and never included in .pinx files.\n\nDefault locations:\n  apps/{package}/pinx/keys/sign.key.json\n  storage/pinx/keys/{package}.key.json",
+                "Creates a signing key for pinx:build. Keys are stored locally and never included in .pinx files.\n\nDefault location:\n  ~pinx/keys/{package}/sign.key.json",
                 [
                     'pinx:sign-keygen com_my_shop',
-                    'pinx:sign-keygen com_my_shop --global',
                 ],
             ))
             ->addArgument('package', InputArgument::OPTIONAL, 'App package name')
-            ->addOption('global', 'g', InputOption::VALUE_NONE, 'Store key in storage/pinx/keys instead of app folder')
+            ->addOption('global', 'g', InputOption::VALUE_NONE, 'Store key as ~pinx/keys/{package}.key.json (flat file)')
             ->addOption('key-id', null, InputOption::VALUE_REQUIRED, 'Publisher key id (default: {package}:main)')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Overwrite existing key file');
     }
@@ -58,10 +56,9 @@ class PinxSignKeygenCommand extends Terminal
             return Command::FAILURE;
         }
 
-        $appPath = $engine->path($package);
         $path = (bool) $input->getOption('global')
-            ? rtrim(SystemConfig::resolvePath('~storage/pinx/keys'), '/\\') . '/' . $package . '.key.json'
-            : PinxPaths::defaultKeyPath($appPath);
+            ? rtrim(PinxPaths::workspaceRoot(), '/\\') . '/keys/' . $package . '.key.json'
+            : PinxPaths::defaultKeyPath($package);
 
         if (is_file($path) && !(bool) $input->getOption('force')) {
             $io->error('Key already exists: ' . $path . ' (use --force to overwrite)');
@@ -70,7 +67,12 @@ class PinxSignKeygenCommand extends Terminal
         }
 
         if (!(bool) $input->getOption('global')) {
-            PinxPaths::ensureKeysDir($appPath);
+            PinxPaths::ensureKeysDir($package);
+        } else {
+            $dir = dirname($path);
+            if (!is_dir($dir)) {
+                mkdir($dir, 0775, true);
+            }
         }
 
         $keyId = (string) ($input->getOption('key-id') ?: $package . ':main');
@@ -89,4 +91,3 @@ class PinxSignKeygenCommand extends Terminal
         return Command::SUCCESS;
     }
 }
-

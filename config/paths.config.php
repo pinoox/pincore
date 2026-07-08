@@ -6,7 +6,7 @@ return [
     | Project paths
     |--------------------------------------------------------------------------
     |
-    | Aliases: ~, ~config (framework), ~project (deploy), ~pincore, ~pinker, ~storage.
+    | Aliases: ~, ~config (framework), ~project (deploy), ~pincore, ~pinker, ~pinx, ~storage.
     | Framework config: pincore/config — project override: {project}/platform/*.config.php
     |
     */
@@ -15,6 +15,7 @@ return [
     'system' => env('PINOOX_CONFIG_PATH', '~pincore/config'),
     'apps' => env('PINOOX_APPS_PATH', 'apps'),
     'pinker' => env('PINOOX_PINKER_PATH', 'pinker'),
+    'pinx' => env('PINOOX_PINX_PATH', '~/pinx'),
     'storage' => env('PINOOX_STORAGE_PATH', 'storage'),
 
     'project_config' => env('PINOOX_PROJECT_CONFIG_PATH', '~/platform'),

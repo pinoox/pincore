@@ -14,7 +14,7 @@ return [
     */
     'verify' => env('PINX_VERIFY', true),
     'require_signature' => env('PINX_REQUIRE_SIGNATURE', false),
-    'keys_path' => env('PINX_KEYS_PATH', '~storage/pinx/keys'),
+    'keys_path' => env('PINX_KEYS_PATH', '~pinx/keys'),
 
     'trusted_keys' => [
         // 'com_my_shop' => 'base64-ed25519-public-key',
