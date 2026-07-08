@@ -4,10 +4,13 @@ namespace Pinoox\Component\Package\Pinx;
 
 use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Package\AppComposerVendor;
-use Symfony\Component\Process\Process;
+use Pinoox\Component\Package\ComposerVendorGuard;
 
 /**
- * Prepare a production-only Composer vendor tree for platform .zip builds.
+ * Bundle the project Composer vendor tree for platform .zip builds.
+ *
+ * Build does not run Composer. Install dependencies first:
+ *   composer install --no-dev --optimize-autoloader
  */
 final class PlatformComposer
 {
@@ -21,6 +24,7 @@ final class PlatformComposer
      */
     public static function prepare(string $projectRoot, bool $stripRequireDev = true): array
     {
+        $projectRoot = rtrim(str_replace('\\', '/', $projectRoot), '/');
         $composerJson = self::composerJsonPath($projectRoot);
 
         if (!is_file($composerJson)) {
@@ -32,36 +36,18 @@ final class PlatformComposer
             ];
         }
 
-        $stagingRoot = self::stagingRoot($projectRoot);
-        self::resetDirectory($stagingRoot);
+        ComposerVendorGuard::requireInstalled($projectRoot, 'platform');
+
+        if ($stripRequireDev) {
+            ComposerVendorGuard::assertProductionVendor($projectRoot, 'platform');
+        }
 
         $distributionComposer = self::distributionComposer($composerJson, $stripRequireDev);
-        $distributionComposerPath = $stagingRoot . '/composer.json';
+        $stagingVendor = self::vendorPath($projectRoot);
+        $sourceVendor = ComposerVendorGuard::vendorDir($projectRoot);
 
-        if (file_put_contents(
-            $distributionComposerPath,
-            json_encode($distributionComposer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n",
-        ) === false) {
-            throw new Exception('Failed to write platform distribution composer.json');
-        }
-
-        $command = self::buildInstallCommand($stagingRoot, $projectRoot);
-        $process = new Process($command, $stagingRoot, null, null, 900);
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            $output = trim($process->getErrorOutput() . "\n" . $process->getOutput());
-
-            throw new Exception('Composer install failed for platform distribution: ' . ($output !== '' ? $output : 'unknown error'));
-        }
-
-        $vendorPath = $stagingRoot . '/vendor';
-
-        if (!is_file($vendorPath . '/autoload.php')) {
-            throw new Exception('Platform composer install did not produce vendor/autoload.php');
-        }
-
-        $materialized = PlatformVendorMaterializer::materialize($vendorPath, $projectRoot);
+        ComposerVendorGuard::copyVendorTree($sourceVendor, $stagingVendor);
+        $materialized = PlatformVendorMaterializer::materialize($stagingVendor, $projectRoot);
 
         return [
             'prepared' => true,
@@ -134,36 +120,6 @@ final class PlatformComposer
         return $distribution;
     }
 
-    private static function buildInstallCommand(string $workingDirectory, ?string $projectRoot): array
-    {
-        $composer = AppComposerVendor::resolveComposerBinary($projectRoot);
-
-        if (str_contains($composer, ' ') && str_ends_with($composer, '.phar')) {
-            return array_merge(explode(' ', $composer, 2), [
-                'update',
-                '--no-dev',
-                '--prefer-dist',
-                '--no-scripts',
-                '--optimize-autoloader',
-                '--no-interaction',
-                '--no-progress',
-                '--no-ansi',
-            ]);
-        }
-
-        return [
-            $composer,
-            'update',
-            '--no-dev',
-            '--prefer-dist',
-            '--no-scripts',
-            '--optimize-autoloader',
-            '--no-interaction',
-            '--no-progress',
-            '--no-ansi',
-        ];
-    }
-
     /**
      * @param array<int|string, mixed> $existing
      * @param list<array{type: string, url: string, options?: array<string, mixed>}> $pathRepositories
@@ -203,15 +159,6 @@ final class PlatformComposer
         $url = trim(str_replace('\\', '/', $url));
 
         return $url === '' ? '' : (realpath($url) ?: $url);
-    }
-
-    private static function resetDirectory(string $path): void
-    {
-        self::removeDirectory($path);
-
-        if (!mkdir($path, 0777, true) && !is_dir($path)) {
-            throw new Exception('Failed to create platform build directory: ' . $path);
-        }
     }
 
     private static function removeDirectory(string $path): void

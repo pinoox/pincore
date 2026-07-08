@@ -51,7 +51,7 @@ final class PlatformBuilder
             $storageWorkspace = PlatformStorageScaffold::prepare($projectRoot);
 
             if ($build['composer'] && is_file(PlatformComposer::composerJsonPath($projectRoot))) {
-                $this->reportProgress($options, 'composer', 'Installing production Composer dependencies (--no-dev)...', 15);
+                $this->reportProgress($options, 'composer', 'Bundling Composer vendor from project...', 15);
                 $composerResult = PlatformComposer::prepare($projectRoot, $build['strip_require_dev']);
                 $composerPrepared = $composerResult['prepared'];
                 $composerPackages = $composerResult['packages'];
@@ -233,8 +233,6 @@ final class PlatformBuilder
                 $this->copyDirectory($sourceVendor, $targetVendor);
                 $prepared[] = $entry;
             }
-
-            AppComposerVendor::cleanup($appPath);
         }
 
         sort($prepared);

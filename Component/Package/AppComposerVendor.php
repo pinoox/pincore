@@ -4,7 +4,6 @@ namespace Pinoox\Component\Package;
 
 use Pinoox\Component\Kernel\Exception;
 use Symfony\Component\Process\ExecutableFinder;
-use Symfony\Component\Process\Process;
 
 /**
  * Prepare a slim Composer vendor tree for distributable app packages.
@@ -130,47 +129,14 @@ final class AppComposerVendor
             ];
         }
 
-        $buildDir = self::buildDirectory($appPath);
-        self::resetBuildDirectory($buildDir);
-
-        $distributionComposer = self::buildDistributionComposer($appPath, $requires);
-        $distributionComposerPath = $buildDir . '/composer.json';
-
-        if (file_put_contents(
-            $distributionComposerPath,
-            json_encode($distributionComposer, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . "\n",
-        ) === false) {
-            throw new Exception('Failed to write distribution composer.json');
-        }
-
-        $projectRoot ??= self::detectProjectRoot($appPath);
-        $command = self::buildInstallCommand($buildDir, $projectRoot);
-
-        $process = new Process(
-            $command,
-            $buildDir,
-            null,
-            null,
-            600,
-        );
-        $process->run();
-
-        if (!$process->isSuccessful()) {
-            $output = trim($process->getErrorOutput() . "\n" . $process->getOutput());
-
-            throw new Exception('Composer install failed for app distribution vendor: ' . ($output !== '' ? $output : 'unknown error'));
-        }
-
-        $vendorPath = self::distributionVendorPath($appPath);
-
-        if (!is_file($vendorPath . '/autoload.php')) {
-            throw new Exception('Distribution composer install did not produce vendor/autoload.php');
-        }
+        $appPath = rtrim(str_replace('\\', '/', $appPath), '/');
+        ComposerVendorGuard::requireInstalled($appPath, 'app');
+        ComposerVendorGuard::assertProductionVendor($appPath, 'app');
 
         return [
             'prepared' => true,
             'reason' => null,
-            'vendor_dir' => self::distributionVendorRelativePath(),
+            'vendor_dir' => self::VENDOR_SUBDIR,
             'vendor_as' => self::VENDOR_SUBDIR,
             'packages' => array_keys($requires),
         ];

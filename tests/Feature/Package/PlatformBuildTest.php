@@ -1,5 +1,6 @@
 <?php
 
+use Pinoox\Component\Package\AppComposerVendor;
 use Pinoox\Component\Package\Pinx\PinxPaths;
 use Pinoox\Component\Package\Pinx\PlatformBuildConfig;
 use Pinoox\Component\Package\Pinx\PlatformComposer;
@@ -150,6 +151,48 @@ it('discovers composer path repositories for pinoox packages', function () {
 
     expect($packages)->toHaveKey('pinoox/pinion')
         ->and($packages['pinoox/pinion'])->toEndWith('/packages/pinion');
+});
+
+it('requires composer vendor before platform build', function () {
+    $root = sys_get_temp_dir() . '/platform_vendor_guard_' . uniqid('', true);
+    mkdir($root, 0777, true);
+    file_put_contents($root . '/composer.json', json_encode([
+        'name' => 'pinoox/pinoox',
+        'require' => ['php' => '^8.2', 'pinoox/pincore' => '^3.4'],
+    ]));
+
+    expect(fn () => PlatformComposer::prepare($root))
+        ->toThrow(\Pinoox\Component\Kernel\Exception::class, 'Composer vendor is not installed');
+});
+
+it('copies installed vendor for platform build', function () {
+    $root = sys_get_temp_dir() . '/platform_vendor_copy_' . uniqid('', true);
+    mkdir($root . '/vendor/composer', 0777, true);
+    file_put_contents($root . '/composer.json', json_encode([
+        'name' => 'pinoox/pinoox',
+        'require' => ['php' => '^8.2'],
+    ]));
+    file_put_contents($root . '/vendor/autoload.php', '<?php');
+    file_put_contents($root . '/vendor/composer/installed.json', json_encode(['packages' => []]));
+
+    $result = PlatformComposer::prepare($root, stripRequireDev: false);
+
+    expect($result['prepared'])->toBeTrue()
+        ->and(is_file(PlatformComposer::vendorPath($root) . '/autoload.php'))->toBeTrue();
+
+    PlatformComposer::cleanup($root);
+});
+
+it('requires composer vendor before app pinx build', function () {
+    $root = sys_get_temp_dir() . '/app_vendor_guard_' . uniqid('', true);
+    mkdir($root, 0777, true);
+    file_put_contents($root . '/composer.json', json_encode([
+        'name' => 'vendor/test-app',
+        'require' => ['monolog/monolog' => '^3.0'],
+    ]));
+
+    expect(fn () => AppComposerVendor::prepare($root))
+        ->toThrow(\Pinoox\Component\Kernel\Exception::class, 'Composer vendor is not installed');
 });
 
 it('does not list platform in apps-only package choices', function () {
