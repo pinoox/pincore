@@ -37,6 +37,7 @@
     "morilog/jalali": "^3.4",
     "nelexa/zip": "^4.0",
     "nette/php-generator": "^4.1",
+    "paragonie/sodium_compat": "^2.1",
     "phpoption/phpoption": "^1.9",
     "predis/predis": "^2.4",
     "symfony/asset": "^7.2",
@@ -71,7 +72,6 @@
   "require-dev": {
     "nikic/php-parser": "^5.4",
     "nunomaduro/collision": "^8.5",
-    "paragonie/sodium_compat": "^2.1",
     "pestphp/pest": "^2.36",
     "pinoox/devdb": "^1.4"
   },
@@ -95,7 +95,8 @@
     "ext-pdo_pgsql": "Required when DB_CONNECTION is pgsql",
     "ext-pdo_sqlite": "Required when DB_CONNECTION is sqlite",
     "ext-pdo_sqlsrv": "Required when DB_CONNECTION is sqlsrv",
-    "ext-zip": "Required for Pinx package build and install (.pinx)"
+    "ext-zip": "Required for Pinx package build and install (.pinx)",
+    "ext-sodium": "Recommended for faster Pinx Ed25519 signing (pure-PHP fallback ships with pincore)"
   },
   "minimum-stability": "dev",
   "extra": {

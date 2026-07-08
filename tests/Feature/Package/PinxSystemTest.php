@@ -43,9 +43,7 @@ function pinxSystemBuild(string $package, array $options = []): array
 
 function pinxSystemGenerateKey(string $package): string
 {
-    if (!function_exists('sodium_crypto_sign_keypair')) {
-        test()->markTestSkipped('PHP sodium extension is required for pinx signing tests.');
-    }
+    bootstrapTestSodiumCompat();
 
     $dir = pinxSystemAppDir($package) . '/pinx';
     if (!is_dir($dir)) {

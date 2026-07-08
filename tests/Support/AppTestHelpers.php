@@ -148,16 +148,7 @@ function testRuntimeDevdb(string $relative = ''): string
 
 function bootstrapTestSodiumCompat(): void
 {
-    if (function_exists('sodium_crypto_sign_keypair')) {
-        return;
-    }
-
-    $corePath = rtrim(str_replace('\\', '/', defined('PINOOX_CORE_PATH') ? PINOOX_CORE_PATH : testCoreRoot()), '/');
-    $autoload = $corePath . '/vendor/paragonie/sodium_compat/autoload.php';
-
-    if (is_file($autoload)) {
-        require_once $autoload;
-    }
+    \Pinoox\Component\Package\Pinx\SodiumBootstrap::ensureAvailable();
 }
 
 function testProjectRoot(): string

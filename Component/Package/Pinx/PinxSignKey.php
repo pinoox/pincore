@@ -22,9 +22,7 @@ final class PinxSignKey
      */
     public static function generate(string $package, ?string $keyId = null): array
     {
-        if (!function_exists('sodium_crypto_sign_keypair')) {
-            throw new Exception('Ed25519 signing requires the PHP sodium extension.');
-        }
+        SodiumBootstrap::ensureAvailable();
 
         $keyPair = sodium_crypto_sign_keypair();
         $publicKey = sodium_crypto_sign_publickey($keyPair);
@@ -109,9 +107,7 @@ final class PinxSignKey
      */
     public static function signMessage(string $message, array $key): string
     {
-        if (!function_exists('sodium_crypto_sign_detached')) {
-            throw new Exception('Ed25519 signing requires the PHP sodium extension.');
-        }
+        SodiumBootstrap::ensureAvailable();
 
         $secret = base64_decode($key['secret_key'], true);
         if ($secret === false) {
@@ -123,9 +119,7 @@ final class PinxSignKey
 
     public static function verifyMessage(string $message, string $signatureBase64, string $publicKeyBase64): bool
     {
-        if (!function_exists('sodium_crypto_sign_verify_detached')) {
-            throw new Exception('Ed25519 verification requires the PHP sodium extension.');
-        }
+        SodiumBootstrap::ensureAvailable();
 
         $signature = base64_decode($signatureBase64, true);
         $publicKey = base64_decode($publicKeyBase64, true);
