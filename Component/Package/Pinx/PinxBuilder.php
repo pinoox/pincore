@@ -20,7 +20,8 @@ class PinxBuilder
      * @param array{
      *     sign?: bool,
      *     sign_key?: ?string,
-     *     key_id?: ?string
+     *     key_id?: ?string,
+     *     progress?: callable(string $phase, string $message, ?int $percent=null): void
      * } $options
      * @return array{path: string, manifest: PinxManifest, files: int, signed: bool, signature: ?array, composer: bool}
      */
@@ -73,6 +74,7 @@ class PinxBuilder
         $cleanupComposerBuild = false;
 
         if ($build['type'] === PinxManifest::TYPE_APP && $build['composer'] && AppComposerVendor::hasComposerJson($packagePath)) {
+            $this->reportProgress($options, 'composer', 'Installing production Composer dependencies (--no-dev)...', 10);
             $composerResult = AppComposerVendor::prepare($packagePath);
 
             if ($composerResult['prepared'] && is_string($composerResult['vendor_dir'])) {
@@ -143,6 +145,7 @@ class PinxBuilder
             'always_include' => $alwaysInclude,
         ];
 
+        $this->reportProgress($options, 'collect', 'Collecting application files...', 25);
         $payloadFiles = $this->selector->payloadFiles($sourcePath, $buildConfig);
         $fileCount = count($payloadFiles);
 
@@ -175,17 +178,27 @@ class PinxBuilder
         $manifestJson = $manifest->toJson();
         $zip->addFromString(PinxManifest::MANIFEST_FILE, $manifestJson);
 
+        $this->reportProgress($options, 'archive', 'Creating .pinx archive...', 40);
+
         /** @var array<string, string> $payloadHashes */
         $payloadHashes = [];
+        $processed = 0;
+        $total = max(count($payloadFiles), 1);
         foreach ($payloadFiles as $relativePath => $realPath) {
             $entry = PinxManifest::PAYLOAD_PREFIX . $this->payloadEntry($build['type'], $build['theme_name'], $relativePath);
-            $payloadHashes[$entry] = hash('sha256', (string) file_get_contents($realPath));
+            $payloadHashes[$entry] = hash_file('sha256', $realPath) ?: '';
             $zip->addFile($realPath, $entry);
+            $processed++;
+            if ($processed === $total || $processed % 50 === 0) {
+                $percent = 40 + (int) floor(($processed / $total) * 45);
+                $this->reportProgress($options, 'archive', 'Adding files (' . $processed . '/' . $total . ')...', $percent);
+            }
         }
 
         $signature = null;
         $signed = false;
         if ($this->shouldSign($package, $packagePath, $build, $options)) {
+            $this->reportProgress($options, 'sign', 'Signing package...', 92);
             $key = $this->resolveSigningKey($package, $packagePath, $build, $options);
 
             if (!empty($options['key_id'])) {
@@ -205,6 +218,8 @@ class PinxBuilder
         }
 
         $zip->close();
+
+        $this->reportProgress($options, 'done', 'Build finished.', 100);
 
         return [
             'path' => $outputPath,
@@ -273,6 +288,20 @@ class PinxBuilder
         $packagePath = $this->engine->path($package);
 
         return PinxPaths::defaultReleasePath($packagePath, $package, $manifest);
+    }
+
+    /**
+     * @param array{progress?: callable(string, string, ?int): void} $options
+     */
+    private function reportProgress(array $options, string $phase, string $message, ?int $percent = null): void
+    {
+        $callback = $options['progress'] ?? null;
+
+        if (!is_callable($callback)) {
+            return;
+        }
+
+        $callback($phase, $message, $percent);
     }
 }
 

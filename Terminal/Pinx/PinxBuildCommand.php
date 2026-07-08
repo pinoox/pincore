@@ -81,7 +81,7 @@ class PinxBuildCommand extends Terminal
                 'Package: <info>' . $package . '</info>',
                 'Name: <info>' . $previewManifest->title($localeArg) . '</info>',
                 'Description: <info>' . ($previewManifest->description($localeArg) ?: '—') . '</info>',
-                'Output: <info>' . ($outputPath ?: '(auto in pinx/releases/)') . '</info>',
+                'Output: <info>' . ($outputPath ?: '(auto in pinx/export/)') . '</info>',
             ]);
 
             if (!$io->confirm('Proceed with build?', false)) {
@@ -90,7 +90,9 @@ class PinxBuildCommand extends Terminal
             }
         }
 
-        $progress = new ProgressBar($output);
+        $progress = new ProgressBar($output, 100);
+        $progress->setFormat(' %percent:3s%% [%bar%] %message%');
+        $progress->setMessage('Starting build...');
         $progress->start();
 
         $buildOptions = [];
@@ -105,6 +107,12 @@ class PinxBuildCommand extends Terminal
         if ($input->getOption('key-id')) {
             $buildOptions['key_id'] = (string) $input->getOption('key-id');
         }
+        $buildOptions['progress'] = static function (string $phase, string $message, ?int $percent = null) use ($progress): void {
+            if ($percent !== null) {
+                $progress->setProgress($percent);
+            }
+            $progress->setMessage($message);
+        };
 
         try {
             $result = $builder->build($package, $outputPath, $buildOptions);

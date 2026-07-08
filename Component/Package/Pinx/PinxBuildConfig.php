@@ -17,17 +17,8 @@ class PinxBuildConfig
     public static function defaultAppExcludes(): array
     {
         return [
-            'node_modules',
             'tests',
             '.github',
-            'vendor',
-            '.pinx-build',
-            '.pinx-build/*',
-            'bin',
-            'launcher',
-            'platform',
-            'storage',
-            'pinker',
             ...PinxPaths::buildExcludePatterns(),
             'composer.json',
             'composer.lock',

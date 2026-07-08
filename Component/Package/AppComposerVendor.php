@@ -299,6 +299,8 @@ final class AppComposerVendor
             return array_merge(explode(' ', $composer, 2), [
                 'update',
                 '--no-dev',
+                '--prefer-dist',
+                '--no-scripts',
                 '--optimize-autoloader',
                 '--no-interaction',
                 '--no-progress',
@@ -310,6 +312,8 @@ final class AppComposerVendor
             $composer,
             'update',
             '--no-dev',
+            '--prefer-dist',
+            '--no-scripts',
             '--optimize-autoloader',
             '--no-interaction',
             '--no-progress',

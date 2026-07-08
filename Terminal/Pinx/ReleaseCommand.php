@@ -90,8 +90,17 @@ class ReleaseCommand extends Terminal
             $buildOptions['sign'] = true;
         }
 
-        $progress = new ProgressBar($output);
+        $progress = new ProgressBar($output, 100);
+        $progress->setFormat(' %percent:3s%% [%bar%] %message%');
+        $progress->setMessage('Starting release build...');
         $progress->start();
+
+        $buildOptions['progress'] = static function (string $phase, string $message, ?int $percent = null) use ($progress): void {
+            if ($percent !== null) {
+                $progress->setProgress($percent);
+            }
+            $progress->setMessage($message);
+        };
 
         try {
             $result = Pinx::builder()->build($package, null, $buildOptions);

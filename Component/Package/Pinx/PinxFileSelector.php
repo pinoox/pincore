@@ -20,22 +20,25 @@ class PinxFileSelector
             ->in($sourcePath)
             ->files()
             ->ignoreVCS(true)
-            ->ignoreUnreadableDirs();
+            ->ignoreUnreadableDirs()
+            ->exclude(PinxPaths::directoryExcludes());
 
         if (!empty($buildConfig['gitignore'])) {
             $finder->ignoreVCSIgnored(!$this->isRepositoryIgnoredPath($sourcePath));
         }
 
         foreach ($buildConfig['exclude'] ?? [] as $excludePath) {
+            if ($this->isDirectoryExclude($excludePath)) {
+                continue;
+            }
+
             if (str_contains($excludePath, '*')) {
                 $this->excludeWildcardPaths($finder, $sourcePath, $excludePath);
                 continue;
             }
 
             $absolutePath = rtrim($sourcePath, '/\\') . '/' . ltrim($excludePath, '/\\');
-            if (is_dir($absolutePath)) {
-                $finder->notPath($excludePath);
-            } elseif (is_file($absolutePath)) {
+            if (is_dir($absolutePath) || is_file($absolutePath)) {
                 $finder->notPath($excludePath);
             }
         }
@@ -63,7 +66,8 @@ class PinxFileSelector
             ->in($absolute)
             ->files()
             ->ignoreVCS(true)
-            ->ignoreUnreadableDirs();
+            ->ignoreUnreadableDirs()
+            ->exclude(PinxPaths::directoryExcludes());
 
         $prefix = trim(str_replace('\\', '/', $relativeDir), '/');
 
@@ -217,6 +221,23 @@ class PinxFileSelector
         }
 
         return $payloadPrefix . '/' . ltrim($normalizedRelative, '/');
+    }
+
+    private function isDirectoryExclude(string $excludePath): bool
+    {
+        $excludePath = trim(str_replace('\\', '/', $excludePath), '/');
+
+        if ($excludePath === '') {
+            return false;
+        }
+
+        if (str_contains($excludePath, '*')) {
+            $base = explode('/*', $excludePath, 2)[0];
+
+            return in_array($base, PinxPaths::directoryExcludes(), true);
+        }
+
+        return in_array($excludePath, PinxPaths::directoryExcludes(), true);
     }
 
     private function excludeWildcardPaths(Finder $finder, string $packagePath, string $wildcardPath): void

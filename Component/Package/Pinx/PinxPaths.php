@@ -10,7 +10,9 @@ final class PinxPaths
 
     public const KEYS_DIR = 'pinx/keys';
 
-    public const RELEASES_DIR = 'pinx/releases';
+    public const EXPORT_DIR = 'pinx/export';
+
+    public const LEGACY_RELEASES_DIR = 'pinx/releases';
 
     public const KEY_FILE = 'sign.key.json';
 
@@ -28,7 +30,20 @@ final class PinxPaths
         return self::workspaceDir($appPath) . '/keys';
     }
 
+    public static function exportDir(string $appPath): string
+    {
+        return self::workspaceDir($appPath) . '/export';
+    }
+
+    /**
+     * @deprecated use exportDir()
+     */
     public static function releasesDir(string $appPath): string
+    {
+        return self::exportDir($appPath);
+    }
+
+    public static function legacyReleasesDir(string $appPath): string
     {
         return self::workspaceDir($appPath) . '/releases';
     }
@@ -92,14 +107,22 @@ final class PinxPaths
         return $dir;
     }
 
-    public static function ensureReleasesDir(string $appPath): string
+    public static function ensureExportDir(string $appPath): string
     {
-        $dir = self::releasesDir($appPath);
+        $dir = self::exportDir($appPath);
         if (!is_dir($dir)) {
             mkdir($dir, 0775, true);
         }
 
         return $dir;
+    }
+
+    /**
+     * @deprecated use ensureExportDir()
+     */
+    public static function ensureReleasesDir(string $appPath): string
+    {
+        return self::ensureExportDir($appPath);
     }
 
     public static function defaultReleaseFilename(string $package, PinxManifest $manifest): string
@@ -113,7 +136,7 @@ final class PinxPaths
 
     public static function defaultReleasePath(string $appPath, string $package, PinxManifest $manifest): string
     {
-        return self::ensureReleasesDir($appPath) . '/' . self::defaultReleaseFilename($package, $manifest);
+        return self::ensureExportDir($appPath) . '/' . self::defaultReleaseFilename($package, $manifest);
     }
 
     /**
@@ -126,8 +149,34 @@ final class PinxPaths
             self::WORKSPACE_DIR . '/*',
             self::LEGACY_EXPORT_DIR,
             self::LEGACY_EXPORT_DIR . '/*',
+        ];
+    }
+
+    /**
+     * Directory names excluded at any depth during pinx file selection.
+     *
+     * @return list<string>
+     */
+    public static function directoryExcludes(): array
+    {
+        return [
+            'node_modules',
+            'vendor',
+            'pinker',
+            'storage',
+            'pinx',
+            'export',
             '.pinx-build',
-            '.pinx-build/*',
+            'tests',
+            '.github',
+            'bin',
+            'launcher',
+            'platform',
+            '.git',
+            '.idea',
+            '.vscode',
+            '.phpunit.cache',
+            'coverage',
         ];
     }
 
@@ -139,7 +188,7 @@ final class PinxPaths
         $files = [];
         $patterns = ['*.pinx', '*.zip', '*.json'];
 
-        foreach ([self::releasesDir($appPath), self::legacyExportDir($appPath)] as $directory) {
+        foreach ([self::exportDir($appPath), self::legacyReleasesDir($appPath), self::legacyExportDir($appPath)] as $directory) {
             if (!is_dir($directory)) {
                 continue;
             }
