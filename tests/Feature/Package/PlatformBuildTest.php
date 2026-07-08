@@ -379,6 +379,44 @@ PHP);
         ->and(is_dir($targetVendor . '/pinoox/pinion/vendor'))->toBeFalse();
 });
 
+it('includes app classes in archive autoload classmap after finalization', function () {
+    $projectRoot = dirname(__DIR__, 4);
+
+    if (!is_file($projectRoot . '/vendor/autoload.php')) {
+        test()->markTestSkipped('project vendor is not installed');
+    }
+
+    $archiveRoot = sys_get_temp_dir() . '/platform_autoload_' . uniqid('', true);
+    $appFlow = $archiveRoot . '/apps/com_demo/Flow/DemoFlow.php';
+    mkdir(dirname($appFlow), 0777, true);
+    file_put_contents($appFlow, <<<'PHP'
+<?php
+
+namespace App\com_demo\Flow;
+
+class DemoFlow
+{
+}
+PHP);
+
+    if (!@symlink($projectRoot . '/vendor', $archiveRoot . '/vendor')) {
+        test()->markTestSkipped('Unable to symlink vendor for autoload finalization test');
+    }
+
+    PlatformComposer::finalizeArchiveAutoload(
+        $archiveRoot,
+        $projectRoot,
+        stripRequireDev: true,
+        removeComposerJson: true,
+    );
+
+    $classmapFile = $archiveRoot . '/vendor/composer/autoload_classmap.php';
+
+    expect(is_file($classmapFile))->toBeTrue()
+        ->and(is_file($archiveRoot . '/composer.json'))->toBeFalse()
+        ->and(file_get_contents($classmapFile))->toContain('App\\com_demo\\Flow\\DemoFlow');
+});
+
 it('requires composer vendor before platform build', function () {
     $root = sys_get_temp_dir() . '/platform_vendor_guard_' . uniqid('', true);
     mkdir($root, 0777, true);

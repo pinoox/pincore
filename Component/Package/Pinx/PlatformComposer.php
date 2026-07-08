@@ -62,11 +62,6 @@ final class PlatformComposer
 
         if ($stripRequireDev && $excludedDevPackages !== []) {
             ComposerVendorGuard::pruneInstalledMetadata($stagingVendor, $excludedDevPackages);
-            ComposerVendorGuard::regenerateProductionAutoload(
-                self::stagingRoot($projectRoot),
-                $distributionComposer,
-                $projectRoot,
-            );
         }
 
         return [
@@ -128,6 +123,48 @@ final class PlatformComposer
         );
 
         return $source;
+    }
+
+    /**
+     * Regenerate vendor autoload after apps/ and vendor/ are both present in the archive.
+     */
+    public static function finalizeArchiveAutoload(
+        string $archiveRoot,
+        string $projectRoot,
+        bool $stripRequireDev = true,
+        bool $removeComposerJson = true,
+    ): void {
+        $archiveRoot = rtrim(str_replace('\\', '/', $archiveRoot), '/');
+        $composerJson = self::composerJsonPath($projectRoot);
+
+        if (!is_file($composerJson) || !is_file($archiveRoot . '/vendor/autoload.php')) {
+            return;
+        }
+
+        if (!is_dir($archiveRoot . '/apps')) {
+            return;
+        }
+
+        $distribution = self::distributionComposer($composerJson, $stripRequireDev);
+
+        ComposerVendorGuard::regenerateProductionAutoload($archiveRoot, $distribution, $projectRoot);
+
+        if ($removeComposerJson) {
+            @unlink($archiveRoot . '/composer.json');
+        }
+    }
+
+    public static function excludesRootComposerJson(array $excludePatterns): bool
+    {
+        foreach ($excludePatterns as $pattern) {
+            $pattern = trim(str_replace('\\', '/', (string) $pattern), '/');
+
+            if ($pattern === 'composer.json' || $pattern === '/composer.json') {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /**

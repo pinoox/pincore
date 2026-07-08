@@ -96,6 +96,16 @@ final class PlatformBuilder
                 );
             }
 
+            if ($composerPrepared) {
+                $this->reportProgress($options, 'autoload', 'Regenerating production Composer autoload...', 70);
+                PlatformComposer::finalizeArchiveAutoload(
+                    $archiveRoot,
+                    $projectRoot,
+                    $build['strip_require_dev'],
+                    PlatformComposer::excludesRootComposerJson($build['exclude'] ?? []),
+                );
+            }
+
             $fileCount = $this->countFiles($archiveRoot);
 
             if ($fileCount === 0) {
