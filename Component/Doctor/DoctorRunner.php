@@ -378,7 +378,7 @@ final class DoctorRunner
 
                 if (is_file($appPath . '/' . $routeFile)) {
                     $routeFiles++;
-                } else {
+                } elseif (!$this->isOptionalRouteFile($routeFile)) {
                     $missing[] = $routeFile;
                 }
             }
@@ -654,6 +654,13 @@ final class DoctorRunner
     private function normalizePath(string $path): string
     {
         return rtrim(str_replace('\\', '/', $path), '/');
+    }
+
+    private function isOptionalRouteFile(string $routeFile): bool
+    {
+        $routeFile = str_replace('\\', '/', trim($routeFile));
+
+        return str_ends_with($routeFile, '/actions.php') || $routeFile === 'actions.php';
     }
 
     private function relativePath(string $absolute, string $root): string

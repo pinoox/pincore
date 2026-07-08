@@ -62,3 +62,13 @@ it('scores pass and warn checks', function () {
         ->and($report->failCount())->toBe(0)
         ->and($report->warnCount())->toBe(1);
 });
+
+it('treats missing routes/actions.php as optional', function () {
+    $runner = new DoctorRunner();
+    $method = new ReflectionMethod($runner, 'isOptionalRouteFile');
+    $method->setAccessible(true);
+
+    expect($method->invoke($runner, 'routes/actions.php'))->toBeTrue()
+        ->and($method->invoke($runner, 'router/actions.php'))->toBeTrue()
+        ->and($method->invoke($runner, 'routes/web.php'))->toBeFalse();
+});
