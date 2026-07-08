@@ -802,16 +802,6 @@ FOOTER
         if ($withServe) {
             try {
                 $serveProcess = $this->startServeProcess($package, $input, $output, $io, $platformServe, $serveApp, $session->servePort);
-                if (!(bool) $input->getOption('no-inspector') && InspectorRuntime::isAvailable()) {
-                    $inspectorUrl = InspectorRuntime::url(
-                        $session->serveHost === '0.0.0.0' ? '127.0.0.1' : ($session->serveHost ?? '127.0.0.1'),
-                        $session->servePort,
-                    );
-                    $io->note('Pinx Inspector: ' . $inspectorUrl);
-                    if ((bool) $input->getOption('open-inspector')) {
-                        InspectorRuntime::openBrowser($inspectorUrl);
-                    }
-                }
             } catch (\Throwable $e) {
                 $io->error('Could not start Pinoox server: ' . $e->getMessage());
 
@@ -822,7 +812,7 @@ FOOTER
         try {
             $frontend->startDevProcess($installMode);
             $this->waitForViteReady($io, $frontend);
-            $this->renderDevApplicationUrl($io, $session, $withServe);
+            $this->renderDevApplicationUrl($io, $session, $withServe, $input, $package);
 
             return $frontend->awaitRunningDevProcess() === 0 ? Command::SUCCESS : Command::FAILURE;
         } finally {
@@ -1202,33 +1192,79 @@ FOOTER
         $io->writeln('<comment>still starting — refresh the browser shortly</comment>');
     }
 
-    private function renderDevApplicationUrl(SymfonyStyle $io, FrontendDevSession $session, bool $withServe): void
-    {
+    private function renderDevApplicationUrl(
+        SymfonyStyle $io,
+        FrontendDevSession $session,
+        bool $withServe,
+        InputInterface $input,
+        string $package,
+    ): void {
+        $modeLabel = $withServe ? 'PHP + Vite' : 'Vite only';
+        $label = ThemeFrontendDevTarget::stackLabel($package);
+        $binding = $session->serveAppBinding !== null
+            ? ServeAppBinding::devServeBinding($session->serveAppBinding)
+            : null;
+
         $io->writeln('');
-        $io->writeln(sprintf(
-            '  <fg=green;options=bold>➜</>  <fg=cyan;options=bold>Dev server</>  <fg=gray>(%s)</>',
-            $withServe ? 'PHP + Vite' : 'Vite only',
-        ));
+
+        if ($session->serveAppLocked && $binding !== null) {
+            $io->writeln(sprintf(
+                '  <fg=green;options=bold>➜</>  <fg=cyan;options=bold>App dev</>  <fg=gray>(%s — %s)</>',
+                $binding,
+                $modeLabel,
+            ));
+            $io->writeln('  <fg=gray>Serve lock</>    ' . $binding);
+        } elseif ($session->platformServe) {
+            $io->writeln(sprintf(
+                '  <fg=green;options=bold>➜</>  <fg=cyan;options=bold>Platform dev</>  <fg=gray>(%s)</>',
+                $modeLabel,
+            ));
+            $io->writeln('  <fg=gray>Serve App</>     platform');
+        } else {
+            $io->writeln(sprintf(
+                '  <fg=green;options=bold>➜</>  <fg=cyan;options=bold>Dev server</>  <fg=gray>(%s — %s)</>',
+                $label,
+                $modeLabel,
+            ));
+        }
 
         if ($withServe) {
             $io->writeln('  <fg=gray>PHP</>           ' . $session->phpOrigin());
 
-            if ($session->serveAppLocked && $session->serveAppBinding !== null) {
-                $io->writeln('  <fg=gray>Serve lock</>    ' . ServeAppBinding::devServeBinding($session->serveAppBinding));
-            } elseif ($session->platformServe) {
-                $io->writeln('  <fg=gray>Serve lock</>    platform');
+            if ($session->serveHost === '0.0.0.0' || $session->serveHost === '[::]') {
+                $lan = FrontendDevSession::detectLanIp();
+
+                if ($lan !== null) {
+                    $io->writeln('  <fg=gray>LAN</>           http://' . $lan . ':' . $session->servePort);
+                }
             }
         }
 
         $io->writeln('');
-        $io->writeln('  <fg=gray>Open in browser</>');
+        $io->writeln('  <fg=gray>Open in browser</>' . ($session->platformServe ? '  <fg=gray>(app-router paths)</>' : ''));
 
-        foreach ($session->displayAppUrls() as $url) {
-            $io->writeln('  <comment>' . $url . '</comment>');
+        $appUrls = $session->displayAppUrls();
+
+        if ($appUrls !== []) {
+            $rows = [];
+
+            foreach ($appUrls as $url) {
+                $rows[] = [$label, $url, $session->viteDevServerUrl()];
+            }
+
+            $io->table(['App', 'URL', 'Vite HMR'], $rows);
+        } elseif (!$withServe) {
+            $io->writeln('  <comment>' . $session->viteDevServerUrl() . '</comment>');
         }
 
-        $io->writeln('  <fg=gray>Vite HMR</>      <comment>' . $session->viteDevServerUrl() . '</comment>');
-        $io->writeln('  <fg=gray>Tip</>           Open the <comment>PHP URL</comment> above — not the Vite port.');
+        if ($withServe && !(bool) $input->getOption('no-inspector') && InspectorRuntime::isAvailable()) {
+            $io->writeln('  <fg=gray>Inspector</>     <fg=green>active</> <fg=gray>' . InspectorRuntime::ROUTE . '</>');
+
+            if ((bool) $input->getOption('open-inspector')) {
+                InspectorRuntime::openBrowser(InspectorRuntime::url($session->displayHost(), $session->servePort));
+            }
+        }
+
         $io->writeln('');
         $io->writeln('  <fg=gray>Press Ctrl+C to stop</>');
         $io->writeln('');
@@ -1404,7 +1440,7 @@ FOOTER
         $process->start(function (string $type, string $buffer) use ($output): void {
             foreach (preg_split("/\r\n|\n|\r/", $buffer) ?: [] as $line) {
                 $line = trim($line);
-                if ($line === '') {
+                if ($line === '' || !$this->shouldForwardServeLine($line)) {
                     continue;
                 }
 
@@ -1419,6 +1455,19 @@ FOOTER
         }
 
         return $process;
+    }
+
+    private function shouldForwardServeLine(string $line): bool
+    {
+        if (preg_match('/^Pinoox development server running:/i', $line)) {
+            return false;
+        }
+
+        if (preg_match('/^Press Ctrl\+C to stop$/i', $line)) {
+            return false;
+        }
+
+        return preg_match('/\b(error|failed|fatal|warning)\b/i', $line) === 1;
     }
 
     private function stopServeProcess(?Process $process, SymfonyStyle $io): void
