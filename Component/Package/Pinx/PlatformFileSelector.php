@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Package\Pinx;
 
+use Pinoox\Component\Package\BuildPatternMatcher;
 use Pinoox\Component\Package\GitignorePathMatcher;
 use Symfony\Component\Finder\Finder;
 
@@ -37,24 +38,15 @@ final class PlatformFileSelector
             $files[$relativePath] = $realPath;
         }
 
-        foreach ($buildConfig['include'] ?? [] as $includePath) {
-            $absolutePath = $projectRoot . '/' . ltrim(str_replace('\\', '/', $includePath), '/');
-
-            if (!is_file($absolutePath)) {
-                continue;
-            }
-
-            $relativePath = ltrim(str_replace('\\', '/', $includePath), '/');
-            $files[$relativePath] = $absolutePath;
-        }
-
-        foreach ($this->forcedHtaccessFiles($projectRoot, $buildConfig) as $relativePath => $absolutePath) {
+        foreach ($this->forcedHtaccessFiles($projectRoot) as $relativePath => $absolutePath) {
             $files[$relativePath] = $absolutePath;
         }
 
         if (!empty($buildConfig['gitignore'])) {
             $files = $this->withoutGitignoredFiles($projectRoot, $files);
         }
+
+        $files = $this->applyBuildPatterns($projectRoot, $files, $buildConfig);
 
         ksort($files);
 
@@ -63,8 +55,7 @@ final class PlatformFileSelector
 
     /**
      * @param array{
-     *     gitignore?: bool,
-     *     exclude?: list<string>
+     *     gitignore?: bool
      * } $buildConfig
      */
     public function files(string $projectRoot, array $buildConfig): Finder
@@ -76,30 +67,13 @@ final class PlatformFileSelector
             ->ignoreDotFiles(false)
             ->ignoreVCS(true)
             ->ignoreUnreadableDirs()
-            ->exclude(PlatformBuildConfig::directoryExcludes());
+            ->exclude(PlatformBuildConfig::collectionDirectoryExcludes());
 
         if (!empty($buildConfig['gitignore'])) {
             $matcher = new GitignorePathMatcher($projectRoot);
 
             if ($matcher->shouldUseFinderGitignore()) {
                 $finder->ignoreVCSIgnored(true);
-            }
-        }
-
-        foreach ($buildConfig['exclude'] ?? [] as $excludePath) {
-            if ($this->isDirectoryExclude($excludePath)) {
-                continue;
-            }
-
-            if (str_contains($excludePath, '*')) {
-                $this->excludeWildcardPaths($finder, $projectRoot, $excludePath);
-                continue;
-            }
-
-            $absolutePath = $projectRoot . '/' . ltrim($excludePath, '/');
-
-            if (is_dir($absolutePath) || is_file($absolutePath)) {
-                $finder->notPath($excludePath);
             }
         }
 
@@ -124,10 +98,9 @@ final class PlatformFileSelector
     }
 
     /**
-     * @param array{exclude?: list<string>} $buildConfig
      * @return array<string, string>
      */
-    private function forcedHtaccessFiles(string $projectRoot, array $buildConfig): array
+    private function forcedHtaccessFiles(string $projectRoot): array
     {
         $projectRoot = rtrim(str_replace('\\', '/', $projectRoot), '/');
         $files = [];
@@ -139,17 +112,7 @@ final class PlatformFileSelector
             ->ignoreDotFiles(false)
             ->ignoreVCS(true)
             ->ignoreUnreadableDirs()
-            ->exclude(PlatformBuildConfig::directoryExcludes());
-
-        foreach ($buildConfig['exclude'] ?? [] as $excludePath) {
-            $excludePath = trim(str_replace('\\', '/', $excludePath), '/');
-
-            if ($excludePath === '') {
-                continue;
-            }
-
-            $finder->notPath($excludePath);
-        }
+            ->exclude(PlatformBuildConfig::collectionDirectoryExcludes());
 
         foreach ($finder as $file) {
             $realPath = $file->getRealPath();
@@ -196,50 +159,22 @@ final class PlatformFileSelector
         return $filtered;
     }
 
-    private function isDirectoryExclude(string $excludePath): bool
+    /**
+     * @param array{
+     *     exclude?: list<string>,
+     *     include?: list<string>
+     * } $buildConfig
+     * @param array<string, string> $files
+     * @return array<string, string>
+     */
+    private function applyBuildPatterns(string $projectRoot, array $files, array $buildConfig): array
     {
-        $excludePath = trim(str_replace('\\', '/', $excludePath), '/');
+        $matcher = new BuildPatternMatcher(
+            $projectRoot,
+            $buildConfig['exclude'] ?? [],
+            $buildConfig['include'] ?? [],
+        );
 
-        if ($excludePath === '') {
-            return false;
-        }
-
-        if (str_contains($excludePath, '*')) {
-            $base = explode('/*', $excludePath, 2)[0];
-
-            return in_array($base, PlatformBuildConfig::directoryExcludes(), true);
-        }
-
-        return in_array($excludePath, PlatformBuildConfig::directoryExcludes(), true);
-    }
-
-    private function excludeWildcardPaths(Finder $finder, string $projectRoot, string $wildcardPath): void
-    {
-        $parts = explode('/*', $wildcardPath, 2);
-        $baseDir = $parts[0];
-        $remainingPath = isset($parts[1]) ? trim($parts[1], '/') : '';
-        $baseAbsolute = rtrim($projectRoot, '/\\') . '/' . ltrim($baseDir, '/\\');
-
-        if (!is_dir($baseAbsolute)) {
-            return;
-        }
-
-        $subDirectories = (new Finder())
-            ->in($baseAbsolute)
-            ->directories()
-            ->depth(0)
-            ->name('*')
-            ->sortByName();
-
-        foreach ($subDirectories as $dir) {
-            $actualPath = $dir->getRealPath() . ($remainingPath !== '' ? '/' . $remainingPath : '');
-
-            if (!is_dir($actualPath) && !is_file($actualPath)) {
-                continue;
-            }
-
-            $relativePath = str_replace('\\', '/', substr($actualPath, strlen(rtrim($projectRoot, '/\\')) + 1));
-            $finder->notPath($relativePath);
-        }
+        return $matcher->applyToFiles($files, PlatformBuildConfig::collectionDirectoryExcludes());
     }
 }

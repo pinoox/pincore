@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Package\Pinx;
 
+use Pinoox\Component\Package\BuildPatternMatcher;
 use Pinoox\Component\Package\GitignorePathMatcher;
 use Symfony\Component\Finder\Finder;
 
@@ -11,6 +12,7 @@ class PinxFileSelector
      * @param array{
      *     gitignore?: bool,
      *     exclude?: list<string>,
+     *     include?: list<string>,
      *     include_themes?: list<string>
      * } $buildConfig
      */
@@ -22,7 +24,7 @@ class PinxFileSelector
             ->files()
             ->ignoreVCS(true)
             ->ignoreUnreadableDirs()
-            ->exclude(PinxPaths::directoryExcludes());
+            ->exclude(PinxPaths::collectionDirectoryExcludes());
 
         if (!empty($buildConfig['gitignore'])) {
             $finder->ignoreDotFiles(false);
@@ -33,22 +35,6 @@ class PinxFileSelector
                 if ($matcher->shouldUseFinderGitignore()) {
                     $finder->ignoreVCSIgnored(true);
                 }
-            }
-        }
-
-        foreach ($buildConfig['exclude'] ?? [] as $excludePath) {
-            if ($this->isDirectoryExclude($excludePath)) {
-                continue;
-            }
-
-            if (str_contains($excludePath, '*')) {
-                $this->excludeWildcardPaths($finder, $sourcePath, $excludePath);
-                continue;
-            }
-
-            $absolutePath = rtrim($sourcePath, '/\\') . '/' . ltrim($excludePath, '/\\');
-            if (is_dir($absolutePath) || is_file($absolutePath)) {
-                $finder->notPath($excludePath);
             }
         }
 
@@ -76,7 +62,7 @@ class PinxFileSelector
             ->files()
             ->ignoreVCS(true)
             ->ignoreUnreadableDirs()
-            ->exclude(PinxPaths::directoryExcludes());
+            ->exclude(PinxPaths::collectionDirectoryExcludes());
 
         $prefix = trim(str_replace('\\', '/', $relativeDir), '/');
 
@@ -97,6 +83,7 @@ class PinxFileSelector
      * @param array{
      *     gitignore?: bool,
      *     exclude?: list<string>,
+     *     include?: list<string>,
      *     include_themes?: list<string>,
      *     always_include?: list<string>
      * } $buildConfig
@@ -124,6 +111,8 @@ class PinxFileSelector
         if (!empty($buildConfig['gitignore']) && !$this->isRepositoryIgnoredPath($sourcePath)) {
             $files = $this->withoutGitignoredFiles($sourcePath, $files);
         }
+
+        $files = $this->applyBuildPatterns($sourcePath, $files, $buildConfig);
 
         foreach ($buildConfig['always_include'] ?? [] as $entry) {
             [$relativeDir, $payloadPrefix] = $this->resolveAlwaysIncludeEntry($entry);
@@ -165,6 +154,25 @@ class PinxFileSelector
         }
 
         return $filtered;
+    }
+
+    /**
+     * @param array{
+     *     exclude?: list<string>,
+     *     include?: list<string>
+     * } $buildConfig
+     * @param array<string, string> $files
+     * @return array<string, string>
+     */
+    private function applyBuildPatterns(string $sourcePath, array $files, array $buildConfig): array
+    {
+        $matcher = new BuildPatternMatcher(
+            $sourcePath,
+            $buildConfig['exclude'] ?? [],
+            $buildConfig['include'] ?? [],
+        );
+
+        return $matcher->applyToFiles($files, PinxPaths::collectionDirectoryExcludes());
     }
 
     /**
@@ -272,52 +280,4 @@ class PinxFileSelector
 
         return $payloadPrefix . '/' . ltrim($normalizedRelative, '/');
     }
-
-    private function isDirectoryExclude(string $excludePath): bool
-    {
-        $excludePath = trim(str_replace('\\', '/', $excludePath), '/');
-
-        if ($excludePath === '') {
-            return false;
-        }
-
-        if (str_contains($excludePath, '*')) {
-            $base = explode('/*', $excludePath, 2)[0];
-
-            return in_array($base, PinxPaths::directoryExcludes(), true);
-        }
-
-        return in_array($excludePath, PinxPaths::directoryExcludes(), true);
-    }
-
-    private function excludeWildcardPaths(Finder $finder, string $packagePath, string $wildcardPath): void
-    {
-        $parts = explode('/*', $wildcardPath, 2);
-        $baseDir = $parts[0];
-        $remainingPath = isset($parts[1]) ? trim($parts[1], '/') : '';
-        $baseAbsolute = rtrim($packagePath, '/\\') . '/' . ltrim($baseDir, '/\\');
-
-        if (!is_dir($baseAbsolute)) {
-            return;
-        }
-
-        $subDirectories = (new Finder())
-            ->in($baseAbsolute)
-            ->directories()
-            ->depth(0)
-            ->name('*')
-            ->sortByName();
-
-        foreach ($subDirectories as $dir) {
-            $actualPath = $dir->getRealPath() . ($remainingPath !== '' ? '/' . $remainingPath : '');
-
-            if (!is_dir($actualPath) && !is_file($actualPath)) {
-                continue;
-            }
-
-            $relativePath = str_replace('\\', '/', substr($actualPath, strlen(rtrim($packagePath, '/\\')) + 1));
-            $finder->notPath($relativePath);
-        }
-    }
 }
-

@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Package\Pinx;
 
+use Pinoox\Component\Package\AppComposerVendor;
 use Pinoox\Support\SystemConfig;
 
 final class PinxPaths
@@ -237,31 +238,31 @@ final class PinxPaths
     }
 
     /**
+     * Directory names skipped during file collection for performance.
+     * Semantic exclude/include rules are applied afterward via BuildPatternMatcher.
+     *
+     * @return list<string>
+     */
+    public static function collectionDirectoryExcludes(): array
+    {
+        return [
+            'node_modules',
+            'vendor',
+            'pinker',
+            '.git',
+            '.pinx-build',
+            AppComposerVendor::BUILD_DIR,
+        ];
+    }
+
+    /**
      * Directory names excluded at any depth during pinx file selection.
      *
      * @return list<string>
      */
     public static function directoryExcludes(): array
     {
-        return [
-            'node_modules',
-            'vendor',
-            'pinker',
-            'storage',
-            'pinx',
-            'export',
-            '.pinx-build',
-            'tests',
-            '.github',
-            'bin',
-            'launcher',
-            'platform',
-            '.git',
-            '.idea',
-            '.vscode',
-            '.phpunit.cache',
-            'coverage',
-        ];
+        return self::collectionDirectoryExcludes();
     }
 
     /**

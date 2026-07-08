@@ -102,6 +102,7 @@ class PinxBuildConfig
                 ? (bool) $build['gitignore']
                 : true,
             'exclude' => $exclude,
+            'include' => self::stringList($build['include'] ?? []),
             'include_themes' => self::stringList($build['include_themes'] ?? []),
             'composer' => array_key_exists('composer', $build)
                 ? (bool) $build['composer']

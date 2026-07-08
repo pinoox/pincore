@@ -49,33 +49,30 @@ final class PlatformBuildConfig
     }
 
     /**
+     * Directory names skipped during file collection for performance.
+     * Semantic exclude/include rules are applied afterward via BuildPatternMatcher.
+     *
+     * @return list<string>
+     */
+    public static function collectionDirectoryExcludes(): array
+    {
+        return [
+            'node_modules',
+            'vendor',
+            '.git',
+            '.platform-build',
+            AppComposerVendor::BUILD_DIR,
+        ];
+    }
+
+    /**
      * Directory names excluded at any depth during platform archive selection.
      *
      * @return list<string>
      */
     public static function directoryExcludes(): array
     {
-        return [
-            'node_modules',
-            'vendor',
-            'pinker',
-            'pinx',
-            'export',
-            '.platform-build',
-            AppComposerVendor::BUILD_DIR,
-            'tests',
-            '.github',
-            '.git',
-            '.idea',
-            '.vscode',
-            '.cursor',
-            '.phpunit.cache',
-            'coverage',
-            'pincore',
-            'packages',
-            'uploads',
-            'downloads',
-        ];
+        return self::collectionDirectoryExcludes();
     }
 
     /**
