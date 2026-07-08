@@ -25,7 +25,15 @@ class PinxFileSelector
             ->exclude(PinxPaths::directoryExcludes());
 
         if (!empty($buildConfig['gitignore'])) {
-            $finder->ignoreVCSIgnored(!$this->isRepositoryIgnoredPath($sourcePath));
+            $finder->ignoreDotFiles(false);
+
+            if (!$this->isRepositoryIgnoredPath($sourcePath)) {
+                $matcher = new GitignorePathMatcher($sourcePath);
+
+                if ($matcher->shouldUseFinderGitignore()) {
+                    $finder->ignoreVCSIgnored(true);
+                }
+            }
         }
 
         foreach ($buildConfig['exclude'] ?? [] as $excludePath) {
@@ -104,7 +112,13 @@ class PinxFileSelector
                 continue;
             }
 
-            $files[str_replace('\\', '/', $file->getRelativePathname())] = $realPath;
+            $relativePath = str_replace('\\', '/', $file->getRelativePathname());
+
+            if (!empty($buildConfig['gitignore']) && str_ends_with($relativePath, '.gitignore')) {
+                continue;
+            }
+
+            $files[$relativePath] = $realPath;
         }
 
         if (!empty($buildConfig['gitignore']) && !$this->isRepositoryIgnoredPath($sourcePath)) {
@@ -128,15 +142,29 @@ class PinxFileSelector
      */
     private function withoutGitignoredFiles(string $sourcePath, array $files): array
     {
-        $matcher = new GitignorePathMatcher($sourcePath);
+        $sourceRoot = rtrim(str_replace('\\', '/', realpath($sourcePath) ?: $sourcePath), '/');
+        $matcher = new GitignorePathMatcher($sourceRoot);
+
+        $absoluteByRelative = [];
 
         foreach (array_keys($files) as $relativePath) {
-            if ($matcher->isIgnored(rtrim(str_replace('\\', '/', $sourcePath), '/') . '/' . $relativePath)) {
-                unset($files[$relativePath]);
+            $absoluteByRelative[$relativePath] = $sourceRoot . '/' . $relativePath;
+        }
+
+        $includedLookup = array_fill_keys(
+            $matcher->filterIncludedPaths(array_values($absoluteByRelative)),
+            true,
+        );
+
+        $filtered = [];
+
+        foreach ($absoluteByRelative as $relativePath => $absolutePath) {
+            if (isset($includedLookup[$absolutePath])) {
+                $filtered[$relativePath] = $files[$relativePath];
             }
         }
 
-        return $files;
+        return $filtered;
     }
 
     /**

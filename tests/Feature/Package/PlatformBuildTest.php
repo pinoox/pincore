@@ -166,6 +166,77 @@ GITIGNORE);
         ->not->toContain('storage/logs/app.log');
 });
 
+it('excludes nested theme dot directories from platform payload selection', function () {
+    $root = sys_get_temp_dir() . '/platform_theme_dot_gitignore_' . uniqid('', true);
+    mkdir($root . '/apps/com_demo/theme/welcome/.pinoox/cache', 0777, true);
+    mkdir($root . '/apps/com_demo/theme/welcome/dist', 0777, true);
+    file_put_contents($root . '/apps/com_demo/theme/welcome/.gitignore', ".pinoox/\n");
+    file_put_contents($root . '/apps/com_demo/theme/welcome/.pinoox/cache/data.json', '{}');
+    file_put_contents($root . '/apps/com_demo/theme/welcome/dist/app.js', 'js');
+    file_put_contents($root . '/index.php', '<?php');
+
+    $selector = new PlatformFileSelector();
+    $files = $selector->payloadFiles($root, [
+        'gitignore' => true,
+        'exclude' => [],
+        'include' => [],
+        'exclude_theme_src' => false,
+    ]);
+
+    expect(array_keys($files))
+        ->toContain('apps/com_demo/theme/welcome/dist/app.js')
+        ->not->toContain('apps/com_demo/theme/welcome/.pinoox/cache/data.json');
+});
+
+it('excludes real theme pinoox files from platform payload selection', function () {
+    $root = dirname(__DIR__, 4);
+    $absolute = $root . '/apps/com_pinoox_welcome/theme/welcome/.pinoox/dev.json';
+
+    if (!is_file($absolute)) {
+        test()->markTestSkipped('welcome theme .pinoox/dev.json not present');
+    }
+
+    $selector = new PlatformFileSelector();
+    $files = $selector->payloadFiles($root, [
+        'gitignore' => true,
+        'exclude' => PlatformBuildConfig::resolve($root)['exclude'],
+        'include' => [],
+        'exclude_theme_src' => true,
+    ]);
+
+    $pinooxFiles = array_values(array_filter(
+        array_keys($files),
+        static fn (string $path): bool => str_contains($path, '.pinoox'),
+    ));
+
+    expect($pinooxFiles)->toBe([]);
+});
+
+it('matches git apps whitelist negation during platform payload selection', function () {
+    $root = sys_get_temp_dir() . '/platform_apps_negation_' . uniqid('', true);
+    mkdir($root . '/apps/com_allowed', 0777, true);
+    mkdir($root . '/apps/com_blocked', 0777, true);
+    file_put_contents($root . '/.gitignore', "/apps/*\n!/apps/com_allowed/\n!/apps/com_allowed/**\n");
+    file_put_contents($root . '/apps/com_allowed/app.php', '<?php');
+    file_put_contents($root . '/apps/com_blocked/app.php', '<?php');
+    file_put_contents($root . '/index.php', '<?php');
+
+    (new \Symfony\Component\Process\Process(['git', 'init'], $root))->mustRun();
+
+    $selector = new PlatformFileSelector();
+    $files = $selector->payloadFiles($root, [
+        'gitignore' => true,
+        'exclude' => [],
+        'include' => [],
+        'exclude_theme_src' => false,
+    ]);
+
+    expect(array_keys($files))
+        ->toContain('index.php')
+        ->toContain('apps/com_allowed/app.php')
+        ->not->toContain('apps/com_blocked/app.php');
+});
+
 it('discovers composer path repositories for pinoox packages', function () {
     $root = sys_get_temp_dir() . '/platform_path_repo_' . uniqid('', true);
     mkdir($root . '/packages/pinion', 0777, true);

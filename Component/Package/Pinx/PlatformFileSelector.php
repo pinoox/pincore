@@ -79,7 +79,11 @@ final class PlatformFileSelector
             ->exclude(PlatformBuildConfig::directoryExcludes());
 
         if (!empty($buildConfig['gitignore'])) {
-            $finder->ignoreVCSIgnored(true);
+            $matcher = new GitignorePathMatcher($projectRoot);
+
+            if ($matcher->shouldUseFinderGitignore()) {
+                $finder->ignoreVCSIgnored(true);
+            }
         }
 
         foreach ($buildConfig['exclude'] ?? [] as $excludePath) {
@@ -137,10 +141,6 @@ final class PlatformFileSelector
             ->ignoreUnreadableDirs()
             ->exclude(PlatformBuildConfig::directoryExcludes());
 
-        if (!empty($buildConfig['gitignore'])) {
-            $finder->ignoreVCSIgnored(false);
-        }
-
         foreach ($buildConfig['exclude'] ?? [] as $excludePath) {
             $excludePath = trim(str_replace('\\', '/', $excludePath), '/');
 
@@ -171,15 +171,29 @@ final class PlatformFileSelector
      */
     private function withoutGitignoredFiles(string $projectRoot, array $files): array
     {
+        $projectRoot = rtrim(str_replace('\\', '/', realpath($projectRoot) ?: $projectRoot), '/');
         $matcher = new GitignorePathMatcher($projectRoot);
 
+        $absoluteByRelative = [];
+
         foreach (array_keys($files) as $relativePath) {
-            if ($matcher->isIgnored($projectRoot . '/' . $relativePath)) {
-                unset($files[$relativePath]);
+            $absoluteByRelative[$relativePath] = $projectRoot . '/' . $relativePath;
+        }
+
+        $includedLookup = array_fill_keys(
+            $matcher->filterIncludedPaths(array_values($absoluteByRelative)),
+            true,
+        );
+
+        $filtered = [];
+
+        foreach ($absoluteByRelative as $relativePath => $absolutePath) {
+            if (isset($includedLookup[$absolutePath])) {
+                $filtered[$relativePath] = $files[$relativePath];
             }
         }
 
-        return $files;
+        return $filtered;
     }
 
     private function isDirectoryExclude(string $excludePath): bool
