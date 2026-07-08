@@ -60,7 +60,7 @@ function pinxSystemGenerateKey(string $package): string
 it('builds an app pinx package with manifest metadata', function () {
     pinxSystemWriteTestApp('com_test_pinx', [
         'pinx' => ['type' => 'app', 'minpin' => 0],
-        'build' => ['gitignore' => false, 'exclude' => ['export']],
+        'build' => ['gitignore' => false, 'exclude' => ['pinx']],
     ]);
 
     AppEngine::__rebuild();
@@ -173,7 +173,7 @@ it('builds composer install command without dev dependencies', function () {
 
 it('includes gitignored vendor directory in pinx payload when always included', function () {
     pinxSystemWriteTestApp('com_test_pinx', [
-        'build' => ['gitignore' => true, 'composer' => false, 'exclude' => ['export']],
+        'build' => ['gitignore' => true, 'composer' => false, 'exclude' => ['pinx']],
     ]);
 
     $dir = pinxSystemAppDir('com_test_pinx');
@@ -183,7 +183,7 @@ it('includes gitignored vendor directory in pinx payload when always included', 
 
     $files = (new PinxFileSelector())->payloadFiles($dir, [
         'gitignore' => true,
-        'exclude' => ['export'],
+        'exclude' => ['pinx'],
         'always_include' => ['vendor'],
     ]);
 
@@ -511,14 +511,11 @@ function pinxSystemCleanupArtifacts(): void
     }
 
     foreach (['com_test_pinx', 'com_test_pinx_clone'] as $package) {
-        $exportDir = pinxSystemAppDir($package) . '/export';
-        if (is_dir($exportDir)) {
-            pinxSystemDeleteDirectory($exportDir);
-        }
-
-        $pinxDir = pinxSystemAppDir($package) . '/pinx';
-        if (is_dir($pinxDir)) {
-            pinxSystemDeleteDirectory($pinxDir);
+        foreach (['pinx', 'export'] as $dirName) {
+            $dir = pinxSystemAppDir($package) . '/' . $dirName;
+            if (is_dir($dir)) {
+                pinxSystemDeleteDirectory($dir);
+            }
         }
 
         $identityDir = pinxSystemAppDir($package) . '/.pinx';

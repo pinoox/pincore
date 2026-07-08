@@ -241,7 +241,11 @@ class PinxBuilder
      */
     private function resolveSigningKey(string $package, string $packagePath, array $build, array $options): array
     {
-        $path = $options['sign_key'] ?? $build['sign']['key_path'] ?? PinxSignKey::defaultKeyPath($package, $packagePath);
+        $path = $options['sign_key']
+            ?? ($build['sign']['key_path'] !== null
+                ? PinxPaths::resolveKeyPath($packagePath, $build['sign']['key_path'])
+                : null)
+            ?? PinxSignKey::defaultKeyPath($package, $packagePath);
 
         if (!is_string($path) || !is_file($path)) {
             throw new Exception('Signing key not found. Run pinx:sign-keygen or pass --sign-key.');
@@ -266,16 +270,9 @@ class PinxBuilder
 
     private function defaultOutputPath(string $package, PinxManifest $manifest): string
     {
-        $exportDir = $this->engine->path($package, 'export');
-        if (!is_dir($exportDir)) {
-            mkdir($exportDir, 0777, true);
-        }
+        $packagePath = $this->engine->path($package);
 
-        $suffix = $manifest->isTheme()
-            ? $manifest->themeName() . '_theme'
-            : $package;
-
-        return $exportDir . '/' . $suffix . '_v' . $manifest->versionCode() . '_' . date('Ymd_His') . '.pinx';
+        return PinxPaths::defaultReleasePath($packagePath, $package, $manifest);
     }
 }
 

@@ -85,14 +85,25 @@ final class PinxSignKey
 
     public static function defaultKeyPath(string $package, string $appPath): string
     {
-        $local = rtrim($appPath, '/\\') . '/pinx/' . self::KEY_FILE;
-        if (is_file($local)) {
-            return $local;
+        $resolved = self::resolveLocalKeyPath($appPath);
+        if ($resolved !== null) {
+            return $resolved;
         }
 
         $globalDir = SystemConfig::resolvePath(PinxSignConfig::system()['keys_path']);
 
         return rtrim($globalDir, '/\\') . '/' . $package . '.key.json';
+    }
+
+    private static function resolveLocalKeyPath(string $appPath): ?string
+    {
+        foreach ([PinxPaths::defaultKeyPath($appPath), PinxPaths::legacyKeyPath($appPath)] as $candidate) {
+            if (is_file($candidate)) {
+                return $candidate;
+            }
+        }
+
+        return null;
     }
 
     public static function fingerprint(string $publicKeyBase64): string

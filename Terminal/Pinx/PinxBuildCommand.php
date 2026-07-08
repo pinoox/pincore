@@ -81,7 +81,7 @@ class PinxBuildCommand extends Terminal
                 'Package: <info>' . $package . '</info>',
                 'Name: <info>' . $previewManifest->title($localeArg) . '</info>',
                 'Description: <info>' . ($previewManifest->description($localeArg) ?: '—') . '</info>',
-                'Output: <info>' . ($outputPath ?: '(auto in export/)') . '</info>',
+                'Output: <info>' . ($outputPath ?: '(auto in pinx/releases/)') . '</info>',
             ]);
 
             if (!$io->confirm('Proceed with build?', false)) {

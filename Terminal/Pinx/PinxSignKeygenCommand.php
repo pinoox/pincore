@@ -2,6 +2,7 @@
 
 namespace Pinoox\Terminal\Pinx;
 
+use Pinoox\Component\Package\Pinx\PinxPaths;
 use Pinoox\Component\Package\Pinx\PinxSignKey;
 use Pinoox\Component\Terminal;
 use Pinoox\Support\ProjectCli;
@@ -29,7 +30,7 @@ class PinxSignKeygenCommand extends Terminal
     {
         $this
             ->setHelp($this->cliHelp(
-                "Creates a signing key for pinx:build. Keys are stored locally and never included in .pinx files.\n\nDefault locations:\n  apps/{package}/pinx/sign.key.json\n  storage/pinx/keys/{package}.key.json",
+                "Creates a signing key for pinx:build. Keys are stored locally and never included in .pinx files.\n\nDefault locations:\n  apps/{package}/pinx/keys/sign.key.json\n  storage/pinx/keys/{package}.key.json",
                 [
                     'pinx:sign-keygen com_my_shop',
                     'pinx:sign-keygen com_my_shop --global',
@@ -60,11 +61,16 @@ class PinxSignKeygenCommand extends Terminal
         $appPath = $engine->path($package);
         $path = (bool) $input->getOption('global')
             ? rtrim(SystemConfig::resolvePath('~storage/pinx/keys'), '/\\') . '/' . $package . '.key.json'
-            : rtrim($appPath, '/\\') . '/pinx/' . PinxSignKey::KEY_FILE;
+            : PinxPaths::defaultKeyPath($appPath);
 
         if (is_file($path) && !(bool) $input->getOption('force')) {
             $io->error('Key already exists: ' . $path . ' (use --force to overwrite)');
+
             return Command::FAILURE;
+        }
+
+        if (!(bool) $input->getOption('global')) {
+            PinxPaths::ensureKeysDir($appPath);
         }
 
         $keyId = (string) ($input->getOption('key-id') ?: $package . ':main');

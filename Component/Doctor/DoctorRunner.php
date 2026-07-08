@@ -740,7 +740,8 @@ final class DoctorRunner
             'storage' => 'Runtime storage',
             'pinker' => 'Pinker build cache',
             'storage/logs' => 'Application logs',
-            'export' => 'Pinx build output',
+            'pinx/releases' => 'Pinx release packages',
+            'pinx/keys' => 'Pinx signing keys',
         ] as $relative => $label) {
             $path = $root . '/' . $relative;
 
