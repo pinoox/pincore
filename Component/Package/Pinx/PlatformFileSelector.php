@@ -47,6 +47,10 @@ final class PlatformFileSelector
             $files[$relativePath] = $absolutePath;
         }
 
+        foreach ($this->forcedHtaccessFiles($projectRoot, $buildConfig) as $relativePath => $absolutePath) {
+            $files[$relativePath] = $absolutePath;
+        }
+
         ksort($files);
 
         return $files;
@@ -64,6 +68,7 @@ final class PlatformFileSelector
         $finder
             ->in($projectRoot)
             ->files()
+            ->ignoreDotFiles(false)
             ->ignoreVCS(true)
             ->ignoreUnreadableDirs()
             ->exclude(PlatformBuildConfig::directoryExcludes());
@@ -107,6 +112,52 @@ final class PlatformFileSelector
         }
 
         return false;
+    }
+
+    /**
+     * @param array{exclude?: list<string>} $buildConfig
+     * @return array<string, string>
+     */
+    private function forcedHtaccessFiles(string $projectRoot, array $buildConfig): array
+    {
+        $projectRoot = rtrim(str_replace('\\', '/', $projectRoot), '/');
+        $files = [];
+        $finder = new Finder();
+        $finder
+            ->in($projectRoot)
+            ->files()
+            ->name('.htaccess')
+            ->ignoreDotFiles(false)
+            ->ignoreVCS(true)
+            ->ignoreUnreadableDirs()
+            ->exclude(PlatformBuildConfig::directoryExcludes());
+
+        if (!empty($buildConfig['gitignore'])) {
+            $finder->ignoreVCSIgnored(false);
+        }
+
+        foreach ($buildConfig['exclude'] ?? [] as $excludePath) {
+            $excludePath = trim(str_replace('\\', '/', $excludePath), '/');
+
+            if ($excludePath === '') {
+                continue;
+            }
+
+            $finder->notPath($excludePath);
+        }
+
+        foreach ($finder as $file) {
+            $realPath = $file->getRealPath();
+
+            if ($realPath === false || !is_file($realPath)) {
+                continue;
+            }
+
+            $relativePath = str_replace('\\', '/', $file->getRelativePathname());
+            $files[$relativePath] = $realPath;
+        }
+
+        return $files;
     }
 
     private function isDirectoryExclude(string $excludePath): bool

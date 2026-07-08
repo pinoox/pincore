@@ -9,9 +9,22 @@ final class PlatformBuildConfig
 {
     public const CONFIG_FILE = 'build.config.php';
 
-    public const BUILD_DIR = '.platform-build';
+    public const BUILD_DIR = 'storage/.platform-build';
 
-    public const STAGING_DIR = '.platform-build/staging';
+    public const STAGING_DIR = 'storage/.platform-build/staging';
+
+    public const SKELETON_DIR = 'storage/.platform-build/skeleton';
+
+    public static function buildPath(string $projectRoot, string $relative = ''): string
+    {
+        $root = rtrim(str_replace('\\', '/', $projectRoot), '/');
+
+        if ($relative === '') {
+            return $root . '/' . self::BUILD_DIR;
+        }
+
+        return $root . '/' . trim(str_replace('\\', '/', $relative), '/');
+    }
 
     /**
      * Paths always excluded from platform .zip builds unless overridden in build.config.php.
@@ -27,7 +40,7 @@ final class PlatformBuildConfig
             'pinker',
             'uploads',
             'downloads',
-            self::BUILD_DIR,
+            'storage',
             AppComposerVendor::BUILD_DIR,
             '.env',
             'phpunit.xml',
@@ -51,7 +64,7 @@ final class PlatformBuildConfig
             'pinker',
             'pinx',
             'export',
-            self::BUILD_DIR,
+            '.platform-build',
             AppComposerVendor::BUILD_DIR,
             'tests',
             '.github',

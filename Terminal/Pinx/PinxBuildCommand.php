@@ -256,6 +256,12 @@ class PinxBuildCommand extends Terminal
                 $rows[] = ['App vendors', implode(', ', $appComposers)];
             }
 
+            $materialized = is_array($result['materialized_packages'] ?? null) ? $result['materialized_packages'] : [];
+
+            if ($materialized !== []) {
+                $rows[] = ['Path packages', implode(', ', $materialized)];
+            }
+
             if ($build['exclude_theme_src']) {
                 $rows[] = ['Theme src', 'excluded'];
             }

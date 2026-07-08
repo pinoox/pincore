@@ -24,6 +24,7 @@ final class PlatformBuilder
      *     composer: bool,
      *     composer_packages: list<string>,
      *     app_composers: list<string>,
+     *     materialized_packages: list<string>,
      *     version_name: string,
      *     version_code: ?int
      * }
@@ -42,14 +43,21 @@ final class PlatformBuilder
 
         $composerPrepared = false;
         $composerPackages = [];
+        $materializedPackages = [];
         $appComposers = [];
 
         try {
+            $this->reportProgress($options, 'storage', 'Preparing storage skeleton...', 8);
+            $storageWorkspace = PlatformStorageScaffold::prepare($projectRoot);
+
             if ($build['composer'] && is_file(PlatformComposer::composerJsonPath($projectRoot))) {
                 $this->reportProgress($options, 'composer', 'Installing production Composer dependencies (--no-dev)...', 15);
                 $composerResult = PlatformComposer::prepare($projectRoot, $build['strip_require_dev']);
                 $composerPrepared = $composerResult['prepared'];
                 $composerPackages = $composerResult['packages'];
+                $materializedPackages = is_array($composerResult['materialized'] ?? null)
+                    ? $composerResult['materialized']
+                    : [];
             }
 
             $this->reportProgress($options, 'prepare', 'Preparing platform build workspace...', 25);
@@ -65,6 +73,7 @@ final class PlatformBuilder
 
             $this->reportProgress($options, 'stage', 'Staging files for archive...', 45);
             $this->copyPayloadFiles($payloadFiles, $projectRoot, $archiveRoot, $build);
+            $this->copyDirectory(PlatformStorageScaffold::workspaceDir($projectRoot), $archiveRoot . '/storage');
 
             if ($composerPrepared && is_dir(PlatformComposer::vendorPath($projectRoot))) {
                 $this->copyDirectory(PlatformComposer::vendorPath($projectRoot), $archiveRoot . '/vendor');
@@ -82,7 +91,15 @@ final class PlatformBuilder
             }
 
             if ($build['manifest']) {
-                $this->writeManifest($archiveRoot, $version, $fileCount, $composerPrepared, $composerPackages, $appComposers);
+                $this->writeManifest(
+                    $archiveRoot,
+                    $version,
+                    $fileCount,
+                    $composerPrepared,
+                    $composerPackages,
+                    $appComposers,
+                    $materializedPackages,
+                );
             }
 
             $outputPath ??= $build['output_dir'] !== null
@@ -105,6 +122,7 @@ final class PlatformBuilder
                 'composer' => $composerPrepared,
                 'composer_packages' => $composerPackages,
                 'app_composers' => $appComposers,
+                'materialized_packages' => $materializedPackages,
                 'version_name' => $version['name'],
                 'version_code' => $version['code'],
             ];
@@ -227,6 +245,7 @@ final class PlatformBuilder
     /**
      * @param list<string> $composerPackages
      * @param list<string> $appComposers
+     * @param list<string> $materializedPackages
      * @param array{name: string, code: int|null} $version
      */
     private function writeManifest(
@@ -236,6 +255,7 @@ final class PlatformBuilder
         bool $composerPrepared,
         array $composerPackages,
         array $appComposers,
+        array $materializedPackages,
     ): void {
         $manifest = [
             'type' => 'platform',
@@ -245,6 +265,7 @@ final class PlatformBuilder
             'files' => $fileCount,
             'composer' => $composerPrepared,
             'composer_packages' => $composerPackages,
+            'materialized_packages' => $materializedPackages,
             'app_composers' => $appComposers,
             'kernel_version_name' => PinxVersion::kernel()['name'],
             'kernel_version_code' => PinxVersion::kernel()['code'],

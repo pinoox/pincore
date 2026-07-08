@@ -4,6 +4,8 @@ use Pinoox\Component\Package\Pinx\PinxPaths;
 use Pinoox\Component\Package\Pinx\PlatformBuildConfig;
 use Pinoox\Component\Package\Pinx\PlatformComposer;
 use Pinoox\Component\Package\Pinx\PlatformFileSelector;
+use Pinoox\Component\Package\Pinx\PlatformStorageScaffold;
+use Pinoox\Component\Package\Pinx\PlatformVendorMaterializer;
 
 it('resolves platform build defaults from build.config.php', function () {
     $root = sys_get_temp_dir() . '/platform_build_cfg_' . uniqid('', true);
@@ -24,7 +26,8 @@ PHP);
         ->and($config['composer'])->toBeFalse()
         ->and($config['exclude_theme_src'])->toBeFalse()
         ->and($config['exclude'])->toContain('custom-dir')
-        ->and($config['exclude'])->toContain('pincore');
+        ->and($config['exclude'])->toContain('pincore')
+        ->and($config['exclude'])->toContain('storage');
 });
 
 it('strips require-dev from distribution composer.json', function () {
@@ -81,6 +84,72 @@ it('uses .zip filename for platform export path', function () {
 
     expect(str_ends_with($filename, '.zip'))->toBeTrue()
         ->and($filename)->toStartWith('pinoox_');
+});
+
+it('includes htaccess files in platform payload selection', function () {
+    $root = sys_get_temp_dir() . '/platform_htaccess_' . uniqid('', true);
+    mkdir($root . '/apps/com_demo', 0777, true);
+
+    file_put_contents($root . '/.htaccess', 'root');
+    file_put_contents($root . '/apps/com_demo/.htaccess', 'app');
+    file_put_contents($root . '/index.php', '<?php');
+
+    $selector = new PlatformFileSelector();
+    $files = $selector->payloadFiles($root, [
+        'gitignore' => true,
+        'exclude' => [],
+        'include' => [],
+        'exclude_theme_src' => true,
+    ]);
+
+    expect(array_keys($files))
+        ->toContain('.htaccess')
+        ->toContain('apps/com_demo/.htaccess');
+});
+
+it('prepares storage skeleton in platform build workspace', function () {
+    $root = sys_get_temp_dir() . '/platform_storage_' . uniqid('', true);
+    mkdir($root . '/storage', 0777, true);
+    file_put_contents($root . '/storage/.htaccess', 'deny');
+    file_put_contents($root . '/storage/web.config', 'iis');
+
+    $files = PlatformStorageScaffold::prepare($root);
+    $workspace = PlatformStorageScaffold::workspaceDir($root);
+
+    expect($workspace)->toEndWith('/storage/.platform-build/skeleton')
+        ->and(is_file($workspace . '/.htaccess'))->toBeTrue()
+        ->and(is_file($workspace . '/logs/.gitkeep'))->toBeTrue()
+        ->and($files)->toHaveKey('.htaccess')
+        ->and($files)->toHaveKey('logs/.gitkeep');
+
+    PlatformComposer::cleanup($root);
+    expect(is_dir(PlatformBuildConfig::buildPath($root)))->toBeFalse();
+});
+
+it('discovers composer path repositories for pinoox packages', function () {
+    $root = sys_get_temp_dir() . '/platform_path_repo_' . uniqid('', true);
+    mkdir($root . '/packages/pinion', 0777, true);
+    file_put_contents($root . '/packages/pinion/composer.json', json_encode([
+        'name' => 'pinoox/pinion',
+        'type' => 'library',
+    ]));
+
+    file_put_contents($root . '/composer.json', json_encode([
+        'name' => 'pinoox/pinoox',
+        'repositories' => [[
+            'type' => 'path',
+            'url' => 'packages/pinion',
+        ]],
+        'require' => [
+            'php' => '^8.2',
+            'pinoox/pinion' => '*',
+        ],
+    ]));
+
+    $packages = PlatformVendorMaterializer::discoverPathPackages($root);
+
+    expect($packages)->toHaveKey('pinoox/pinion')
+        ->and($packages['pinoox/pinion'])->toEndWith('/packages/pinion');
 });
 
 it('does not list platform in apps-only package choices', function () {
