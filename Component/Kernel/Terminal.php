@@ -85,6 +85,14 @@ class Terminal
                 $this->addCommand(new $command());
             }
         }
+
+        if (class_exists(\Pinoox\Pinroll\Bridge\PinrollCommands::class)) {
+            foreach (\Pinoox\Pinroll\Bridge\PinrollCommands::all() as $command) {
+                if (class_exists($command)) {
+                    $this->addCommand(new $command());
+                }
+            }
+        }
     }
 
     private function loadTerminals(string $path, ?string $package = null)
