@@ -180,12 +180,20 @@ class SystemConfig
         $basePath = Loader::getBasePath();
 
         if (is_string($basePath) && $basePath !== '') {
-            return rtrim(str_replace('\\', '/', $basePath), '/');
+            return self::normalizeRoot($basePath);
         }
 
         return defined('PINOOX_BASE_PATH')
-            ? rtrim(str_replace('\\', '/', \PINOOX_BASE_PATH), '/')
-            : dirname(__DIR__, 2);
+            ? self::normalizeRoot((string) \PINOOX_BASE_PATH)
+            : self::normalizeRoot(dirname(__DIR__, 2));
+    }
+
+    private static function normalizeRoot(string $path): string
+    {
+        $path = rtrim(str_replace('\\', '/', $path), '/');
+
+        // Avoid empty string (rtrim('/') === '') which turns ~/platform into /platform
+        return $path === '' ? '/' : $path;
     }
 
     public static function corePath(string $path = ''): string
