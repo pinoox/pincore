@@ -287,7 +287,9 @@ class Router
             return $manifest;
         }
 
-        $definition(new RouteRegister($this));
+        RouteRegistrar::usingRouter($this, function () use ($definition): void {
+            $definition(new RouteRegister($this));
+        });
 
         return null;
     }
@@ -518,13 +520,16 @@ class Router
         if (empty($routes))
             return;
 
-        if ($routes instanceof Router) {
-            $this->getCollection()->add($routes->getCollection());
-        } else if (is_callable($routes)) {
-            $routes($this);
-        } else {
-            $this->loadFiles($routes);
-        }
+        // Bind Pinoox\Router\get()/collection() to this instance for nested files.
+        RouteRegistrar::usingRouter($this, function () use ($routes): void {
+            if ($routes instanceof Router) {
+                $this->getCollection()->add($routes->getCollection());
+            } else if (is_callable($routes)) {
+                $routes($this);
+            } else {
+                $this->loadFiles($routes);
+            }
+        });
     }
 
     public function canonicalizePath(string $path): string

@@ -9,6 +9,54 @@ class RouteRegistrar
 {
     private static ?RouteRegister $context = null;
 
+    /** @var list<Router> */
+    private static array $routerStack = [];
+
+    /**
+     * Bind helpers (get/post/collection/…) to a concrete Router while loading routes.
+     *
+     * Needed because AppEngine builds a Router via Portal::build() while nested
+     * collection files may otherwise hit a different Portal singleton instance.
+     *
+     * @template T
+     * @param callable(): T $callback
+     * @return T
+     */
+    public static function usingRouter(Router $router, callable $callback): mixed
+    {
+        self::$routerStack[] = $router;
+
+        try {
+            return $callback();
+        } finally {
+            array_pop(self::$routerStack);
+        }
+    }
+
+    public static function activeRouter(): ?Router
+    {
+        if (self::$routerStack === []) {
+            return null;
+        }
+
+        return self::$routerStack[array_key_last(self::$routerStack)];
+    }
+
+    public static function requireActiveRouter(): Router
+    {
+        $router = self::activeRouter();
+
+        if ($router !== null) {
+            return $router;
+        }
+
+        try {
+            return RouterPortal::___();
+        } catch (\Throwable $e) {
+            throw new \RuntimeException('Route definitions require an active router context.', 0, $e);
+        }
+    }
+
     public function get(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
     {
         return $this->register()->get($path, $action);
@@ -127,11 +175,7 @@ class RouteRegistrar
 
     private function router(): Router
     {
-        try {
-            return RouterPortal::___();
-        } catch (\Throwable $e) {
-            throw new \RuntimeException('Route definitions require an active router context.', 0, $e);
-        }
+        return self::requireActiveRouter();
     }
 
     /**

@@ -3,9 +3,12 @@
 namespace Pinoox\Router;
 
 use Closure;
+use Pinoox\Component\Router\Collection;
 use Pinoox\Component\Router\RouteBuilder;
 use Pinoox\Component\Router\RouteEntryBuilder;
 use Pinoox\Component\Router\RouteGroupBuilder;
+use Pinoox\Component\Router\RouteRegistrar;
+use Pinoox\Component\Router\Router as RouterComponent;
 use Pinoox\Portal\Route as RouteFacade;
 use Pinoox\Portal\Router;
 
@@ -18,6 +21,43 @@ use Pinoox\Portal\Router;
 function action(string $name, array|string|Closure|null $handler = null): ?\Pinoox\Component\Router\Action\ActionBuilder
 {
     return Router::action($name, $handler);
+}
+
+/**
+ * Group routes under a path prefix with shared flows (theme contexts, auth, …).
+ *
+ * Uses the Router currently loading routes (see RouteRegistrar::usingRouter),
+ * so nested files can call get()/post() and inherit prefix + flows.
+ *
+ * @param RouterComponent|string|array|callable|null $routes
+ * @param array|string|Closure $action
+ */
+function collection(
+    string $path = '',
+    RouterComponent|string|array|callable|null $routes = null,
+    mixed $controller = null,
+    array|string $methods = [],
+    array|string|Closure $action = '',
+    array $defaults = [],
+    array $filters = [],
+    string $prefixName = '',
+    array $data = [],
+    array $flows = [],
+    array $tags = [],
+): Collection {
+    return RouteRegistrar::requireActiveRouter()->collection(
+        path: $path,
+        routes: $routes,
+        controller: $controller,
+        methods: $methods,
+        action: $action,
+        defaults: $defaults,
+        filters: $filters,
+        prefixName: $prefixName,
+        data: $data,
+        flows: $flows,
+        tags: $tags,
+    );
 }
 
 function get(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder

@@ -118,6 +118,83 @@ PHP);
     }
 });
 
+it('inherits collection prefix and flows when nested files use Pinoox\\Router\\get()', function () {
+    $basePath = testFixtures('router_get_helper_app');
+    routerSystemDeleteDirectory($basePath);
+
+    mkdir($basePath . '/routes', 0777, true);
+    file_put_contents($basePath . '/routes/web.php', <<<'PHP'
+<?php
+
+$this->collection(
+    path: '/panel',
+    routes: __DIR__ . '/panel.php',
+    flows: ['theme.panel'],
+    prefixName: 'panel.',
+);
+PHP);
+    file_put_contents($basePath . '/routes/panel.php', <<<'PHP'
+<?php
+
+use function Pinoox\Router\get;
+
+get('/')->action(fn () => 'panel-home')->name('home');
+get('/{path}')->action(fn () => 'panel-catch')->name('catch')->filters(['path' => '.+']);
+PHP);
+
+    try {
+        $router = routerSystemRouter(basePath: $basePath);
+        $router->collection(routes: $basePath . '/routes/web.php');
+
+        $home = $router->all()['panel.home'];
+        $pinooxRoute = $home->getDefault('_router');
+
+        expect($router->getAllPath()['panel.home'])->toBe('/panel')
+            ->and($router->getAllPath()['panel.catch'])->toBe('/panel/{path}')
+            ->and($pinooxRoute->flows)->toContain('theme.panel')
+            ->and($router->match('/panel')['_route'])->toBe('panel.home')
+            ->and($router->match('/panel/dashboard')['_route'])->toBe('panel.catch');
+    } finally {
+        routerSystemDeleteDirectory($basePath);
+    }
+});
+
+it('supports Pinoox\\Router\\collection() helper inside a loading router context', function () {
+    $basePath = testFixtures('router_collection_helper_app');
+    routerSystemDeleteDirectory($basePath);
+
+    mkdir($basePath . '/routes', 0777, true);
+    file_put_contents($basePath . '/routes/web.php', <<<'PHP'
+<?php
+
+use function Pinoox\Router\{collection, get};
+
+collection(
+    path: '/panel',
+    routes: __DIR__ . '/panel.php',
+    flows: ['theme.panel'],
+    prefixName: 'panel.',
+);
+PHP);
+    file_put_contents($basePath . '/routes/panel.php', <<<'PHP'
+<?php
+
+use function Pinoox\Router\get;
+
+get('/')->action(fn () => 'ok')->name('home');
+PHP);
+
+    try {
+        $router = routerSystemRouter(basePath: $basePath);
+        $router->collection(routes: $basePath . '/routes/web.php');
+
+        expect($router->getAllPath()['panel.home'])->toBe('/panel')
+            ->and($router->match('/panel')['_route'])->toBe('panel.home');
+    } finally {
+        routerSystemDeleteDirectory($basePath);
+    }
+});
+
 it('loads route manifest arrays from returned config', function () {
     $basePath = testFixtures('router_manifest_app');
     routerSystemDeleteDirectory($basePath);
