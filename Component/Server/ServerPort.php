@@ -9,15 +9,40 @@ final class ServerPort
 {
     public const DEFAULT_SERVE_PORT = 8000;
 
+    public const DEFAULT_SERVE_DOMAIN_PORT = 80;
+
     public const DEFAULT_VITE_PORT = 5173;
 
     public const MAX_TRIES = 10;
 
-    public static function preferredServePort(): int
+    public static function preferredServePort(?string $domain = null): int
     {
-        $port = _env('SERVER_PORT', self::DEFAULT_SERVE_PORT);
+        if (self::envServePortIsSet()) {
+            $port = _env('SERVER_PORT', self::DEFAULT_SERVE_PORT);
 
-        return is_numeric($port) && (int) $port > 0 ? (int) $port : self::DEFAULT_SERVE_PORT;
+            return is_numeric($port) && (int) $port > 0 ? (int) $port : self::DEFAULT_SERVE_PORT;
+        }
+
+        if ($domain !== null && trim($domain) !== '') {
+            return self::DEFAULT_SERVE_DOMAIN_PORT;
+        }
+
+        return self::DEFAULT_SERVE_PORT;
+    }
+
+    public static function envServePortIsSet(): bool
+    {
+        if (array_key_exists('SERVER_PORT', $_ENV) && (string) $_ENV['SERVER_PORT'] !== '') {
+            return true;
+        }
+
+        if (array_key_exists('SERVER_PORT', $_SERVER) && (string) $_SERVER['SERVER_PORT'] !== '') {
+            return true;
+        }
+
+        $fromGetenv = getenv('SERVER_PORT');
+
+        return is_string($fromGetenv) && $fromGetenv !== '';
     }
 
     /**

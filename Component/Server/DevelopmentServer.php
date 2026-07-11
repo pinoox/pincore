@@ -50,6 +50,7 @@ class DevelopmentServer
         private readonly string $routerScript,
         private readonly OutputInterface $output,
         private readonly ?string $serveApp = null,
+        private readonly ?string $domain = null,
     ) {
     }
 
@@ -95,9 +96,12 @@ class DevelopmentServer
 
     public function url(): string
     {
-        $host = $this->displayHost();
+        return ServeLocalDomain::httpUrl($this->displayHost(), $this->port());
+    }
 
-        return 'http://' . $host . ':' . $this->port();
+    public function inspectorUrl(): string
+    {
+        return rtrim($this->url(), '/') . InspectorRuntime::ROUTE;
     }
 
     public function port(): int
@@ -283,21 +287,30 @@ class DevelopmentServer
     private function renderStartupBanner(): void
     {
         $port = $this->port();
-        $localUrl = 'http://127.0.0.1:' . $port;
+        $localUrl = $this->url();
+        $bindUrl = ServeLocalDomain::httpUrl('127.0.0.1', $port);
 
         if ($this->isNetworkBound()) {
             $this->output->writeln('<info>Pinoox development server running</info>');
             $this->output->writeln('<info>Local:</info> <comment>' . $localUrl . '</comment>');
 
+            if ($this->domain !== null && $localUrl !== $bindUrl) {
+                $this->output->writeln('<fg=gray>  bind ' . $bindUrl . '</>');
+            }
+
             $lan = FrontendDevSession::detectLanIp();
 
             if ($lan !== null) {
-                $this->output->writeln('<info>LAN:</info> <comment>http://' . $lan . ':' . $port . '</comment>');
+                $this->output->writeln('<info>LAN:</info> <comment>' . ServeLocalDomain::httpUrl($lan, $port) . '</comment>');
             } else {
                 $this->output->writeln('<info>Network:</info> <comment>0.0.0.0:' . $port . '</comment>');
             }
         } else {
-            $this->output->writeln('<info>Pinoox development server running:</info> <comment>' . $this->url() . '</comment>');
+            $this->output->writeln('<info>Pinoox development server running:</info> <comment>' . $localUrl . '</comment>');
+
+            if ($this->domain !== null && $localUrl !== $bindUrl) {
+                $this->output->writeln('<fg=gray>  bind ' . $bindUrl . '</>');
+            }
         }
 
         if ($this->serveApp !== null && $this->serveApp !== '') {
@@ -317,6 +330,10 @@ class DevelopmentServer
 
     private function displayHost(): string
     {
+        if ($this->domain !== null && $this->domain !== '') {
+            return $this->domain;
+        }
+
         if ($this->host === '0.0.0.0' || $this->host === '[::]') {
             return '127.0.0.1';
         }

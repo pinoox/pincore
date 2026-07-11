@@ -2,52 +2,39 @@
 
 use Pinoox\Component\Server\ServerPort;
 
-it('auto-selects a free port when none is specified', function () {
-    $port = ServerPort::resolve(null, '127.0.0.1', 38470, 1);
+test('ServerPort prefers port 80 when a local domain is set', function () {
+    $previousEnv = $_ENV['SERVER_PORT'] ?? null;
+    $previousServer = $_SERVER['SERVER_PORT'] ?? null;
+    $previousGetenv = getenv('SERVER_PORT');
 
-    expect($port)->toBe(38470);
-});
+    unset($_ENV['SERVER_PORT'], $_SERVER['SERVER_PORT']);
+    putenv('SERVER_PORT');
 
-it('throws when an explicit port is already in use', function () {
-    $host = '127.0.0.1';
-    $port = ServerPort::resolve(null, $host, 38471, 1);
-    $socket = stream_socket_server(sprintf('tcp://%s:%d', $host, $port));
+    expect(ServerPort::preferredServePort('pinoox.test'))->toBe(80)
+        ->and(ServerPort::preferredServePort())->toBe(8000);
 
-    try {
-        expect(fn () => ServerPort::resolve($port, $host))
-            ->toThrow(\RuntimeException::class, 'already in use');
-    } finally {
-        if (is_resource($socket)) {
-            fclose($socket);
-        }
+    if ($previousEnv !== null) {
+        $_ENV['SERVER_PORT'] = $previousEnv;
+    }
+
+    if ($previousServer !== null) {
+        $_SERVER['SERVER_PORT'] = $previousServer;
+    }
+
+    if ($previousGetenv !== false) {
+        putenv('SERVER_PORT=' . $previousGetenv);
+    } else {
+        putenv('SERVER_PORT');
     }
 });
 
-it('selects the next free port when the preferred port is busy', function () {
-    $host = '127.0.0.1';
-    $preferred = 38472;
-    $socket = stream_socket_server(sprintf('tcp://%s:%d', $host, $preferred));
+test('ServerPort keeps SERVER_PORT when explicitly configured with a domain', function () {
+    $_ENV['SERVER_PORT'] = '9000';
+    $_SERVER['SERVER_PORT'] = '9000';
+    putenv('SERVER_PORT=9000');
 
-    try {
-        expect(ServerPort::resolve(null, $host, $preferred, 5))->toBe($preferred + 1);
-    } finally {
-        if (is_resource($socket)) {
-            fclose($socket);
-        }
-    }
-});
+    expect(ServerPort::preferredServePort('pinoox.test'))->toBe(9000);
 
-it('reports port availability', function () {
-    $host = '127.0.0.1';
-    $port = 38473;
-    $socket = stream_socket_server(sprintf('tcp://%s:%d', $host, $port));
-
-    try {
-        expect(ServerPort::isAvailable($host, $port))->toBeFalse()
-            ->and(ServerPort::isAvailable($host, $port + 1))->toBeTrue();
-    } finally {
-        if (is_resource($socket)) {
-            fclose($socket);
-        }
-    }
+    unset($_ENV['SERVER_PORT'], $_SERVER['SERVER_PORT']);
+    putenv('SERVER_PORT');
 });

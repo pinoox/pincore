@@ -31,6 +31,23 @@ it('builds php built-in server command with document root and router', function 
     ])->and($server->url())->toBe('http://127.0.0.1:8080');
 });
 
+it('uses a local domain for browser URLs while binding to loopback', function () {
+    $server = new DevelopmentServer(
+        host: '127.0.0.1',
+        explicitPort: 8080,
+        maxTries: 3,
+        noReload: true,
+        documentRoot: PINOOX_BASE_PATH,
+        routerScript: DevelopmentServer::defaultRouterScript(),
+        output: new Symfony\Component\Console\Output\BufferedOutput(),
+        domain: 'pinoox.test',
+    );
+
+    expect($server->url())->toBe('http://pinoox.test:8080')
+        ->and($server->inspectorUrl())->toBe('http://pinoox.test:8080/~inspector')
+        ->and($server->serverCommand()[2])->toBe('127.0.0.1:8080');
+});
+
 it('routes existing files through the development server router script', function () {
     $router = DevelopmentServer::defaultRouterScript();
 

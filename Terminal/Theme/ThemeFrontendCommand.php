@@ -144,6 +144,7 @@ FOOTER
             ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for the dev server (defaults to the resolved package; use "platform" for full router)')
             ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_HOST or 127.0.0.1)')
             ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_PORT or 8000)')
+            ->addOption('serve-domain', null, InputOption::VALUE_REQUIRED, 'Local hostname for browser URLs (default from SERVER_DOMAIN; requires hosts file entry)')
             ->addOption('network', 'N', InputOption::VALUE_NONE, 'Serve PHP app + Vite on LAN (0.0.0.0, shows your network IP)')
             ->addOption('vite-host', null, InputOption::VALUE_REQUIRED, 'Vite bind host (default 127.0.0.1; use --network or --vite-network for LAN)')
             ->addOption('vite-network', null, InputOption::VALUE_NONE, 'Bind Vite to 0.0.0.0 for LAN access')
@@ -893,6 +894,7 @@ FOOTER
                 $viteOpts['host'],
                 $viteOpts['quiet'],
                 $frontend->themePath(),
+                $this->resolveServeDomain($input),
             );
         } catch (\RuntimeException $e) {
             $io->error($e->getMessage());
@@ -1056,6 +1058,8 @@ FOOTER
                 $vitePorts[$index],
                 $viteOpts['host'],
                 true,
+                null,
+                $this->resolveServeDomain($input),
             );
 
             $frontend->setDevSession($session);
@@ -1077,7 +1081,7 @@ FOOTER
         $stackServeHost = $this->isNetworkMode($input) ? '0.0.0.0' : $sharedHost;
         $resolvedServePort = ($servePort !== null && $servePort > 0)
             ? $servePort
-            : ($sessions[0]->servePort ?? ServerPort::preferredServePort());
+            : ($sessions[0]->servePort ?? ServerPort::preferredServePort($this->resolveServeDomain($input)));
 
         if ($servePort === null && $sessions !== []) {
             $this->noteResolvedServePort($io, $resolvedServePort, false);
@@ -1092,6 +1096,7 @@ FOOTER
             $resolvedServePort,
             $targets,
             $serveBinding,
+            $this->resolveServeDomain($input),
         ) === 0
             ? Command::SUCCESS
             : Command::FAILURE;
@@ -1377,6 +1382,19 @@ FOOTER
         }
 
         return null;
+    }
+
+    private function resolveServeDomain(InputInterface $input): ?string
+    {
+        $explicit = $input->getOption('serve-domain');
+
+        if (is_string($explicit) && trim($explicit) !== '') {
+            return trim($explicit);
+        }
+
+        $fromEnv = (string) _env('SERVER_DOMAIN', '');
+
+        return trim($fromEnv) !== '' ? trim($fromEnv) : null;
     }
 
     private function renderNetworkDevNote(SymfonyStyle $io, FrontendDevSession $session): void

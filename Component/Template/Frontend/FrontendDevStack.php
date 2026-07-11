@@ -152,6 +152,8 @@ final class FrontendDevStack
 
         string $serveBinding = FrontendDevSession::SERVE_PLATFORM,
 
+        ?string $serveDomain = null,
+
     ): int {
 
         if ($frontends === [] || $sessions === [] || count($frontends) !== count($sessions)) {
@@ -168,7 +170,7 @@ final class FrontendDevStack
 
 
 
-        $serveProcess = $this->startServeProcess($output, $io, $serveHost, $servePort);
+        $serveProcess = $this->startServeProcess($output, $io, $serveHost, $servePort, $serveDomain);
 
         $viteProcesses = [];
 
@@ -239,6 +241,8 @@ final class FrontendDevStack
 
         ?int $servePort,
 
+        ?string $serveDomain = null,
+
     ): Process {
 
         $basePath = ProjectCli::root();
@@ -272,6 +276,14 @@ final class FrontendDevStack
         if ($servePort !== null && $servePort > 0) {
 
             $command[] = '--port=' . (int) $servePort;
+
+        }
+
+
+
+        if (is_string($serveDomain) && trim($serveDomain) !== '') {
+
+            $command[] = '--domain=' . trim($serveDomain);
 
         }
 

@@ -5,6 +5,7 @@ namespace Pinoox\Component\Template\Frontend;
 use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Package\Routing\AppRouteMatcher;
 use Pinoox\Component\Server\ServerPort;
+use Pinoox\Component\Server\ServeLocalDomain;
 
 /**
  * Resolved PHP + Vite dev targets for theme:frontend dev (serve host/port, app URL, proxy prefixes).
@@ -17,6 +18,7 @@ final class FrontendDevSession
         public readonly string $package,
         public readonly string $serveHost,
         public readonly int $servePort,
+        public readonly ?string $serveDomain,
         public readonly bool $serveAppLocked,
         public readonly ?string $serveAppBinding,
         public readonly int $vitePort,
@@ -43,13 +45,15 @@ final class FrontendDevSession
         ?string $viteHost = null,
         ?bool $viteQuiet = null,
         ?string $themePath = null,
+        ?string $serveDomain = null,
     ): self {
         $host = self::normalizeHost(
             ($serveHost !== null && trim((string) $serveHost) !== '')
                 ? trim((string) $serveHost)
                 : (string) _env('SERVER_HOST', '127.0.0.1'),
         );
-        $port = self::resolveServePort($servePort, $host);
+        $domain = self::resolveServeDomain($serveDomain);
+        $port = self::resolveServePort($servePort, $host, $domain);
         $viteHost = $viteHost ?? FrontendConfig::devHost($config);
         $vitePort = self::resolveVitePort($vitePort, $config, $viteHost, $themePath ?? '');
         $viteQuiet = $viteQuiet ?? FrontendConfig::devQuiet($config);
@@ -58,13 +62,14 @@ final class FrontendDevSession
         $locked = $withServe && !$platformServe && $bindingInput !== '';
         $binding = $locked ? $bindingInput : '';
 
-        [$appUrl, $prefixes] = self::resolveAppUrlAndProxy($package, $host, $port, $locked);
+        [$appUrl, $prefixes] = self::resolveAppUrlAndProxy($package, $host, $port, $locked, $domain);
         [$appUrl, $prefixes] = self::applyConfigOverrides($appUrl, $prefixes, $config);
 
         return new self(
             $package,
             $host,
             $port,
+            $domain,
             $locked,
             $locked ? $binding : null,
             $vitePort,
@@ -78,7 +83,7 @@ final class FrontendDevSession
 
     public function phpOrigin(): string
     {
-        return 'http://' . $this->displayHost() . ':' . $this->servePort;
+        return ServeLocalDomain::httpUrl($this->displayHost(), $this->servePort);
     }
 
     public function viteDevServerUrl(): string
@@ -100,6 +105,10 @@ final class FrontendDevSession
 
     public function displayHost(): string
     {
+        if ($this->serveDomain !== null && $this->serveDomain !== '') {
+            return $this->serveDomain;
+        }
+
         if ($this->serveHost === '0.0.0.0' || $this->serveHost === '[::]') {
             return '127.0.0.1';
         }
@@ -135,7 +144,7 @@ final class FrontendDevSession
             return [rtrim($this->phpOrigin(), '/')];
         }
 
-        $routerUrls = self::appRouterUrlsForPackage($this->package, $this->serveHost, $this->servePort);
+        $routerUrls = self::appRouterUrlsForPackage($this->package, $this->serveHost, $this->servePort, $this->serveDomain);
 
         if ($routerUrls !== []) {
             return $routerUrls;
@@ -148,7 +157,7 @@ final class FrontendDevSession
             return [$this->phpAppUrl];
         }
 
-        return [self::resolvePublicAppUrl($this->package, $this->serveHost, $this->servePort)];
+        return [self::resolvePublicAppUrl($this->package, $this->serveHost, $this->servePort, $this->serveDomain)];
     }
 
     /**
@@ -196,9 +205,9 @@ final class FrontendDevSession
     /**
      * @return list<string>
      */
-    public static function appRouterUrlsForPackage(string $package, string $serveHost, int $servePort): array
+    public static function appRouterUrlsForPackage(string $package, string $serveHost, int $servePort, ?string $serveDomain = null): array
     {
-        $origin = rtrim('http://' . self::publicHostForUrl($serveHost) . ':' . $servePort, '/');
+        $origin = rtrim(ServeLocalDomain::httpUrl(self::publicHostForUrl($serveHost, $serveDomain), $servePort), '/');
         $paths = self::appRouterPathsForPackage($package);
 
         if ($paths === []) {
@@ -214,9 +223,9 @@ final class FrontendDevSession
         return array_values(array_unique($urls));
     }
 
-    public static function resolvePublicAppUrl(string $package, string $serveHost, int $servePort): string
+    public static function resolvePublicAppUrl(string $package, string $serveHost, int $servePort, ?string $serveDomain = null): string
     {
-        $origin = rtrim('http://' . self::publicHostForUrl($serveHost) . ':' . $servePort, '/');
+        $origin = rtrim(ServeLocalDomain::httpUrl(self::publicHostForUrl($serveHost, $serveDomain), $servePort), '/');
 
         return self::resolveRouterAppUrl($package, $origin);
     }
@@ -314,8 +323,9 @@ final class FrontendDevSession
         string $host,
         int $port,
         bool $locked,
+        ?string $serveDomain = null,
     ): array {
-        $origin = 'http://' . self::publicHostForUrl($host) . ':' . $port;
+        $origin = ServeLocalDomain::httpUrl(self::publicHostForUrl($host, $serveDomain), $port);
 
         if ($locked) {
             return [rtrim($origin, '/'), ['/api']];
@@ -484,6 +494,15 @@ final class FrontendDevSession
         return rtrim($url, '/');
     }
 
+    private static function resolveServeDomain(?string $serveDomain): ?string
+    {
+        if ($serveDomain !== null && trim($serveDomain) !== '') {
+            return ServeLocalDomain::normalize(trim($serveDomain));
+        }
+
+        return ServeLocalDomain::normalize((string) _env('SERVER_DOMAIN', ''));
+    }
+
     private static function normalizeHost(string $host): string
     {
         $host = trim($host);
@@ -491,9 +510,9 @@ final class FrontendDevSession
         return $host !== '' ? $host : '127.0.0.1';
     }
 
-    private static function resolveServePort(?int $explicit, string $host): int
+    private static function resolveServePort(?int $explicit, string $host, ?string $domain = null): int
     {
-        return ServerPort::resolve($explicit, $host, ServerPort::preferredServePort());
+        return ServerPort::resolve($explicit, $host, ServerPort::preferredServePort($domain));
     }
 
     /**
@@ -519,8 +538,14 @@ final class FrontendDevSession
     /**
      * Hostname for URLs shown to the developer (LAN IP when bound to 0.0.0.0).
      */
-    private static function publicHostForUrl(string $host): string
+    private static function publicHostForUrl(string $host, ?string $serveDomain = null): string
     {
+        $domain = ServeLocalDomain::normalize($serveDomain);
+
+        if ($domain !== null) {
+            return $domain;
+        }
+
         $host = trim($host);
 
         if ($host === '0.0.0.0' || $host === '[::]') {

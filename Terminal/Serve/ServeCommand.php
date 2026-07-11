@@ -7,6 +7,7 @@ use Pinoox\Component\Server\DevelopmentServer;
 use Pinoox\Component\Server\InspectorRuntime;
 use Pinoox\Component\Server\ServerPort;
 use Pinoox\Component\Server\ServeAppBinding;
+use Pinoox\Component\Server\ServeLocalDomain;
 use Pinoox\Component\Terminal;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\App\AppRouter;
@@ -39,12 +40,20 @@ class ServeCommand extends Terminal
                     'serve --app=manager',
                     'serve --app=com_pinoox_manager@/manager',
                     'serve --open',
+                    'serve --domain=pinoox.test',
+                    'serve --domain=pinoox.test --open',
                 ],
                 <<<'FOOTER'
 Environment (.env):
   SERVER_HOST=127.0.0.1
   SERVER_PORT=8000
+  SERVER_DOMAIN=pinoox.test
   SERVER_APP=com_pinoox_manager
+
+Use --domain (or SERVER_DOMAIN) for a friendly local hostname. Add it to your hosts file:
+  127.0.0.1 pinoox.test
+
+With a local domain, the default port is 80 (http://pinoox.test) unless you set --port or SERVER_PORT.
 
 The server uses platform/launcher/server.php (or legacy launcher/server.php) as a router (same rules as .htaccess).
 With --app, Pinoox skips app-router matching and always boots the selected app.
@@ -52,6 +61,7 @@ FOOTER
             ))
             ->addOption('host', null, InputOption::VALUE_OPTIONAL, 'Host address (default from SERVER_HOST or 127.0.0.1; use --network for 0.0.0.0)')
             ->addOption('port', null, InputOption::VALUE_OPTIONAL, 'Port number (default from SERVER_PORT or 8000; auto-picks next free port when busy)')
+            ->addOption('domain', null, InputOption::VALUE_OPTIONAL, 'Local hostname for browser URLs (default from SERVER_DOMAIN; requires hosts file entry)')
             ->addOption('network', 'N', InputOption::VALUE_NONE, 'Listen on 0.0.0.0 and show LAN URL for other devices on your network')
             ->addOption('app', null, InputOption::VALUE_REQUIRED, 'Lock to one app (package, route path, alias, or package@path)')
             ->addOption('tries', null, InputOption::VALUE_OPTIONAL, 'How many ports to try if the default is busy', 10)
@@ -92,35 +102,43 @@ FOOTER
             return Command::FAILURE;
         }
 
+        $domain = $this->resolveServeDomain($input, $io);
+
+        if ($domain === false) {
+            return Command::FAILURE;
+        }
+
+        if (is_string($domain) && !ServeLocalDomain::resolvesToLoopback($domain)) {
+            $io->warning([
+                'Local domain is not mapped to 127.0.0.1 yet.',
+                'Add this line to ' . ServeLocalDomain::hostsFilePath() . ':',
+                '  ' . ServeLocalDomain::hostsFileEntry($domain),
+            ]);
+        }
+
         try {
-            $resolvedPort = ServerPort::resolve($explicitPort, $host, null, $tries);
+            $preferredPort = ServerPort::preferredServePort($domain);
+            $resolvedPort = ServerPort::resolve($explicitPort, $host, $preferredPort, $tries);
         } catch (\RuntimeException $e) {
             $io->error($e->getMessage());
 
             return Command::FAILURE;
         }
 
-        if ($explicitPort === null && $resolvedPort !== ServerPort::preferredServePort()) {
+        if ($explicitPort === null && $resolvedPort !== $preferredPort) {
             $io->note(sprintf(
                 'Port %d is in use — using %d.',
-                ServerPort::preferredServePort(),
+                $preferredPort,
                 $resolvedPort,
             ));
         }
 
-        if ($this->isNetworkMode($input)) {
-            $io->note('Network mode: server listens on 0.0.0.0. Allow the port in Windows Firewall if needed.');
+        if ($domain !== null && $resolvedPort === ServerPort::DEFAULT_SERVE_DOMAIN_PORT && $explicitPort === null) {
+            $io->note('Domain mode uses port 80 by default. On Windows, run the terminal as Administrator if binding fails.');
         }
 
-        $inspectorPackage = null;
-        if (!(bool) $input->getOption('no-inspector') && InspectorRuntime::isAvailable()) {
-            $inspectorPackage = InspectorRuntime::resolveDefaultPackage($serveApp);
-            InspectorRuntime::applyEnvironment($documentRoot, $inspectorPackage);
-            $io->note('Pinx Inspector: ' . InspectorRuntime::url($host, $resolvedPort));
-
-            if ((bool) $input->getOption('open-inspector')) {
-                InspectorRuntime::openBrowser(InspectorRuntime::url($host, $resolvedPort));
-            }
+        if ($this->isNetworkMode($input)) {
+            $io->note('Network mode: server listens on 0.0.0.0. Allow the port in Windows Firewall if needed.');
         }
 
         $server = new DevelopmentServer(
@@ -132,7 +150,18 @@ FOOTER
             routerScript: $router,
             output: $output,
             serveApp: $serveApp,
+            domain: $domain,
         );
+
+        if (!(bool) $input->getOption('no-inspector') && InspectorRuntime::isAvailable()) {
+            $inspectorPackage = InspectorRuntime::resolveDefaultPackage($serveApp);
+            InspectorRuntime::applyEnvironment($documentRoot, $inspectorPackage);
+            $io->note('Pinx Inspector: ' . $server->inspectorUrl());
+
+            if ((bool) $input->getOption('open-inspector')) {
+                InspectorRuntime::openBrowser($server->inspectorUrl());
+            }
+        }
 
         if ((bool) $input->getOption('open')) {
             $this->openBrowser($server->url());
@@ -149,6 +178,29 @@ FOOTER
         }
 
         return $server->run();
+    }
+
+    private function resolveServeDomain(InputInterface $input, SymfonyStyle $io): string|null|false
+    {
+        $raw = $input->getOption('domain');
+
+        if (!is_string($raw) || trim($raw) === '') {
+            $raw = (string) _env('SERVER_DOMAIN', '');
+        }
+
+        if (trim($raw) === '') {
+            return null;
+        }
+
+        $domain = ServeLocalDomain::normalize($raw);
+
+        if ($domain === null) {
+            $io->error('Invalid local domain: ' . trim($raw));
+
+            return false;
+        }
+
+        return $domain;
     }
 
     private function resolveServeAppOption(InputInterface $input): ?string
