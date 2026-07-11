@@ -15,7 +15,7 @@ final class ServerPort
 
     public const MAX_TRIES = 10;
 
-    public static function preferredServePort(?string $domain = null): int
+    public static function preferredServePort(bool $localDomain = false): int
     {
         if (self::envServePortIsSet()) {
             $port = _env('SERVER_PORT', self::DEFAULT_SERVE_PORT);
@@ -23,7 +23,7 @@ final class ServerPort
             return is_numeric($port) && (int) $port > 0 ? (int) $port : self::DEFAULT_SERVE_PORT;
         }
 
-        if ($domain !== null && trim($domain) !== '') {
+        if ($localDomain) {
             return self::DEFAULT_SERVE_DOMAIN_PORT;
         }
 

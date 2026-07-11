@@ -66,7 +66,7 @@ final class ServeLocalDomain
         return in_array($resolved, ['127.0.0.1', '::1'], true);
     }
 
-    public static function httpUrl(string $host, int $port): string
+    public static function httpUrl(string $host, int $port, bool $omitPort = false): string
     {
         $host = trim($host);
 
@@ -82,11 +82,42 @@ final class ServeLocalDomain
             $authority = $host;
         }
 
-        if ($port === 80) {
+        if ($omitPort || $port === 80) {
             return 'http://' . $authority;
         }
 
         return 'http://' . $authority . ':' . $port;
+    }
+
+    public static function browserHttpUrl(?string $domain, string $host, int $port): string
+    {
+        $domain = self::normalize($domain);
+
+        if ($domain !== null) {
+            return self::httpUrl($domain, $port, true);
+        }
+
+        return self::httpUrl($host, $port);
+    }
+
+    public static function proxyHttpUrl(?string $domain, string $host, int $port): string
+    {
+        if (self::normalize($domain) !== null) {
+            return self::httpUrl('127.0.0.1', $port);
+        }
+
+        return self::httpUrl(self::publicHostForProxy($host), $port);
+    }
+
+    private static function publicHostForProxy(string $host): string
+    {
+        $host = trim($host);
+
+        if ($host === '0.0.0.0' || $host === '[::]') {
+            return '127.0.0.1';
+        }
+
+        return $host !== '' ? $host : '127.0.0.1';
     }
 
     public static function hostsFileEntry(string $domain): string

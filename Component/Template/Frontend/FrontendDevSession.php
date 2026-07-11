@@ -83,7 +83,7 @@ final class FrontendDevSession
 
     public function phpOrigin(): string
     {
-        return ServeLocalDomain::httpUrl($this->displayHost(), $this->servePort);
+        return ServeLocalDomain::browserHttpUrl($this->serveDomain, $this->displayHost(), $this->servePort);
     }
 
     public function viteDevServerUrl(): string
@@ -207,7 +207,11 @@ final class FrontendDevSession
      */
     public static function appRouterUrlsForPackage(string $package, string $serveHost, int $servePort, ?string $serveDomain = null): array
     {
-        $origin = rtrim(ServeLocalDomain::httpUrl(self::publicHostForUrl($serveHost, $serveDomain), $servePort), '/');
+        $origin = rtrim(ServeLocalDomain::browserHttpUrl(
+            $serveDomain,
+            self::publicHostForUrl($serveHost, $serveDomain),
+            $servePort,
+        ), '/');
         $paths = self::appRouterPathsForPackage($package);
 
         if ($paths === []) {
@@ -225,7 +229,11 @@ final class FrontendDevSession
 
     public static function resolvePublicAppUrl(string $package, string $serveHost, int $servePort, ?string $serveDomain = null): string
     {
-        $origin = rtrim(ServeLocalDomain::httpUrl(self::publicHostForUrl($serveHost, $serveDomain), $servePort), '/');
+        $origin = rtrim(ServeLocalDomain::browserHttpUrl(
+            $serveDomain,
+            self::publicHostForUrl($serveHost, $serveDomain),
+            $servePort,
+        ), '/');
 
         return self::resolveRouterAppUrl($package, $origin);
     }
@@ -325,7 +333,7 @@ final class FrontendDevSession
         bool $locked,
         ?string $serveDomain = null,
     ): array {
-        $origin = ServeLocalDomain::httpUrl(self::publicHostForUrl($host, $serveDomain), $port);
+        $origin = ServeLocalDomain::proxyHttpUrl($serveDomain, $host, $port);
 
         if ($locked) {
             return [rtrim($origin, '/'), ['/api']];
@@ -512,7 +520,11 @@ final class FrontendDevSession
 
     private static function resolveServePort(?int $explicit, string $host, ?string $domain = null): int
     {
-        return ServerPort::resolve($explicit, $host, ServerPort::preferredServePort($domain));
+        return ServerPort::resolve(
+            $explicit,
+            $host,
+            ServerPort::preferredServePort($domain !== null && $domain !== ''),
+        );
     }
 
     /**

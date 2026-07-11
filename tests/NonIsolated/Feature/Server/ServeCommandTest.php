@@ -43,9 +43,26 @@ it('uses a local domain for browser URLs while binding to loopback', function ()
         domain: 'pinoox.test',
     );
 
-    expect($server->url())->toBe('http://pinoox.test:8080')
-        ->and($server->inspectorUrl())->toBe('http://pinoox.test:8080/~inspector')
+    expect($server->url())->toBe('http://pinoox.test')
+        ->and($server->inspectorUrl())->toBe('http://pinoox.test/~inspector')
         ->and($server->serverCommand()[2])->toBe('127.0.0.1:8080');
+});
+
+it('shows domain URL without port while binding to loopback', function () {
+    $server = new DevelopmentServer(
+        host: '127.0.0.1',
+        explicitPort: 80,
+        maxTries: 3,
+        noReload: true,
+        documentRoot: PINOOX_BASE_PATH,
+        routerScript: DevelopmentServer::defaultRouterScript(),
+        output: new Symfony\Component\Console\Output\BufferedOutput(),
+        domain: 'mypinoox.com',
+    );
+
+    expect($server->url())->toBe('http://mypinoox.com')
+        ->and($server->inspectorUrl())->toBe('http://mypinoox.com/~inspector')
+        ->and($server->serverCommand()[2])->toBe('127.0.0.1:80');
 });
 
 it('routes existing files through the development server router script', function () {

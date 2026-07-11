@@ -20,6 +20,7 @@ function frontendDevPresenterSession(string $package, int $vitePort = 5173): Fro
         package: $package,
         serveHost: '127.0.0.1',
         servePort: 8000,
+        serveDomain: null,
         serveAppLocked: false,
         serveAppBinding: null,
         vitePort: $vitePort,

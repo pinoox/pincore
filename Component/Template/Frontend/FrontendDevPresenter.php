@@ -157,9 +157,15 @@ final class FrontendDevPresenter
                     $package,
                     $session->serveHost,
                     $session->servePort,
+                    $session->serveDomain,
                 );
                 $urls[$package] = $routerUrls[0]
-                    ?? FrontendDevSession::resolvePublicAppUrl($package, $session->serveHost, $session->servePort);
+                    ?? FrontendDevSession::resolvePublicAppUrl(
+                        $package,
+                        $session->serveHost,
+                        $session->servePort,
+                        $session->serveDomain,
+                    );
 
                 continue;
             }

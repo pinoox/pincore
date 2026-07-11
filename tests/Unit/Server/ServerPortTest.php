@@ -10,8 +10,8 @@ test('ServerPort prefers port 80 when a local domain is set', function () {
     unset($_ENV['SERVER_PORT'], $_SERVER['SERVER_PORT']);
     putenv('SERVER_PORT');
 
-    expect(ServerPort::preferredServePort('pinoox.test'))->toBe(80)
-        ->and(ServerPort::preferredServePort())->toBe(8000);
+    expect(ServerPort::preferredServePort(true))->toBe(80)
+        ->and(ServerPort::preferredServePort(false))->toBe(8000);
 
     if ($previousEnv !== null) {
         $_ENV['SERVER_PORT'] = $previousEnv;
@@ -33,7 +33,7 @@ test('ServerPort keeps SERVER_PORT when explicitly configured with a domain', fu
     $_SERVER['SERVER_PORT'] = '9000';
     putenv('SERVER_PORT=9000');
 
-    expect(ServerPort::preferredServePort('pinoox.test'))->toBe(9000);
+    expect(ServerPort::preferredServePort(true))->toBe(9000);
 
     unset($_ENV['SERVER_PORT'], $_SERVER['SERVER_PORT']);
     putenv('SERVER_PORT');

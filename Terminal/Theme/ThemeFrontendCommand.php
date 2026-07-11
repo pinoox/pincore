@@ -113,8 +113,8 @@ Target and action can be omitted — pick from a list interactively (defaults to
 dev also starts {$serve} for the resolved app (use --no-serve to skip).
 
 Local domain (--domain or --serve-domain, or SERVER_DOMAIN in .env):
-  {$this->cliFormat('fe spark dev --domain=pinoox.test')} — Pinoox tries to update your hosts file (approve UAC/sudo if prompted). Use --no-fix-hosts to skip.
-  Default port is 80 (http://pinoox.test) unless you set --serve-port or SERVER_PORT.
+  {$this->cliFormat('fe spark dev --domain=pinoox.test')} opens http://pinoox.test (port 80 bind; approve UAC/sudo for hosts if prompted).
+  Override with --serve-port or SERVER_PORT. Use --no-fix-hosts to skip hosts auto-update.
 
 Apps with theme-contexts (site / panel / …) and multiple Vite themes start every context
 by default — pick "all vite contexts" interactively or use {$this->cliFormat('fe com_my_shop dev --theme=all')}.
@@ -150,8 +150,8 @@ FOOTER
             ->addOption('apps', null, InputOption::VALUE_REQUIRED, 'Comma-separated package names for dev:apps (e.g. com_pinoox_manager,com_pinoox_welcome)')
             ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for the dev server (defaults to the resolved package; use "platform" for full router)')
             ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_HOST or 127.0.0.1)')
-            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve') . ' (default 8000, or 80 with --domain; override with SERVER_PORT)')
-            ->addOption('serve-domain', null, InputOption::VALUE_REQUIRED, 'Local hostname for browser URLs (default from SERVER_DOMAIN; requires hosts file entry)')
+            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_PORT or 8000)')
+            ->addOption('serve-domain', null, InputOption::VALUE_REQUIRED, 'Local hostname for browser URLs only (bind stays 127.0.0.1; default from SERVER_DOMAIN)')
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Alias for --serve-domain')
             ->addOption('no-fix-hosts', null, InputOption::VALUE_NONE, 'Do not auto-update the system hosts file for --domain')
             ->addOption('network', 'N', InputOption::VALUE_NONE, 'Serve PHP app + Vite on LAN (0.0.0.0, shows your network IP)')
@@ -896,7 +896,7 @@ FOOTER
             return Command::FAILURE;
         }
 
-        if (!$this->noteServeDomain($io, $serveDomain, $servePortOption, $input)) {
+        if (!$this->noteServeDomain($io, $serveDomain, $input)) {
             return Command::FAILURE;
         }
 
@@ -1013,7 +1013,7 @@ FOOTER
             return Command::FAILURE;
         }
 
-        if (!$this->noteServeDomain($io, $serveDomain, $input->getOption('serve-port'), $input)) {
+        if (!$this->noteServeDomain($io, $serveDomain, $input)) {
             return Command::FAILURE;
         }
 
@@ -1109,7 +1109,7 @@ FOOTER
         $stackServeHost = $this->isNetworkMode($input) ? '0.0.0.0' : $sharedHost;
         $resolvedServePort = ($servePort !== null && $servePort > 0)
             ? $servePort
-            : ($sessions[0]->servePort ?? ServerPort::preferredServePort($serveDomain));
+            : ($sessions[0]->servePort ?? ServerPort::preferredServePort($serveDomain !== null && $serveDomain !== ''));
 
         if ($servePort === null && $sessions !== []) {
             $this->noteResolvedServePort($io, $resolvedServePort, false);
@@ -1439,7 +1439,7 @@ FOOTER
         return $domain;
     }
 
-    private function noteServeDomain(SymfonyStyle $io, ?string $domain, mixed $servePortOption, InputInterface $input): bool
+    private function noteServeDomain(SymfonyStyle $io, ?string $domain, InputInterface $input): bool
     {
         if ($domain === null || $domain === '') {
             return true;
@@ -1447,14 +1447,6 @@ FOOTER
 
         if (!HostsFileMapper::applyForDomain($io, $domain, !(bool) $input->getOption('no-fix-hosts'))) {
             return false;
-        }
-
-        $explicitPort = is_string($servePortOption) && trim($servePortOption) !== ''
-            ? (int) $servePortOption
-            : null;
-
-        if ($explicitPort === null && !ServerPort::envServePortIsSet()) {
-            $io->note('Domain mode uses port 80 by default. On Windows, run the terminal as Administrator if binding fails.');
         }
 
         return true;

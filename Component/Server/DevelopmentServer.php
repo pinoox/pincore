@@ -96,7 +96,7 @@ class DevelopmentServer
 
     public function url(): string
     {
-        return ServeLocalDomain::httpUrl($this->displayHost(), $this->port());
+        return ServeLocalDomain::browserHttpUrl($this->domain, $this->displayHost(), $this->port());
     }
 
     public function inspectorUrl(): string
