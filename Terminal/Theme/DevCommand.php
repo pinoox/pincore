@@ -33,11 +33,13 @@ class DevCommand extends Terminal
                     'dev com_pinoox_manager',
                     'dev platform',
                     'dev spark',
+                    'dev spark --domain=pinoox.test',
                     'dev spark --no-serve',
                     'dev com_pinoox_manager --network',
                     'dev spark --fix-vite --install',
                 ],
                 "Use MAMP or another PHP server:\n  " . $this->cliFormat('dev spark --no-serve')
+                . "\n\nLocal domain (add to hosts: 127.0.0.1 pinoox.test):\n  " . $this->cliFormat('dev spark --domain=pinoox.test')
                 . "\n\nLAN (phone/tablet on same Wi‑Fi):\n  " . $this->cliFormat('dev spark --network')
                 . "\n\nSingle-app dev mounts at / (package@/). For the platform router use "
                 . $this->cliFormat('dev platform') . ' or ' . $this->cliFormat('fe dev:apps') . ".\n\n"
@@ -51,6 +53,8 @@ class DevCommand extends Terminal
             ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for ' . $serve . ' (package@path or platform)')
             ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . $serve)
             ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . $serve)
+            ->addOption('serve-domain', null, InputOption::VALUE_REQUIRED, 'Local hostname for browser URLs (default from SERVER_DOMAIN)')
+            ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Alias for --serve-domain')
             ->addOption('network', 'N', InputOption::VALUE_NONE, 'Serve PHP app + Vite on LAN (same Wi‑Fi)')
             ->addOption('vite-host', null, InputOption::VALUE_REQUIRED, 'Vite bind host (default 127.0.0.1)')
             ->addOption('vite-network', null, InputOption::VALUE_NONE, 'Bind Vite to 0.0.0.0 for LAN access')
@@ -94,6 +98,8 @@ class DevCommand extends Terminal
             '--serve-app' => $input->getOption('serve-app'),
             '--serve-host' => $input->getOption('serve-host'),
             '--serve-port' => $input->getOption('serve-port'),
+            '--serve-domain' => $input->getOption('serve-domain'),
+            '--domain' => $input->getOption('domain'),
             '--network' => $input->getOption('network') ? true : null,
             '--vite-host' => $input->getOption('vite-host'),
             '--vite-network' => $input->getOption('vite-network') ? true : null,

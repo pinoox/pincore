@@ -3,6 +3,13 @@
 use Pinoox\Terminal\Theme\ThemeFrontendCommand;
 use Symfony\Component\Console\Input\ArrayInput;
 
+test('fe dev registers local domain options', function () {
+    $command = new ThemeFrontendCommand();
+
+    expect($command->getDefinition()->hasOption('serve-domain'))->toBeTrue()
+        ->and($command->getDefinition()->hasOption('domain'))->toBeTrue();
+});
+
 test('fe dev:apps parseArguments accepts dev-stack as deprecated alias', function () {
     $command = new ThemeFrontendCommand();
     $method = new ReflectionMethod($command, 'parseArguments');

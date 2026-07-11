@@ -4,6 +4,7 @@ namespace Pinoox\Terminal\Theme;
 
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Package\PackageName;
+use Pinoox\Component\Server\ServeLocalDomain;
 use Pinoox\Component\Server\ServerPort;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\FrontendDevPresenter;
@@ -86,6 +87,7 @@ INTRO
                 [
                     'fe info',
                     'fe spark dev',
+                    'fe spark dev --domain=pinoox.test',
                     'fe dev:apps',
                     'fe dev:apps com_pinoox_manager,com_pinoox_welcome',
                     'fe dev:apps --apps=com_pinoox_manager,com_pinoox_welcome',
@@ -108,6 +110,10 @@ If it exists in multiple apps, pick the package from a list.
 Target and action can be omitted — pick from a list interactively (defaults to info).
 
 dev also starts {$serve} for the resolved app (use --no-serve to skip).
+
+Local domain (--domain or --serve-domain, or SERVER_DOMAIN in .env):
+  Add 127.0.0.1 pinoox.test to your hosts file, then {$this->cliFormat('fe spark dev --domain=pinoox.test')}.
+  Default port is 80 (http://pinoox.test) unless you set --serve-port or SERVER_PORT.
 
 Apps with theme-contexts (site / panel / …) and multiple Vite themes start every context
 by default — pick "all vite contexts" interactively or use {$this->cliFormat('fe com_my_shop dev --theme=all')}.
@@ -143,8 +149,9 @@ FOOTER
             ->addOption('apps', null, InputOption::VALUE_REQUIRED, 'Comma-separated package names for dev:apps (e.g. com_pinoox_manager,com_pinoox_welcome)')
             ->addOption('serve-app', null, InputOption::VALUE_REQUIRED, 'App binding for the dev server (defaults to the resolved package; use "platform" for full router)')
             ->addOption('serve-host', null, InputOption::VALUE_REQUIRED, 'Host for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_HOST or 127.0.0.1)')
-            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve') . ' (default from SERVER_PORT or 8000)')
+            ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve') . ' (default 8000, or 80 with --domain; override with SERVER_PORT)')
             ->addOption('serve-domain', null, InputOption::VALUE_REQUIRED, 'Local hostname for browser URLs (default from SERVER_DOMAIN; requires hosts file entry)')
+            ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Alias for --serve-domain')
             ->addOption('network', 'N', InputOption::VALUE_NONE, 'Serve PHP app + Vite on LAN (0.0.0.0, shows your network IP)')
             ->addOption('vite-host', null, InputOption::VALUE_REQUIRED, 'Vite bind host (default 127.0.0.1; use --network or --vite-network for LAN)')
             ->addOption('vite-network', null, InputOption::VALUE_NONE, 'Bind Vite to 0.0.0.0 for LAN access')
@@ -881,6 +888,13 @@ FOOTER
             ? FrontendDevSession::SERVE_PLATFORM
             : ($explicitServeApp !== '' ? $explicitServeApp : $package);
         $viteOpts = $this->resolveViteDevOptions($input, $frontend->config());
+        $serveDomain = $this->resolveServeDomain($input, $io);
+
+        if ($serveDomain === false) {
+            return Command::FAILURE;
+        }
+
+        $this->noteServeDomain($io, $serveDomain, $servePortOption);
 
         try {
             $session = FrontendDevSession::fromOptions(
@@ -894,7 +908,7 @@ FOOTER
                 $viteOpts['host'],
                 $viteOpts['quiet'],
                 $frontend->themePath(),
-                $this->resolveServeDomain($input),
+                $serveDomain,
             );
         } catch (\RuntimeException $e) {
             $io->error($e->getMessage());
@@ -989,6 +1003,14 @@ FOOTER
         OutputInterface $output,
         array $devTargets,
     ): int {
+        $serveDomain = $this->resolveServeDomain($input, $io);
+
+        if ($serveDomain === false) {
+            return Command::FAILURE;
+        }
+
+        $this->noteServeDomain($io, $serveDomain, $input->getOption('serve-port'));
+
         $serveHost = $input->getOption('serve-host');
         $servePortOption = $input->getOption('serve-port');
         $servePort = $servePortOption !== null && $servePortOption !== ''
@@ -1059,7 +1081,7 @@ FOOTER
                 $viteOpts['host'],
                 true,
                 null,
-                $this->resolveServeDomain($input),
+                $serveDomain,
             );
 
             $frontend->setDevSession($session);
@@ -1081,7 +1103,7 @@ FOOTER
         $stackServeHost = $this->isNetworkMode($input) ? '0.0.0.0' : $sharedHost;
         $resolvedServePort = ($servePort !== null && $servePort > 0)
             ? $servePort
-            : ($sessions[0]->servePort ?? ServerPort::preferredServePort($this->resolveServeDomain($input)));
+            : ($sessions[0]->servePort ?? ServerPort::preferredServePort($serveDomain));
 
         if ($servePort === null && $sessions !== []) {
             $this->noteResolvedServePort($io, $resolvedServePort, false);
@@ -1096,7 +1118,7 @@ FOOTER
             $resolvedServePort,
             $targets,
             $serveBinding,
-            $this->resolveServeDomain($input),
+            $serveDomain,
         ) === 0
             ? Command::SUCCESS
             : Command::FAILURE;
@@ -1384,17 +1406,54 @@ FOOTER
         return null;
     }
 
-    private function resolveServeDomain(InputInterface $input): ?string
+    private function resolveServeDomain(InputInterface $input, ?SymfonyStyle $io = null): string|null|false
     {
         $explicit = $input->getOption('serve-domain');
 
-        if (is_string($explicit) && trim($explicit) !== '') {
-            return trim($explicit);
+        if (!is_string($explicit) || trim($explicit) === '') {
+            $explicit = $input->getOption('domain');
         }
 
-        $fromEnv = (string) _env('SERVER_DOMAIN', '');
+        if (!is_string($explicit) || trim($explicit) === '') {
+            $explicit = (string) _env('SERVER_DOMAIN', '');
+        }
 
-        return trim($fromEnv) !== '' ? trim($fromEnv) : null;
+        if (trim($explicit) === '') {
+            return null;
+        }
+
+        $domain = ServeLocalDomain::normalize(trim($explicit));
+
+        if ($domain === null) {
+            $io?->error('Invalid local domain: ' . trim($explicit));
+
+            return false;
+        }
+
+        return $domain;
+    }
+
+    private function noteServeDomain(SymfonyStyle $io, ?string $domain, mixed $servePortOption): void
+    {
+        if ($domain === null || $domain === '') {
+            return;
+        }
+
+        if (!ServeLocalDomain::resolvesToLoopback($domain)) {
+            $io->warning([
+                'Local domain is not mapped to 127.0.0.1 yet.',
+                'Add this line to ' . ServeLocalDomain::hostsFilePath() . ':',
+                '  ' . ServeLocalDomain::hostsFileEntry($domain),
+            ]);
+        }
+
+        $explicitPort = is_string($servePortOption) && trim($servePortOption) !== ''
+            ? (int) $servePortOption
+            : null;
+
+        if ($explicitPort === null && !ServerPort::envServePortIsSet()) {
+            $io->note('Domain mode uses port 80 by default. On Windows, run the terminal as Administrator if binding fails.');
+        }
     }
 
     private function renderNetworkDevNote(SymfonyStyle $io, FrontendDevSession $session): void
