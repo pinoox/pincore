@@ -25,34 +25,42 @@ final class FrontendDevPresenter
         }
 
         $primary = $sessions[0];
-        $origin = rtrim($primary->phpOrigin(), '/');
         $network = $primary->serveHost === '0.0.0.0' || $primary->serveHost === '[::]';
         $platformServe = $serveBinding === FrontendDevSession::SERVE_PLATFORM;
-        $packageLabels = array_values(array_unique(array_map(
+        $multipleStacks = count($sessions) > 1;
+        $uniquePackages = array_values(array_unique(array_map(
             static fn (FrontendDevSession $session): string => $session->package,
             $sessions,
         )));
-        $modeLabel = $platformServe ? 'Platform router' : ($packageLabels[0] ?? 'app');
-        $contextNames = array_values(array_filter(
-            array_map(static fn (array $target): string => (string) ($target['context'] ?? ''), $stackTargets),
-            static fn (string $name): bool => trim($name) !== '',
-        ));
+        $multipleApps = count($uniquePackages) > 1;
+        $modeLabel = $platformServe && $multipleApps
+            ? 'Platform router'
+            : ($uniquePackages[0] ?? 'app');
+        $contextNames = $multipleStacks
+            ? array_values(array_filter(
+                array_map(static fn (array $target): string => (string) ($target['context'] ?? ''), $stackTargets),
+                static fn (string $name): bool => trim($name) !== '',
+            ))
+            : [];
+        $appUrls = self::appUrlsByPackage($sessions, $withServe, $serveBinding);
 
         $io->writeln('');
         $io->title('Frontend development');
 
-        $summary = $withServe
-            ? [
-                'Mode' => $platformServe ? 'Multi-app (platform)' : 'Single app',
-                'Package' => $modeLabel,
-                'PHP URL' => $origin,
-                'Vite' => count($sessions) . ' dev server' . (count($sessions) === 1 ? '' : 's'),
-            ]
-            : [
-                'Mode' => 'Vite only',
-                'Package' => $modeLabel,
-                'Vite' => count($sessions) . ' dev server' . (count($sessions) === 1 ? '' : 's'),
-            ];
+        $summary = [
+            'Mode' => $platformServe ? 'Multi-app (platform)' : 'Single app',
+            'Package' => $multipleApps ? implode(', ', $uniquePackages) : $modeLabel,
+        ];
+
+        if ($withServe && !$multipleApps) {
+            $summary['PHP URL'] = $appUrls[$uniquePackages[0]] ?? rtrim($primary->phpOrigin(), '/');
+        }
+
+        if ($multipleStacks) {
+            $summary['Vite'] = count($sessions) . ' dev servers';
+        } else {
+            $summary['Vite port'] = $sessions[0]->viteDevPortLabel();
+        }
 
         if ($contextNames !== []) {
             $summary['Contexts'] = implode(', ', $contextNames);
@@ -72,31 +80,94 @@ final class FrontendDevPresenter
             }
         }
 
-        $rows = [];
+        if ($multipleStacks) {
+            $rows = [];
 
-        foreach ($sessions as $index => $session) {
-            $context = trim((string) ($stackTargets[$index]['context'] ?? ''));
-            $themeFolder = trim((string) ($stackTargets[$index]['theme'] ?? ''));
-            $label = $context !== ''
-                ? $context
-                : ThemeFrontendDevTarget::stackLabel($session->package, null);
+            foreach ($sessions as $index => $session) {
+                $context = trim((string) ($stackTargets[$index]['context'] ?? ''));
+                $themeFolder = trim((string) ($stackTargets[$index]['theme'] ?? ''));
+                $label = $context !== ''
+                    ? $context
+                    : ThemeFrontendDevTarget::stackLabel($session->package, null);
 
-            $rows[] = [
-                $label,
-                $themeFolder !== '' ? $themeFolder : '—',
-                $session->viteDevPortLabel(),
-            ];
+                $rows[] = [
+                    $label,
+                    $themeFolder !== '' ? $themeFolder : '—',
+                    $session->viteDevPortLabel(),
+                ];
+            }
+
+            $io->section('Vite stacks');
+            $io->table(['Context', 'Theme', 'Vite port'], $rows);
         }
 
-        $io->section('Vite stacks');
-        $io->table(['Context', 'Theme', 'Vite port'], $rows);
-
         if ($withServe) {
-            $io->writeln('  <fg=gray>Open</>  ' . $origin . '  <fg=gray>in your browser (HMR follows the route theme)</>');
+            if ($multipleApps) {
+                $rows = [];
+
+                foreach ($uniquePackages as $package) {
+                    $rows[] = [
+                        $package,
+                        $appUrls[$package] ?? rtrim($primary->phpOrigin(), '/'),
+                    ];
+                }
+
+                $io->section('Open in browser');
+                $io->table(['App', 'URL'], $rows);
+
+                if ($multipleStacks) {
+                    $io->writeln('  <fg=gray>HMR follows the route theme for each app</>');
+                }
+            } else {
+                $url = $appUrls[$uniquePackages[0]] ?? rtrim($primary->phpOrigin(), '/');
+                $hint = $multipleStacks
+                    ? 'in your browser (HMR follows the route theme)'
+                    : 'in your browser';
+                $io->writeln('  <fg=gray>Open</>  ' . $url . '  <fg=gray>' . $hint . '</>');
+            }
         }
 
         $io->writeln('  <fg=gray>Vite ports are internal — do not open them in the browser</>');
         $io->writeln('  <fg=gray>Stop</>   Ctrl+C');
         $io->writeln('');
+    }
+
+    /**
+     * @param list<FrontendDevSession> $sessions
+     * @return array<string, string>
+     */
+    private static function appUrlsByPackage(array $sessions, bool $withServe, string $serveBinding): array
+    {
+        $urls = [];
+        $platformServe = $serveBinding === FrontendDevSession::SERVE_PLATFORM;
+
+        foreach ($sessions as $session) {
+            $package = $session->package;
+
+            if (isset($urls[$package])) {
+                continue;
+            }
+
+            if (!$withServe) {
+                continue;
+            }
+
+            if ($platformServe || $session->platformServe) {
+                $routerUrls = FrontendDevSession::appRouterUrlsForPackage(
+                    $package,
+                    $session->serveHost,
+                    $session->servePort,
+                );
+                $urls[$package] = $routerUrls[0]
+                    ?? FrontendDevSession::resolvePublicAppUrl($package, $session->serveHost, $session->servePort);
+
+                continue;
+            }
+
+            $displayUrls = $session->displayAppUrls();
+            $urls[$package] = $displayUrls[0] ?? rtrim($session->phpOrigin(), '/');
+        }
+
+        return $urls;
     }
 }
