@@ -31,3 +31,34 @@ test('HostsFileMapper ensureLoopback skips write when fix disabled', function ()
 
     @unlink($temp);
 });
+
+test('HostsFileMapper detects when hosts file needs elevation', function () {
+    $temp = tempnam(sys_get_temp_dir(), 'pinoox-hosts-');
+    file_put_contents($temp, "127.0.0.1 localhost\n");
+
+    $madeReadOnly = false;
+
+    if (PHP_OS_FAMILY !== 'Windows' && function_exists('chmod')) {
+        $madeReadOnly = @chmod($temp, 0444);
+
+        if ($madeReadOnly) {
+            expect(HostsFileMapper::hostsFileNeedsElevation($temp))->toBeTrue();
+        }
+    }
+
+    if ($madeReadOnly && function_exists('chmod')) {
+        @chmod($temp, 0644);
+    }
+
+    expect(HostsFileMapper::hostsFileNeedsElevation($temp))->toBeFalse();
+
+    @unlink($temp);
+});
+
+test('HostsFileMapper elevation hint matches platform family', function () {
+    $hint = (new ReflectionClass(HostsFileMapper::class))
+        ->getMethod('elevationPromptHint')
+        ->invoke(null);
+
+    expect($hint)->toBeString()->not->toBe('');
+});

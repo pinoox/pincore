@@ -73,10 +73,40 @@ final class HostsFileMapper
         ];
     }
 
+    public static function hostsFileNeedsElevation(?string $hostsFile = null): bool
+    {
+        $path = $hostsFile ?? ServeLocalDomain::hostsFilePath();
+
+        if (!is_file($path)) {
+            return true;
+        }
+
+        $handle = @fopen($path, 'a');
+
+        if ($handle === false) {
+            return true;
+        }
+
+        fclose($handle);
+
+        return false;
+    }
+
     public static function applyForDomain(SymfonyStyle $io, ?string $domain, bool $attemptFix = true): bool
     {
         if ($domain === null || $domain === '') {
             return true;
+        }
+
+        if ($attemptFix
+            && !self::mapsToLoopback($domain)
+            && self::conflictingIp($domain) === null
+            && self::hostsFileNeedsElevation()
+        ) {
+            $io->note([
+                'Updating ' . ServeLocalDomain::hostsFilePath() . ' requires administrator permission.',
+                self::elevationPromptHint(),
+            ]);
         }
 
         $result = self::ensureLoopback($domain, $attemptFix);
@@ -96,10 +126,11 @@ final class HostsFileMapper
 
                 return false;
             })(),
-            self::STATUS_NEEDS_ADMIN => (function () use ($io, $domain, $result): bool {
+            self::STATUS_NEEDS_ADMIN => (function () use ($io, $result): bool {
                 $io->warning([
-                    'Could not update ' . ServeLocalDomain::hostsFilePath() . ' automatically (admin/root required).',
-                    'Add this line manually, or re-run your terminal as Administrator / with sudo:',
+                    'Could not update ' . ServeLocalDomain::hostsFilePath() . ' automatically.',
+                    'The elevation prompt may have been cancelled or permission was denied.',
+                    'Add this line manually, or approve the system prompt when re-running serve:',
                     '  ' . $result['message'],
                 ]);
 
@@ -241,28 +272,20 @@ final class HostsFileMapper
         }
 
         try {
-            $argumentList = '-NoProfile -ExecutionPolicy Bypass -File ' . $scriptPath;
-            $process = new Process([
-                'powershell',
-                '-NoProfile',
-                '-Command',
-                'Start-Process',
-                '-FilePath',
-                'powershell.exe',
-                '-Verb',
-                'RunAs',
-                '-Wait',
-                '-WindowStyle',
-                'Hidden',
-                '-ArgumentList',
-                $argumentList,
-            ]);
+            $psScript = str_replace("'", "''", $scriptPath);
+            $command = sprintf(
+                "Start-Process -FilePath powershell.exe -Verb RunAs -Wait -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File','%s')",
+                $psScript,
+            );
+            $process = Process::fromShellCommandline(
+                'powershell -NoProfile -ExecutionPolicy Bypass -Command ' . escapeshellarg($command),
+            );
             $process->setTimeout(120);
             $process->run();
 
             clearstatcache(true, $path);
 
-            return $process->isSuccessful() && self::fileMapsToLoopback($domain);
+            return self::fileMapsToLoopback($domain);
         } finally {
             @unlink($scriptPath);
         }
@@ -279,9 +302,14 @@ final class HostsFileMapper
 \$ErrorActionPreference = 'Stop'
 \$path = '{$escapedPath}'
 \$entry = '{$escapedEntry}'
-\$content = Get-Content -LiteralPath \$path -Raw
-if (\$content -match '\\s{$pattern}(\\s|\$)') { exit 0 }
+if (-not (Test-Path -LiteralPath \$path)) {
+    throw "Hosts file not found: \$path"
+}
+\$content = Get-Content -LiteralPath \$path -Raw -ErrorAction SilentlyContinue
+if (\$null -eq \$content) { \$content = '' }
+if (\$content -match '(?i)\s{$pattern}(\s|$)') { exit 0 }
 Add-Content -LiteralPath \$path -Value \$entry -Encoding ascii
+exit 0
 PS;
 
         return @file_put_contents($scriptPath, $script) !== false ? $scriptPath : null;
@@ -289,24 +317,55 @@ PS;
 
     private static function tryUnixElevation(string $path, string $entry, string $domain): bool
     {
+        if (PHP_OS_FAMILY === 'Darwin' && self::tryMacOsElevation($path, $entry, $domain)) {
+            return true;
+        }
+
+        if (PHP_OS_FAMILY === 'Linux' && self::commandExists('pkexec') && self::tryPkexecAppend($path, $entry, $domain)) {
+            return true;
+        }
+
+        return self::trySudoElevation($path, $entry, $domain);
+    }
+
+    private static function tryMacOsElevation(string $path, string $entry, string $domain): bool
+    {
+        if (!self::commandExists('osascript')) {
+            return false;
+        }
+
+        $shell = self::unixAppendShell($path, $entry, $domain);
+        $appleScript = 'do shell script ' . escapeshellarg($shell) . ' with administrator privileges';
+        $process = new Process(['osascript', '-e', $appleScript]);
+        $process->setTimeout(120);
+        $process->run();
+
+        clearstatcache(true, $path);
+
+        return self::fileMapsToLoopback($domain);
+    }
+
+    private static function tryPkexecAppend(string $path, string $entry, string $domain): bool
+    {
+        $shell = self::unixAppendShell($path, $entry, $domain);
+        $process = new Process(['pkexec', 'sh', '-c', $shell]);
+        $process->setTimeout(120);
+        $process->run();
+
+        clearstatcache(true, $path);
+
+        return self::fileMapsToLoopback($domain);
+    }
+
+    private static function trySudoElevation(string $path, string $entry, string $domain): bool
+    {
         if (!self::commandExists('sudo')) {
             return false;
         }
 
-        $shell = sprintf(
-            'grep -qE "[[:space:]]%s([[:space:]]|$)" %s 2>/dev/null || echo %s >> %s',
-            preg_quote($domain, '/'),
-            escapeshellarg($path),
-            escapeshellarg($entry),
-            escapeshellarg($path),
-        );
+        $shell = self::unixAppendShell($path, $entry, $domain);
 
-        $commands = [
-            ['sudo', '-n', 'sh', '-c', $shell],
-            ['sudo', 'sh', '-c', $shell],
-        ];
-
-        foreach ($commands as $command) {
+        foreach ([['sudo', '-n', 'sh', '-c', $shell], ['sudo', 'sh', '-c', $shell]] as $command) {
             $process = new Process($command);
             $process->setTimeout(120);
 
@@ -324,6 +383,27 @@ PS;
         }
 
         return false;
+    }
+
+    private static function unixAppendShell(string $path, string $entry, string $domain): string
+    {
+        return sprintf(
+            'grep -qE "[[:space:]]%s([[:space:]]|$)" %s 2>/dev/null || echo %s >> %s',
+            preg_quote($domain, '/'),
+            escapeshellarg($path),
+            escapeshellarg($entry),
+            escapeshellarg($path),
+        );
+    }
+
+    private static function elevationPromptHint(): string
+    {
+        return match (PHP_OS_FAMILY) {
+            'Windows' => 'Approve the UAC (Run as administrator) prompt if it appears.',
+            'Darwin' => 'Enter your macOS password when the system dialog appears.',
+            'Linux' => 'Approve the polkit/sudo prompt if it appears.',
+            default => 'Approve the system elevation prompt if it appears.',
+        };
     }
 
     private static function commandExists(string $command): bool

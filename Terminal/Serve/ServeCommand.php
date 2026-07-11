@@ -54,7 +54,7 @@ Environment (.env):
 With --domain (or SERVER_DOMAIN) for a friendly local hostname via the hosts file.
 PHP binds to 127.0.0.1:{port} (default 8000). Open the domain URL with the same port shown in the banner (e.g. http://pinoox.test:8002).
 Generated links follow the host you use in the browser (domain or 127.0.0.1).
-Pinoox tries to update your hosts file automatically (approve UAC/sudo if prompted). Use --no-fix-hosts to skip.
+Pinoox tries to update your hosts file automatically (approve UAC/sudo/polkit if prompted). Use --no-fix-hosts to skip.
 
 The server uses platform/launcher/server.php (or legacy launcher/server.php) as a router (same rules as .htaccess).
 With --app, Pinoox skips app-router matching and always boots the selected app.
