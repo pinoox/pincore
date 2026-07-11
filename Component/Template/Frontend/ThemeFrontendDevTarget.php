@@ -11,6 +11,50 @@ use Pinoox\Portal\App\AppEngine;
  */
 final class ThemeFrontendDevTarget
 {
+    /** Interactive / CLI token to start every vite-capable theme context for one app. */
+    public const ALL_CONTEXTS = '__all__';
+
+    public static function isAllContexts(?string $selection): bool
+    {
+        if ($selection === null) {
+            return false;
+        }
+
+        $selection = strtolower(trim($selection));
+
+        return $selection === self::ALL_CONTEXTS
+            || $selection === 'all'
+            || $selection === '*';
+    }
+
+    public static function selectionForTargets(?string $selection): ?string
+    {
+        if ($selection === null || trim($selection) === '' || self::isAllContexts($selection)) {
+            return null;
+        }
+
+        return trim($selection);
+    }
+
+    public static function hasMultipleViteContexts(string $package): bool
+    {
+        return count(self::targetsForPackage($package)) > 1;
+    }
+
+    public static function allContextsChoiceLabel(string $package): string
+    {
+        $contexts = array_values(array_filter(
+            array_column(self::targetsForPackage($package), 'context'),
+            static fn ($context): bool => is_string($context) && trim($context) !== '',
+        ));
+
+        if ($contexts === []) {
+            return 'all vite contexts';
+        }
+
+        return 'all vite contexts (' . implode(', ', $contexts) . ')';
+    }
+
     /**
      * @return array<string, string> context or theme folder => details label
      */
@@ -126,7 +170,9 @@ final class ThemeFrontendDevTarget
             ]];
         }
 
-        if ($selection !== null && trim($selection) !== '') {
+        $selection = self::selectionForTargets($selection);
+
+        if ($selection !== null) {
             $resolved = self::resolve($package, $selection);
 
             return [[

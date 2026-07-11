@@ -87,6 +87,37 @@ it('expands platform targets for each vite-capable context', function () {
         ->and(array_column($targets, 'context'))->toBe(['panel', 'kids']);
 });
 
+it('treats all-context selection as every vite-capable theme context', function () {
+    writeThemeFrontendDevTargetApp([
+        'theme-context' => 'site',
+        'theme-contexts' => [
+            'site' => [
+                'theme' => 'landing',
+                'frontend' => ['stack' => 'vite', 'profile' => 'hybrid'],
+            ],
+            'panel' => [
+                'theme' => 'panel',
+                'frontend' => ['stack' => 'vue', 'profile' => 'spa'],
+            ],
+        ],
+    ], [
+        'landing/package.json' => json_encode(['scripts' => ['dev' => 'vite']], JSON_THROW_ON_ERROR),
+        'landing/frontend.config.php' => "<?php\n\nreturn ['stack' => 'vite'];\n",
+        'panel/package.json' => json_encode(['scripts' => ['dev' => 'vite']], JSON_THROW_ON_ERROR),
+        'panel/frontend.config.php' => "<?php\n\nreturn ['stack' => 'vue'];\n",
+    ]);
+    AppEngine::__rebuild();
+
+    expect(ThemeFrontendDevTarget::isAllContexts('all'))->toBeTrue()
+        ->and(ThemeFrontendDevTarget::hasMultipleViteContexts('com_test_fe_ctx'))->toBeTrue()
+        ->and(ThemeFrontendDevTarget::targetsForPackage('com_test_fe_ctx', ThemeFrontendDevTarget::ALL_CONTEXTS))
+        ->toHaveCount(2)
+        ->and(array_column(
+            ThemeFrontendDevTarget::targetsForPackage('com_test_fe_ctx', 'all'),
+            'context',
+        ))->toBe(['site', 'panel']);
+});
+
 function writeThemeFrontendDevTargetApp(array $config, array $themeFiles = []): void
 {
     $package = 'com_test_fe_ctx';

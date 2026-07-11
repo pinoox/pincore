@@ -57,6 +57,8 @@ class ThemeFrontendCommand extends Terminal
     /** @var list<string> */
     private array $devAppsAutoPackages = [];
 
+    private ?string $resolvedDevContext = null;
+
     protected function configure(): void
     {
         $serve = ProjectCli::platformFormat('serve');
@@ -94,6 +96,7 @@ INTRO
                     'fe spark watch',
                     'fe com_my_shop build',
                     'fe com_my_shop dev --theme=admin',
+                    'fe com_my_shop dev --theme=all',
                     'fe spark run --script=preview',
                     'fe spark install --install',
                     'fe com_my_shop scaffold --stack=vue',
@@ -108,6 +111,10 @@ If it exists in multiple apps, pick the package from a list.
 Target and action can be omitted — pick from a list interactively (defaults to info).
 
 dev also starts {$serve} for the resolved app (use --no-serve to skip).
+
+Apps with theme-contexts (site / panel / …) and multiple Vite themes start every context
+by default — pick "all vite contexts" interactively or use {$this->cliFormat('fe com_my_shop dev --theme=all')}.
+Use {$this->cliFormat('fe com_my_shop dev --theme=panel')} for a single context.
 
 dev:apps starts one shared {$serve} plus Vite for multiple apps. Use full package names (e.g. com_pinoox_manager, io_yoosefap_ai).
 
@@ -158,6 +165,7 @@ FOOTER
         $this->platformServe = false;
         $this->devAppsAuto = false;
         $this->devAppsAutoPackages = [];
+        $this->resolvedDevContext = null;
 
         try {
             [$target, $action] = $this->parseArguments($input);
@@ -193,6 +201,17 @@ FOOTER
 
         $package = $resolved['package'];
         $themeName = $resolved['theme'];
+        $this->resolvedDevContext = $themeName;
+
+        if ($action === 'dev' && ThemeFrontendDevTarget::isAllContexts($themeName)) {
+            try {
+                return $this->runDevApps($io, $input, $output, $package);
+            } catch (\Throwable $e) {
+                $io->error($e->getMessage());
+
+                return Command::FAILURE;
+            }
+        }
 
         if ($action === 'dev' && $this->devAppsAuto) {
             try {
@@ -564,8 +583,19 @@ FOOTER
             ? ThemeFrontendDevTarget::defaultChoice($package)
             : (string) AppEngine::config($package)->get('theme', 'default');
 
+        if ($hasContexts && $devPick && ThemeFrontendDevTarget::hasMultipleViteContexts($package)) {
+            $themeChoices = [
+                ThemeFrontendDevTarget::ALL_CONTEXTS => ThemeFrontendDevTarget::allContextsChoiceLabel($package),
+            ] + $themeChoices;
+            $defaultTheme = ThemeFrontendDevTarget::ALL_CONTEXTS;
+        }
+
         if ($themeOption !== '') {
             if ($hasContexts && $devPick) {
+                if (ThemeFrontendDevTarget::isAllContexts($themeOption)) {
+                    return ThemeFrontendDevTarget::ALL_CONTEXTS;
+                }
+
                 if (!isset($themeChoices[$themeOption])) {
                     $resolved = ThemeFrontendDevTarget::resolve($package, $themeOption);
                     $context = $resolved['context'] ?? $themeOption;
@@ -599,6 +629,11 @@ FOOTER
             return $defaultTheme;
         }
 
+        if ($hasContexts && $devPick && $themeOption === '' && !$input->isInteractive()
+            && ThemeFrontendDevTarget::hasMultipleViteContexts($package)) {
+            return ThemeFrontendDevTarget::ALL_CONTEXTS;
+        }
+
         return $this->resolveThemeChoice($input, $output, $io, $package, $themeChoices, [
             'default' => $defaultTheme,
             'sectionTitle' => ($hasContexts && $devPick)
@@ -606,6 +641,53 @@ FOOTER
                 : 'Themes in ' . $package,
             'labelColumn' => ($hasContexts && $devPick) ? 'Context' : 'Theme',
         ]);
+    }
+
+    private function resolveDevContextSelection(
+        InputInterface $input,
+        OutputInterface $output,
+        SymfonyStyle $io,
+        string $package,
+        string $themeOption,
+    ): ?string {
+        if ($themeOption !== '') {
+            return ThemeFrontendDevTarget::selectionForTargets($themeOption);
+        }
+
+        if ($this->resolvedDevContext !== null && $this->resolvedDevContext !== '') {
+            return ThemeFrontendDevTarget::selectionForTargets($this->resolvedDevContext);
+        }
+
+        $selection = $this->resolveThemeForPackage($input, $output, $io, $package, 'dev', '');
+
+        return ThemeFrontendDevTarget::selectionForTargets($selection);
+    }
+
+    /**
+     * @param list<array{package: string, theme: string, context: ?string}> $devTargets
+     */
+    private function resolveDevStackServeBinding(InputInterface $input, array $devTargets): string
+    {
+        $explicitServeApp = trim((string) $input->getOption('serve-app'));
+
+        if ($explicitServeApp !== '') {
+            return $explicitServeApp;
+        }
+
+        if ($this->devAppsAuto) {
+            return FrontendDevSession::SERVE_PLATFORM;
+        }
+
+        $packages = array_values(array_unique(array_map(
+            static fn (array $target): string => $target['package'],
+            $devTargets,
+        )));
+
+        if (count($packages) === 1) {
+            return $packages[0];
+        }
+
+        return FrontendDevSession::SERVE_PLATFORM;
     }
 
     /**
@@ -864,7 +946,7 @@ FOOTER
             $devTargets = ThemeFrontendDevTarget::platformTargets();
         } else {
             foreach ($packages as $package) {
-                $selection = $this->resolveThemeForPackage($input, $output, $io, $package, 'dev', $themeOption);
+                $selection = $this->resolveDevContextSelection($input, $output, $io, $package, $themeOption);
 
                 foreach (ThemeFrontendDevTarget::targetsForPackage($package, $selection) as $target) {
                     $devTargets[] = $target;
@@ -911,6 +993,7 @@ FOOTER
         $viteOpts = $this->resolveViteDevOptions($input, $targets[0]['config'] ?? []);
         $networkServeHost = $this->isNetworkMode($input) ? '0.0.0.0' : ($sharedHost !== '' ? $sharedHost : null);
         $quietStack = $this->devAppsAuto || count($devTargets) > 1;
+        $serveBinding = $this->resolveDevStackServeBinding($input, $devTargets);
 
         foreach ($targets as $index => $target) {
             $frontend = ThemeFrontend::forPackageAndTheme(
@@ -930,7 +1013,7 @@ FOOTER
                 $target['config'],
                 $networkServeHost,
                 $servePort,
-                FrontendDevSession::SERVE_PLATFORM,
+                $serveBinding,
                 false,
                 $vitePorts[$index],
                 $viteOpts['host'],
