@@ -520,11 +520,7 @@ final class FrontendDevSession
 
     private static function resolveServePort(?int $explicit, string $host, ?string $domain = null): int
     {
-        return ServerPort::resolve(
-            $explicit,
-            $host,
-            ServerPort::preferredServePort($domain !== null && $domain !== ''),
-        );
+        return ServerPort::resolve($explicit, $host, ServerPort::preferredServePort());
     }
 
     /**

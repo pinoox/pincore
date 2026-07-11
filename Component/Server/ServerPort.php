@@ -9,22 +9,16 @@ final class ServerPort
 {
     public const DEFAULT_SERVE_PORT = 8000;
 
-    public const DEFAULT_SERVE_DOMAIN_PORT = 80;
-
     public const DEFAULT_VITE_PORT = 5173;
 
     public const MAX_TRIES = 10;
 
-    public static function preferredServePort(bool $localDomain = false): int
+    public static function preferredServePort(): int
     {
         if (self::envServePortIsSet()) {
             $port = _env('SERVER_PORT', self::DEFAULT_SERVE_PORT);
 
             return is_numeric($port) && (int) $port > 0 ? (int) $port : self::DEFAULT_SERVE_PORT;
-        }
-
-        if ($localDomain) {
-            return self::DEFAULT_SERVE_DOMAIN_PORT;
         }
 
         return self::DEFAULT_SERVE_PORT;

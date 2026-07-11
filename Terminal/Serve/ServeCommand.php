@@ -51,8 +51,9 @@ Environment (.env):
   SERVER_DOMAIN=pinoox.test
   SERVER_APP=com_pinoox_manager
 
-With --domain (or SERVER_DOMAIN) for a friendly local hostname without :port in the browser URL.
-Default bind is port 80 (http://your.test). Override with --port or SERVER_PORT.
+With --domain (or SERVER_DOMAIN) for a friendly local hostname via the hosts file.
+PHP binds to 127.0.0.1:{port} (default 8000). Open the domain URL with the same port shown in the banner (e.g. http://pinoox.test:8002).
+Generated links follow the host you use in the browser (domain or 127.0.0.1).
 Pinoox tries to update your hosts file automatically (approve UAC/sudo if prompted). Use --no-fix-hosts to skip.
 
 The server uses platform/launcher/server.php (or legacy launcher/server.php) as a router (same rules as .htaccess).
@@ -61,7 +62,7 @@ FOOTER
             ))
             ->addOption('host', null, InputOption::VALUE_OPTIONAL, 'Host address (default from SERVER_HOST or 127.0.0.1; use --network for 0.0.0.0)')
             ->addOption('port', null, InputOption::VALUE_OPTIONAL, 'Port number (default from SERVER_PORT or 8000; auto-picks next free port when busy)')
-            ->addOption('domain', null, InputOption::VALUE_OPTIONAL, 'Local hostname for browser URLs only (bind stays 127.0.0.1; default from SERVER_DOMAIN)')
+            ->addOption('domain', null, InputOption::VALUE_OPTIONAL, 'Local hostname alias (hosts file + banner URL; same port as serve; default from SERVER_DOMAIN)')
             ->addOption('no-fix-hosts', null, InputOption::VALUE_NONE, 'Do not auto-update the system hosts file for --domain')
             ->addOption('network', 'N', InputOption::VALUE_NONE, 'Listen on 0.0.0.0 and show LAN URL for other devices on your network')
             ->addOption('app', null, InputOption::VALUE_REQUIRED, 'Lock to one app (package, route path, alias, or package@path)')
@@ -114,7 +115,7 @@ FOOTER
         }
 
         try {
-            $preferredPort = ServerPort::preferredServePort($domain !== null);
+            $preferredPort = ServerPort::preferredServePort();
             $resolvedPort = ServerPort::resolve($explicitPort, $host, $preferredPort, $tries);
         } catch (\RuntimeException $e) {
             $io->error($e->getMessage());

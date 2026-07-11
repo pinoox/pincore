@@ -94,7 +94,7 @@ final class ServeLocalDomain
         $domain = self::normalize($domain);
 
         if ($domain !== null) {
-            return self::httpUrl($domain, $port, true);
+            return self::httpUrl($domain, $port);
         }
 
         return self::httpUrl($host, $port);

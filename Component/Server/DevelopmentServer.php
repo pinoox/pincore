@@ -295,7 +295,7 @@ class DevelopmentServer
             $this->output->writeln('<info>Local:</info> <comment>' . $localUrl . '</comment>');
 
             if ($this->domain !== null && $localUrl !== $bindUrl) {
-                $this->output->writeln('<fg=gray>  bind ' . $bindUrl . '</>');
+                $this->output->writeln('<fg=gray>  also ' . $bindUrl . ' (same server)</>');
             }
 
             $lan = FrontendDevSession::detectLanIp();
@@ -309,7 +309,7 @@ class DevelopmentServer
             $this->output->writeln('<info>Pinoox development server running:</info> <comment>' . $localUrl . '</comment>');
 
             if ($this->domain !== null && $localUrl !== $bindUrl) {
-                $this->output->writeln('<fg=gray>  bind ' . $bindUrl . '</>');
+                $this->output->writeln('<fg=gray>  also ' . $bindUrl . ' (same server)</>');
             }
         }
 

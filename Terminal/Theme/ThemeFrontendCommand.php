@@ -113,8 +113,8 @@ Target and action can be omitted — pick from a list interactively (defaults to
 dev also starts {$serve} for the resolved app (use --no-serve to skip).
 
 Local domain (--domain or --serve-domain, or SERVER_DOMAIN in .env):
-  {$this->cliFormat('fe spark dev --domain=pinoox.test')} opens http://pinoox.test (port 80 bind; approve UAC/sudo for hosts if prompted).
-  Override with --serve-port or SERVER_PORT. Use --no-fix-hosts to skip hosts auto-update.
+  {$this->cliFormat('fe spark dev --domain=pinoox.test')} opens http://pinoox.test:8000 while PHP binds to 127.0.0.1:8000 (same port; links follow the host you use in the browser).
+  Pinoox tries to update your hosts file automatically (approve UAC/sudo if prompted). Use --no-fix-hosts to skip.
 
 Apps with theme-contexts (site / panel / …) and multiple Vite themes start every context
 by default — pick "all vite contexts" interactively or use {$this->cliFormat('fe com_my_shop dev --theme=all')}.
@@ -1109,7 +1109,7 @@ FOOTER
         $stackServeHost = $this->isNetworkMode($input) ? '0.0.0.0' : $sharedHost;
         $resolvedServePort = ($servePort !== null && $servePort > 0)
             ? $servePort
-            : ($sessions[0]->servePort ?? ServerPort::preferredServePort($serveDomain !== null && $serveDomain !== ''));
+            : ($sessions[0]->servePort ?? ServerPort::preferredServePort());
 
         if ($servePort === null && $sessions !== []) {
             $this->noteResolvedServePort($io, $resolvedServePort, false);

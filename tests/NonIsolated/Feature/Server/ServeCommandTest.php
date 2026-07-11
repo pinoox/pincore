@@ -51,7 +51,7 @@ it('uses a local domain for browser URLs while binding to loopback', function ()
 it('shows domain URL without port while binding to loopback', function () {
     $server = new DevelopmentServer(
         host: '127.0.0.1',
-        explicitPort: 80,
+        explicitPort: 8002,
         maxTries: 3,
         noReload: true,
         documentRoot: PINOOX_BASE_PATH,
@@ -62,7 +62,7 @@ it('shows domain URL without port while binding to loopback', function () {
 
     expect($server->url())->toBe('http://mypinoox.com')
         ->and($server->inspectorUrl())->toBe('http://mypinoox.com/~inspector')
-        ->and($server->serverCommand()[2])->toBe('127.0.0.1:80');
+        ->and($server->serverCommand()[2])->toBe('127.0.0.1:8002');
 });
 
 it('routes existing files through the development server router script', function () {

@@ -10,7 +10,7 @@ test('ServeLocalDomain normalizes hostnames and builds http URLs', function () {
         ->and(ServeLocalDomain::normalize('not a domain!'))->toBeNull()
         ->and(ServeLocalDomain::httpUrl('pinoox.test', 8000))->toBe('http://pinoox.test:8000')
         ->and(ServeLocalDomain::httpUrl('pinoox.test', 8000, true))->toBe('http://pinoox.test')
-        ->and(ServeLocalDomain::browserHttpUrl('pinoox.test', '127.0.0.1', 8002))->toBe('http://pinoox.test')
+        ->and(ServeLocalDomain::browserHttpUrl('pinoox.test', '127.0.0.1', 8002))->toBe('http://pinoox.test:8002')
         ->and(ServeLocalDomain::proxyHttpUrl('pinoox.test', '127.0.0.1', 8002))->toBe('http://127.0.0.1:8002')
         ->and(ServeLocalDomain::httpUrl('pinoox.test', 80))->toBe('http://pinoox.test')
         ->and(ServeLocalDomain::hostsFileEntry('pinoox.test'))->toBe('127.0.0.1 pinoox.test');
@@ -46,5 +46,5 @@ test('FrontendDevSession uses SERVER_DOMAIN for browser URLs', function () {
 
     expect($session->serveDomain)->toBe('pinoox.test')
         ->and($session->phpAppUrl)->toBe('http://127.0.0.1:8088')
-        ->and($session->phpOrigin())->toBe('http://pinoox.test');
+        ->and($session->phpOrigin())->toBe('http://pinoox.test:8088');
 });
