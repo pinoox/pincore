@@ -4,6 +4,7 @@ namespace Pinoox\Terminal\Theme;
 
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Package\PackageName;
+use Pinoox\Component\Server\HostsFileMapper;
 use Pinoox\Component\Server\ServeLocalDomain;
 use Pinoox\Component\Server\ServerPort;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
@@ -112,7 +113,7 @@ Target and action can be omitted — pick from a list interactively (defaults to
 dev also starts {$serve} for the resolved app (use --no-serve to skip).
 
 Local domain (--domain or --serve-domain, or SERVER_DOMAIN in .env):
-  Add 127.0.0.1 pinoox.test to your hosts file, then {$this->cliFormat('fe spark dev --domain=pinoox.test')}.
+  {$this->cliFormat('fe spark dev --domain=pinoox.test')} — Pinoox tries to update your hosts file (approve UAC/sudo if prompted). Use --no-fix-hosts to skip.
   Default port is 80 (http://pinoox.test) unless you set --serve-port or SERVER_PORT.
 
 Apps with theme-contexts (site / panel / …) and multiple Vite themes start every context
@@ -152,6 +153,7 @@ FOOTER
             ->addOption('serve-port', null, InputOption::VALUE_REQUIRED, 'Port for ' . ProjectCli::platformFormat('serve') . ' (default 8000, or 80 with --domain; override with SERVER_PORT)')
             ->addOption('serve-domain', null, InputOption::VALUE_REQUIRED, 'Local hostname for browser URLs (default from SERVER_DOMAIN; requires hosts file entry)')
             ->addOption('domain', null, InputOption::VALUE_REQUIRED, 'Alias for --serve-domain')
+            ->addOption('no-fix-hosts', null, InputOption::VALUE_NONE, 'Do not auto-update the system hosts file for --domain')
             ->addOption('network', 'N', InputOption::VALUE_NONE, 'Serve PHP app + Vite on LAN (0.0.0.0, shows your network IP)')
             ->addOption('vite-host', null, InputOption::VALUE_REQUIRED, 'Vite bind host (default 127.0.0.1; use --network or --vite-network for LAN)')
             ->addOption('vite-network', null, InputOption::VALUE_NONE, 'Bind Vite to 0.0.0.0 for LAN access')
@@ -894,7 +896,9 @@ FOOTER
             return Command::FAILURE;
         }
 
-        $this->noteServeDomain($io, $serveDomain, $servePortOption);
+        if (!$this->noteServeDomain($io, $serveDomain, $servePortOption, $input)) {
+            return Command::FAILURE;
+        }
 
         try {
             $session = FrontendDevSession::fromOptions(
@@ -1009,7 +1013,9 @@ FOOTER
             return Command::FAILURE;
         }
 
-        $this->noteServeDomain($io, $serveDomain, $input->getOption('serve-port'));
+        if (!$this->noteServeDomain($io, $serveDomain, $input->getOption('serve-port'), $input)) {
+            return Command::FAILURE;
+        }
 
         $serveHost = $input->getOption('serve-host');
         $servePortOption = $input->getOption('serve-port');
@@ -1433,18 +1439,14 @@ FOOTER
         return $domain;
     }
 
-    private function noteServeDomain(SymfonyStyle $io, ?string $domain, mixed $servePortOption): void
+    private function noteServeDomain(SymfonyStyle $io, ?string $domain, mixed $servePortOption, InputInterface $input): bool
     {
         if ($domain === null || $domain === '') {
-            return;
+            return true;
         }
 
-        if (!ServeLocalDomain::resolvesToLoopback($domain)) {
-            $io->warning([
-                'Local domain is not mapped to 127.0.0.1 yet.',
-                'Add this line to ' . ServeLocalDomain::hostsFilePath() . ':',
-                '  ' . ServeLocalDomain::hostsFileEntry($domain),
-            ]);
+        if (!HostsFileMapper::applyForDomain($io, $domain, !(bool) $input->getOption('no-fix-hosts'))) {
+            return false;
         }
 
         $explicitPort = is_string($servePortOption) && trim($servePortOption) !== ''
@@ -1454,6 +1456,8 @@ FOOTER
         if ($explicitPort === null && !ServerPort::envServePortIsSet()) {
             $io->note('Domain mode uses port 80 by default. On Windows, run the terminal as Administrator if binding fails.');
         }
+
+        return true;
     }
 
     private function renderNetworkDevNote(SymfonyStyle $io, FrontendDevSession $session): void

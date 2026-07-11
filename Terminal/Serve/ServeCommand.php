@@ -4,6 +4,7 @@ namespace Pinoox\Terminal\Serve;
 
 use Pinoox\Component\Package\Routing\AppRouteMatcher;
 use Pinoox\Component\Server\DevelopmentServer;
+use Pinoox\Component\Server\HostsFileMapper;
 use Pinoox\Component\Server\InspectorRuntime;
 use Pinoox\Component\Server\ServerPort;
 use Pinoox\Component\Server\ServeAppBinding;
@@ -50,10 +51,7 @@ Environment (.env):
   SERVER_DOMAIN=pinoox.test
   SERVER_APP=com_pinoox_manager
 
-Use --domain (or SERVER_DOMAIN) for a friendly local hostname. Add it to your hosts file:
-  127.0.0.1 pinoox.test
-
-With a local domain, the default port is 80 (http://pinoox.test) unless you set --port or SERVER_PORT.
+With --domain (or SERVER_DOMAIN) for a friendly local hostname. Pinoox tries to update your hosts file automatically (approve UAC/sudo if prompted). Use --no-fix-hosts to skip.
 
 The server uses platform/launcher/server.php (or legacy launcher/server.php) as a router (same rules as .htaccess).
 With --app, Pinoox skips app-router matching and always boots the selected app.
@@ -62,6 +60,7 @@ FOOTER
             ->addOption('host', null, InputOption::VALUE_OPTIONAL, 'Host address (default from SERVER_HOST or 127.0.0.1; use --network for 0.0.0.0)')
             ->addOption('port', null, InputOption::VALUE_OPTIONAL, 'Port number (default from SERVER_PORT or 8000; auto-picks next free port when busy)')
             ->addOption('domain', null, InputOption::VALUE_OPTIONAL, 'Local hostname for browser URLs (default from SERVER_DOMAIN; requires hosts file entry)')
+            ->addOption('no-fix-hosts', null, InputOption::VALUE_NONE, 'Do not auto-update the system hosts file for --domain')
             ->addOption('network', 'N', InputOption::VALUE_NONE, 'Listen on 0.0.0.0 and show LAN URL for other devices on your network')
             ->addOption('app', null, InputOption::VALUE_REQUIRED, 'Lock to one app (package, route path, alias, or package@path)')
             ->addOption('tries', null, InputOption::VALUE_OPTIONAL, 'How many ports to try if the default is busy', 10)
@@ -108,12 +107,8 @@ FOOTER
             return Command::FAILURE;
         }
 
-        if (is_string($domain) && !ServeLocalDomain::resolvesToLoopback($domain)) {
-            $io->warning([
-                'Local domain is not mapped to 127.0.0.1 yet.',
-                'Add this line to ' . ServeLocalDomain::hostsFilePath() . ':',
-                '  ' . ServeLocalDomain::hostsFileEntry($domain),
-            ]);
+        if (is_string($domain) && !HostsFileMapper::applyForDomain($io, $domain, !(bool) $input->getOption('no-fix-hosts'))) {
+            return Command::FAILURE;
         }
 
         try {
