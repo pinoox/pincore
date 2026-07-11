@@ -4,11 +4,9 @@ namespace Pinoox\Terminal\Theme;
 
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Package\PackageName;
-use Pinoox\Component\Server\DevelopmentServer;
-use Pinoox\Component\Server\InspectorRuntime;
-use Pinoox\Component\Server\ServeAppBinding;
 use Pinoox\Component\Server\ServerPort;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
+use Pinoox\Component\Template\Frontend\FrontendDevPresenter;
 use Pinoox\Component\Template\Frontend\FrontendDevSession;
 use Pinoox\Component\Template\Frontend\FrontendDevStack;
 use Pinoox\Component\Template\Frontend\FrontendDevSync;
@@ -29,7 +27,6 @@ use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\Question;
 use Symfony\Component\Console\Style\SymfonyStyle;
-use Symfony\Component\Process\Process;
 
 #[AsCommand(
     name: 'theme:frontend',
@@ -234,7 +231,7 @@ FOOTER
                 'info' => $this->runInfo($io, $frontend),
                 'install' => $this->runInstall($io, $frontend, $installMode),
                 'build' => $this->runBuild($io, $frontend, $installMode),
-                'dev' => $this->runDev($io, $frontend, $installMode, $package, $input, $output),
+                'dev' => $this->runDev($io, $frontend, $installMode, $package, $input, $output, $resolvedTarget),
                 'watch' => $this->runWatch($io, $frontend, $installMode),
                 'run' => $this->runScript($input, $output, $io, $frontend, $installMode),
                 'scaffold' => $this->runScaffold($io, $frontend, (string) $input->getOption('stack')),
@@ -841,6 +838,9 @@ FOOTER
         return $code === 0 ? Command::SUCCESS : Command::FAILURE;
     }
 
+    /**
+     * @param array{theme: string, context?: ?string} $resolvedTarget
+     */
     private function runDev(
         SymfonyStyle $io,
         ThemeFrontend $frontend,
@@ -848,12 +848,27 @@ FOOTER
         string $package,
         InputInterface $input,
         OutputInterface $output,
+        array $resolvedTarget,
     ): int {
         $this->activateViteHmrMode();
-        $io->section('Starting frontend dev server: ' . $frontend->themePath());
+        $withServe = !(bool) $input->getOption('no-serve');
+
+        if ($withServe) {
+            try {
+                return $this->runDevStack($io, $input, $output, [[
+                    'package' => $package,
+                    'theme' => $resolvedTarget['theme'],
+                    'context' => $resolvedTarget['context'] ?? null,
+                ]]);
+            } catch (\Throwable $e) {
+                $io->error($e->getMessage());
+
+                return Command::FAILURE;
+            }
+        }
+
         $this->noteInstallPlan($io, $frontend, $installMode);
 
-        $withServe = !(bool) $input->getOption('no-serve');
         $servePortOption = $input->getOption('serve-port');
         $servePort = $servePortOption !== null && $servePortOption !== ''
             ? (int) $servePortOption
@@ -864,7 +879,6 @@ FOOTER
         $serveApp = $platformServe
             ? FrontendDevSession::SERVE_PLATFORM
             : ($explicitServeApp !== '' ? $explicitServeApp : $package);
-
         $viteOpts = $this->resolveViteDevOptions($input, $frontend->config());
 
         try {
@@ -874,7 +888,7 @@ FOOTER
                 $this->resolveServeHost($input),
                 $servePort,
                 $serveApp,
-                $withServe,
+                false,
                 null,
                 $viteOpts['host'],
                 $viteOpts['quiet'],
@@ -884,12 +898,6 @@ FOOTER
             $io->error($e->getMessage());
 
             return Command::FAILURE;
-        }
-
-        $this->noteResolvedServePort($io, $session->servePort, $servePort !== null);
-
-        if ($this->isNetworkMode($input)) {
-            $this->renderNetworkDevNote($io, $session);
         }
 
         $frontend->setDevSession($session);
@@ -903,27 +911,24 @@ FOOTER
         $sync = $frontend->syncDev();
         $this->renderDevDiagnostics($io, $frontend, $sync);
 
-        $serveProcess = null;
-
-        if ($withServe) {
-            try {
-                $serveProcess = $this->startServeProcess($package, $input, $output, $io, $platformServe, $serveApp, $session->servePort);
-            } catch (\Throwable $e) {
-                $io->error('Could not start Pinoox server: ' . $e->getMessage());
-
-                return Command::FAILURE;
-            }
-        }
-
         try {
             $frontend->startDevProcess($installMode);
             $this->waitForViteReady($io, $frontend);
-            $this->renderDevApplicationUrl($io, $session, $withServe, $input, $package);
+            FrontendDevPresenter::render(
+                $io,
+                [[
+                    'package' => $package,
+                    'theme' => $resolvedTarget['theme'],
+                    'context' => $resolvedTarget['context'] ?? null,
+                ]],
+                [$session],
+                $serveApp,
+                false,
+            );
 
             return $frontend->awaitRunningDevProcess() === 0 ? Command::SUCCESS : Command::FAILURE;
         } finally {
             $frontend->stopRunningProcess();
-            $this->stopServeProcess($serveProcess, $io);
         }
     }
 
@@ -942,17 +947,6 @@ FOOTER
             return Command::FAILURE;
         }
 
-        $installMode = $this->resolveInstallMode($input, 'dev');
-        $serveHost = $input->getOption('serve-host');
-        $servePortOption = $input->getOption('serve-port');
-        $servePort = $servePortOption !== null && $servePortOption !== ''
-            ? (int) $servePortOption
-            : null;
-        $envFileOption = $input->getOption('env-file');
-        $envFile = is_string($envFileOption) && trim($envFileOption) !== ''
-            ? trim($envFileOption)
-            : null;
-        $fixVite = (bool) $input->getOption('fix-vite');
         $themeOption = $this->readThemeInput($input);
 
         $devTargets = [];
@@ -974,6 +968,35 @@ FOOTER
 
             return Command::FAILURE;
         }
+
+        try {
+            return $this->runDevStack($io, $input, $output, $devTargets);
+        } catch (\Throwable $e) {
+            $io->error($e->getMessage());
+
+            return Command::FAILURE;
+        }
+    }
+
+    /**
+     * @param list<array{package: string, theme: string, context?: ?string}> $devTargets
+     */
+    private function runDevStack(
+        SymfonyStyle $io,
+        InputInterface $input,
+        OutputInterface $output,
+        array $devTargets,
+    ): int {
+        $serveHost = $input->getOption('serve-host');
+        $servePortOption = $input->getOption('serve-port');
+        $servePort = $servePortOption !== null && $servePortOption !== ''
+            ? (int) $servePortOption
+            : null;
+        $envFileOption = $input->getOption('env-file');
+        $envFile = is_string($envFileOption) && trim($envFileOption) !== ''
+            ? trim($envFileOption)
+            : null;
+        $fixVite = (bool) $input->getOption('fix-vite');
 
         $targets = [];
         $frontends = [];
@@ -1308,84 +1331,6 @@ FOOTER
         $io->writeln('<comment>still starting — refresh the browser shortly</comment>');
     }
 
-    private function renderDevApplicationUrl(
-        SymfonyStyle $io,
-        FrontendDevSession $session,
-        bool $withServe,
-        InputInterface $input,
-        string $package,
-    ): void {
-        $modeLabel = $withServe ? 'PHP + Vite' : 'Vite only';
-        $label = ThemeFrontendDevTarget::stackLabel($package);
-        $binding = $session->serveAppBinding !== null
-            ? ServeAppBinding::devServeBinding($session->serveAppBinding)
-            : null;
-
-        $io->writeln('');
-
-        if ($session->serveAppLocked && $binding !== null) {
-            $io->writeln(sprintf(
-                '  <fg=green;options=bold>➜</>  <fg=cyan;options=bold>App dev</>  <fg=gray>(%s — %s)</>',
-                $binding,
-                $modeLabel,
-            ));
-            $io->writeln('  <fg=gray>Serve lock</>    ' . $binding);
-        } elseif ($session->platformServe) {
-            $io->writeln(sprintf(
-                '  <fg=green;options=bold>➜</>  <fg=cyan;options=bold>Platform dev</>  <fg=gray>(%s)</>',
-                $modeLabel,
-            ));
-            $io->writeln('  <fg=gray>Serve App</>     platform');
-        } else {
-            $io->writeln(sprintf(
-                '  <fg=green;options=bold>➜</>  <fg=cyan;options=bold>Dev server</>  <fg=gray>(%s — %s)</>',
-                $label,
-                $modeLabel,
-            ));
-        }
-
-        if ($withServe) {
-            $io->writeln('  <fg=gray>PHP</>           ' . $session->phpOrigin());
-
-            if ($session->serveHost === '0.0.0.0' || $session->serveHost === '[::]') {
-                $lan = FrontendDevSession::detectLanIp();
-
-                if ($lan !== null) {
-                    $io->writeln('  <fg=gray>LAN</>           http://' . $lan . ':' . $session->servePort);
-                }
-            }
-        }
-
-        $io->writeln('');
-        $io->writeln('  <fg=gray>Open in browser</>' . ($session->platformServe ? '  <fg=gray>(app-router paths)</>' : ''));
-
-        $appUrls = $session->displayAppUrls();
-
-        if ($appUrls !== []) {
-            $rows = [];
-
-            foreach ($appUrls as $url) {
-                $rows[] = [$label, $url, $session->viteDevPortLabel()];
-            }
-
-            $io->table(['App', 'URL', 'Vite port'], $rows);
-        } elseif (!$withServe) {
-            $io->writeln('  <fg=gray>Vite port</>  ' . $session->viteDevPortLabel());
-        }
-
-        if ($withServe && !(bool) $input->getOption('no-inspector') && InspectorRuntime::isAvailable()) {
-            $io->writeln('  <fg=gray>Inspector</>     <fg=green>active</> <fg=gray>' . InspectorRuntime::ROUTE . '</>');
-
-            if ((bool) $input->getOption('open-inspector')) {
-                InspectorRuntime::openBrowser(InspectorRuntime::url($session->displayHost(), $session->servePort));
-            }
-        }
-
-        $io->writeln('');
-        $io->writeln('  <fg=gray>Press Ctrl+C to stop</>');
-        $io->writeln('');
-    }
-
     /**
      * @return array{host: string, quiet: bool}
      */
@@ -1501,100 +1446,6 @@ FOOTER
         }
 
         $io->note(sprintf('Port %d is in use — using %d for PHP serve.', $preferred, $resolvedPort));
-    }
-
-    private function startServeProcess(
-        string $package,
-        InputInterface $input,
-        OutputInterface $output,
-        SymfonyStyle $io,
-        bool $platformServe = false,
-        ?string $serveApp = null,
-        int $servePort = ServerPort::DEFAULT_SERVE_PORT,
-    ): Process {
-        $basePath = ProjectCli::root();
-        $serveApp = trim((string) ($serveApp ?? $input->getOption('serve-app') ?: $package));
-
-        $command = ProjectCli::processCommand([
-            'serve',
-            '--no-reload',
-        ], $basePath);
-
-        if (!$platformServe) {
-            $command[] = '--app=' . ServeAppBinding::devServeBinding($serveApp);
-        }
-
-        $serveHost = $this->resolveServeHost($input);
-        if (is_string($serveHost) && trim($serveHost) !== '') {
-            $command[] = '--host=' . trim($serveHost);
-        }
-
-        $command[] = '--port=' . $servePort;
-
-        if ((bool) $input->getOption('no-inspector')) {
-            $command[] = '--no-inspector';
-        } elseif ((bool) $input->getOption('open-inspector')) {
-            $command[] = '--open-inspector';
-        }
-
-        $env = DevelopmentServer::feDevServeSubprocessEnv();
-        if (!(bool) $input->getOption('no-inspector') && InspectorRuntime::isAvailable()) {
-            $defaultPackage = $platformServe ? null : InspectorRuntime::resolveDefaultPackage($serveApp);
-            foreach (InspectorRuntime::environment($basePath, $defaultPackage) as $key => $value) {
-                $env[$key] = $value;
-            }
-        }
-
-        $process = new Process($command, $basePath, $env, null, null);
-        $process->setTimeout(null);
-
-        $serveLabel = $platformServe
-            ? 'serve (platform)'
-            : 'serve --app=' . $serveApp;
-        $io->writeln('<info>Starting Pinoox server</info> <fg=gray>(' . ProjectCli::platformFormat($serveLabel, $basePath) . ')</>');
-
-        $process->start(function (string $type, string $buffer) use ($output): void {
-            foreach (preg_split("/\r\n|\n|\r/", $buffer) ?: [] as $line) {
-                $line = trim($line);
-                if ($line === '' || !$this->shouldForwardServeLine($line)) {
-                    continue;
-                }
-
-                $output->writeln('  <fg=cyan>[serve]</> ' . $line);
-            }
-        });
-
-        usleep(750_000);
-
-        if (!$process->isRunning()) {
-            throw new \RuntimeException(trim($process->getErrorOutput() ?: $process->getOutput()) ?: 'Unknown error');
-        }
-
-        return $process;
-    }
-
-    private function shouldForwardServeLine(string $line): bool
-    {
-        if (preg_match('/^Pinoox development server running:/i', $line)) {
-            return false;
-        }
-
-        if (preg_match('/^Press Ctrl\+C to stop$/i', $line)) {
-            return false;
-        }
-
-        return preg_match('/\b(error|failed|fatal|warning)\b/i', $line) === 1;
-    }
-
-    private function stopServeProcess(?Process $process, SymfonyStyle $io): void
-    {
-        if ($process === null || !$process->isRunning()) {
-            return;
-        }
-
-        $io->writeln('');
-        $io->writeln('<comment>Stopping Pinoox server…</comment>');
-        $process->stop(5, defined('SIGINT') ? SIGINT : null);
     }
 
     private function runScript(
