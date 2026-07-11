@@ -24,7 +24,8 @@ test('FrontendDevSession builds locked serve URLs at PHP origin without app-rout
         ->and($session->displayAppUrls())->toBe(['http://127.0.0.1:8000'])
         ->and($session->proxyPrefixes)->toContain('/api')
         ->and($session->proxyPrefixes)->not->toContain('/manager')
-        ->and($session->viteDevServerUrl())->toBe('http://127.0.0.1:5173');
+        ->and($session->viteDevServerUrl())->toBe('http://127.0.0.1:5173')
+        ->and($session->viteDevPortLabel())->toBe('5173');
 });
 
 test('FrontendDevSync writes autodev env and can wire simple vite config', function () {

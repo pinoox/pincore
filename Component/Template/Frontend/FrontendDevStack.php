@@ -343,6 +343,7 @@ final class FrontendDevStack
         $io->table(['Context', 'Theme', 'Vite port'], $rows);
 
         $io->writeln('  <fg=gray>Open</>  ' . $origin . '  <fg=gray>in your browser (HMR follows the route theme)</>');
+        $io->writeln('  <fg=gray>Vite ports are internal — do not open them in the browser</>');
 
         $io->writeln('  <fg=gray>Stop</>   Ctrl+C');
 
