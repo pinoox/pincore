@@ -9,6 +9,7 @@ namespace Pinoox\Component\Template\Frontend;
 use Pinoox\Component\Package\PackageName;
 
 use Pinoox\Component\Server\DevelopmentServer;
+use Pinoox\Component\Server\ServeAppBinding;
 use Pinoox\Component\Server\ServerPort;
 
 use Pinoox\Component\Template\Frontend\ThemeFrontendDevTarget;
@@ -31,6 +32,8 @@ use Symfony\Component\Process\Process;
 final class FrontendDevStack
 
 {
+
+    private string $serveBinding = FrontendDevSession::SERVE_PLATFORM;
 
     /**
 
@@ -147,6 +150,8 @@ final class FrontendDevStack
 
         array $stackTargets = [],
 
+        string $serveBinding = FrontendDevSession::SERVE_PLATFORM,
+
     ): int {
 
         if ($frontends === [] || $sessions === [] || count($frontends) !== count($sessions)) {
@@ -154,6 +159,8 @@ final class FrontendDevStack
             throw new \InvalidArgumentException('Frontend dev stack requires at least one app.');
 
         }
+
+        $this->serveBinding = trim($serveBinding) !== '' ? trim($serveBinding) : FrontendDevSession::SERVE_PLATFORM;
 
 
 
@@ -183,7 +190,7 @@ final class FrontendDevStack
 
 
 
-            $io->writeln('  <fg=gray>Ready — open the URLs above. Vite HMR runs in the background.</>');
+            $io->writeln('  <fg=gray>Ready — PHP and Vite are running.</>');
 
             $io->writeln('');
 
@@ -219,27 +226,65 @@ final class FrontendDevStack
 
         $primary = $sessions[0];
 
-        $origin = $primary->phpOrigin();
+        $origin = rtrim($primary->phpOrigin(), '/');
 
         $network = $primary->serveHost === '0.0.0.0' || $primary->serveHost === '[::]';
+
+        $platformServe = $this->serveBinding === FrontendDevSession::SERVE_PLATFORM;
+
+        $uniquePackages = array_values(array_unique(array_map(
+
+            static fn (ThemeFrontend $frontend): string => $frontend->package(),
+
+            $frontends,
+
+        )));
+
+        $modeLabel = $platformServe ? 'Platform router' : ($uniquePackages[0] ?? 'app');
+
+        $contextNames = array_values(array_filter(
+
+            array_map(static fn (array $target): string => (string) ($target['context'] ?? ''), $stackTargets),
+
+            static fn (string $name): bool => trim($name) !== '',
+
+        ));
 
 
 
         $io->writeln('');
 
-        $io->writeln(sprintf(
+        $io->title('Frontend development');
 
-            '  <fg=green;options=bold>➜</>  <fg=cyan;options=bold>Platform dev</>  <fg=gray>(%d apps — 1 PHP + %d Vite)</>',
 
-            count($frontends),
 
-            count($frontends),
+        $summary = [
+
+            'Mode' => $platformServe ? 'Multi-app (platform)' : 'Single app',
+
+            'Package' => $modeLabel,
+
+            'PHP URL' => $origin,
+
+            'Vite' => count($frontends) . ' dev server' . (count($frontends) === 1 ? '' : 's'),
+
+        ];
+
+        if ($contextNames !== []) {
+
+            $summary['Contexts'] = implode(', ', $contextNames);
+
+        }
+
+        $io->definitionList(...array_map(
+
+            static fn (string $label, string $value): array => [$label => $value],
+
+            array_keys($summary),
+
+            array_values($summary),
 
         ));
-
-        $io->writeln('  <fg=gray>Serve App</>     platform');
-
-        $io->writeln('  <fg=gray>PHP</>           ' . $origin);
 
 
 
@@ -251,17 +296,11 @@ final class FrontendDevStack
 
             if ($lan !== null) {
 
-                $io->writeln('  <fg=gray>LAN</>           http://' . $lan . ':' . $primary->servePort);
+                $io->writeln('  <fg=gray>LAN</>  http://' . $lan . ':' . $primary->servePort);
 
             }
 
         }
-
-
-
-        $io->writeln('');
-
-        $io->writeln('  <fg=gray>Open in browser</>  <fg=gray>(app-router paths)</>');
 
 
 
@@ -273,23 +312,39 @@ final class FrontendDevStack
 
             $session = $sessions[$index];
 
-            $label = self::stackLabel($frontend->package(), $stackTargets[$index]['context'] ?? null);
+            $context = trim((string) ($stackTargets[$index]['context'] ?? ''));
+
+            $themeFolder = trim((string) ($stackTargets[$index]['theme'] ?? ''));
+
+            $label = $context !== ''
+
+                ? $context
+
+                : self::stackLabel($frontend->package(), null);
 
 
 
-            foreach ($session->displayAppUrls() as $url) {
+            $rows[] = [
 
-                $rows[] = [$label, $url, $session->viteDevServerUrl()];
+                $label,
 
-            }
+                $themeFolder !== '' ? $themeFolder : '—',
+
+                $session->viteDevPortLabel(),
+
+            ];
 
         }
 
 
 
-        $io->table(['App', 'URL', 'Vite HMR'], $rows);
+        $io->section('Vite stacks');
 
-        $io->writeln('  <fg=gray>Press Ctrl+C to stop all servers</>');
+        $io->table(['Context', 'Theme', 'Vite port'], $rows);
+
+        $io->writeln('  <fg=gray>Open</>  ' . $origin . '  <fg=gray>in your browser (HMR follows the route theme)</>');
+
+        $io->writeln('  <fg=gray>Stop</>   Ctrl+C');
 
         $io->writeln('');
 
@@ -309,19 +364,23 @@ final class FrontendDevStack
 
     ): Process {
 
-        $basePath = rtrim(str_replace('\\', '/', (string) PINOOX_BASE_PATH), '/');
+        $basePath = ProjectCli::root();
 
-        $command = [
-
-            DevelopmentServer::phpBinary(),
-
-            $basePath . '/pinoox',
+        $command = ProjectCli::processCommand([
 
             'serve',
 
             '--no-reload',
 
-        ];
+        ], $basePath);
+
+        $platformServe = $this->serveBinding === FrontendDevSession::SERVE_PLATFORM;
+
+        if (!$platformServe) {
+
+            $command[] = '--app=' . ServeAppBinding::devServeBinding($this->serveBinding);
+
+        }
 
 
 
@@ -347,7 +406,13 @@ final class FrontendDevStack
 
 
 
-        $io->writeln('<info>Starting servers…</info> <fg=gray>(platform + ' . ProjectCli::platformFormat('serve') . ' + Vite)</>');
+        $serveHint = $platformServe
+
+            ? ProjectCli::platformFormat('serve', $basePath)
+
+            : ProjectCli::platformFormat('serve --app=' . $this->serveBinding, $basePath);
+
+        $io->writeln('<info>Starting PHP + Vite</info> <fg=gray>(' . $serveHint . ')</>');
 
 
 
@@ -409,9 +474,21 @@ final class FrontendDevStack
 
         $base['VITE_DEV_STACK'] = 'true';
 
-        $base['VITE_SERVE_APP'] = FrontendDevSession::SERVE_PLATFORM;
+        if (!isset($base['VITE_DEV_QUIET'])) {
 
-        $base['VITE_DEV_QUIET'] = 'true';
+            $base['VITE_DEV_QUIET'] = 'true';
+
+        }
+
+        if (!isset($base['VITE_SERVE_APP']) || trim((string) $base['VITE_SERVE_APP']) === '') {
+
+            $base['VITE_SERVE_APP'] = $this->serveBinding === FrontendDevSession::SERVE_PLATFORM
+
+                ? FrontendDevSession::SERVE_PLATFORM
+
+                : ServeAppBinding::devServeBinding($this->serveBinding);
+
+        }
 
 
 

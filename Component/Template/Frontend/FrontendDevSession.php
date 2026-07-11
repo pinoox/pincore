@@ -92,6 +92,12 @@ final class FrontendDevSession
         return 'http://' . $host . ':' . $this->vitePort;
     }
 
+    /** CLI hint — port only (not a browser URL). */
+    public function viteDevPortLabel(): string
+    {
+        return (string) $this->vitePort;
+    }
+
     public function displayHost(): string
     {
         if ($this->serveHost === '0.0.0.0' || $this->serveHost === '[::]') {

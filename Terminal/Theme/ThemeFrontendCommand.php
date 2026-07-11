@@ -629,6 +629,21 @@ FOOTER
             return $defaultTheme;
         }
 
+        if ($hasContexts && $devPick && $themeOption === ''
+            && $action === 'dev' && ThemeFrontendDevTarget::hasMultipleViteContexts($package)) {
+            $contexts = array_values(array_filter(
+                array_column(ThemeFrontendDevTarget::targetsForPackage($package), 'context'),
+                static fn ($context): bool => is_string($context) && trim($context) !== '',
+            ));
+            $io->writeln('');
+            $io->writeln(sprintf(
+                '  <fg=green>></>  Vite HMR for <fg=cyan>all</> contexts: <fg=gray>%s</>',
+                $contexts !== [] ? implode(', ', $contexts) : 'vite',
+            ));
+
+            return ThemeFrontendDevTarget::ALL_CONTEXTS;
+        }
+
         if ($hasContexts && $devPick && $themeOption === '' && !$input->isInteractive()
             && ThemeFrontendDevTarget::hasMultipleViteContexts($package)) {
             return ThemeFrontendDevTarget::ALL_CONTEXTS;
@@ -1045,7 +1060,16 @@ FOOTER
             $this->noteResolvedServePort($io, $resolvedServePort, false);
         }
 
-        return (new FrontendDevStack())->run($io, $output, $frontends, $sessions, $stackServeHost, $resolvedServePort, $targets) === 0
+        return (new FrontendDevStack())->run(
+            $io,
+            $output,
+            $frontends,
+            $sessions,
+            $stackServeHost,
+            $resolvedServePort,
+            $targets,
+            $serveBinding,
+        ) === 0
             ? Command::SUCCESS
             : Command::FAILURE;
     }
@@ -1341,12 +1365,12 @@ FOOTER
             $rows = [];
 
             foreach ($appUrls as $url) {
-                $rows[] = [$label, $url, $session->viteDevServerUrl()];
+                $rows[] = [$label, $url, $session->viteDevPortLabel()];
             }
 
-            $io->table(['App', 'URL', 'Vite HMR'], $rows);
+            $io->table(['App', 'URL', 'Vite port'], $rows);
         } elseif (!$withServe) {
-            $io->writeln('  <comment>' . $session->viteDevServerUrl() . '</comment>');
+            $io->writeln('  <fg=gray>Vite port</>  ' . $session->viteDevPortLabel());
         }
 
         if ($withServe && !(bool) $input->getOption('no-inspector') && InspectorRuntime::isAvailable()) {

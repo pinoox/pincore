@@ -12,7 +12,7 @@ use Pinoox\Portal\App\AppEngine;
 final class ThemeFrontendDevTarget
 {
     /** Interactive / CLI token to start every vite-capable theme context for one app. */
-    public const ALL_CONTEXTS = '__all__';
+    public const ALL_CONTEXTS = 'all';
 
     public static function isAllContexts(?string $selection): bool
     {
@@ -23,7 +23,7 @@ final class ThemeFrontendDevTarget
         $selection = strtolower(trim($selection));
 
         return $selection === self::ALL_CONTEXTS
-            || $selection === 'all'
+            || $selection === '__all__'
             || $selection === '*';
     }
 
@@ -49,10 +49,10 @@ final class ThemeFrontendDevTarget
         ));
 
         if ($contexts === []) {
-            return 'all vite contexts';
+            return 'every vite context';
         }
 
-        return 'all vite contexts (' . implode(', ', $contexts) . ')';
+        return implode(', ', $contexts);
     }
 
     /**
