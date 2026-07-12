@@ -85,6 +85,11 @@ function delete(string $path, array|string|Closure $action = ''): RouteBuilder|R
     return RouteFacade::delete($path, $action);
 }
 
+function query(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+{
+    return RouteFacade::query($path, $action);
+}
+
 function route_match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
 {
     return RouteFacade::match($methods, $path, $action);

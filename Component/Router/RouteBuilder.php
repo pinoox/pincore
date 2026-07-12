@@ -82,6 +82,11 @@ class RouteBuilder
         return $this->method('DELETE');
     }
 
+    public function query(): self
+    {
+        return $this->method('QUERY');
+    }
+
     public function options(): self
     {
         return $this->method('OPTIONS');

@@ -66,6 +66,11 @@ class Route extends Portal
         return self::registrar()->delete($path, $action);
     }
 
+    public static function query(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return self::registrar()->query($path, $action);
+    }
+
     public static function match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
     {
         return self::registrar()->match($methods, $path, $action);

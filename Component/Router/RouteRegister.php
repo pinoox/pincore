@@ -58,6 +58,11 @@ class RouteRegister
         return $this->method('DELETE', $path, $action);
     }
 
+    public function query(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->method('QUERY', $path, $action);
+    }
+
     public function match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
     {
         if ($this->router !== null) {
@@ -117,6 +122,7 @@ class RouteRegister
                 'PUT' => $this->router->route($path, $action)->put(),
                 'PATCH' => $this->router->route($path, $action)->patch(),
                 'DELETE' => $this->router->route($path, $action)->delete(),
+                'QUERY' => $this->router->route($path, $action)->query(),
                 default => $this->router->route($path, $action)->get(),
             };
         }

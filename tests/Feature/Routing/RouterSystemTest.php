@@ -32,6 +32,28 @@ it('registers fluent builder routes with methods, flow, data, tags, defaults, an
         ->and($pinooxRoute->getPriority())->toBe(5);
 });
 
+it('registers QUERY method routes via fluent builder and helper', function () {
+    $router = routerSystemRouter();
+
+    $router->route('/search', fn() => 'ok')
+        ->query()
+        ->name('search.query')
+        ->register();
+
+    expect($router->all()['search.query']->getMethods())->toBe(['QUERY']);
+
+    \Pinoox\Component\Router\RouteRegistrar::usingRouter($router, function () {
+        \Pinoox\Portal\Route::query('/products/filter', fn() => 'filtered')->name('products.filter');
+    });
+
+    expect($router->all()['products.filter']->getMethods())->toBe(['QUERY']);
+
+    $request = \Pinoox\Component\Http\Request::create('/search', 'QUERY', ['q' => 'pinoox']);
+    $matched = $router->matchRequest($request);
+
+    expect($matched['_route'])->toBe('search.query');
+});
+
 it('inherits collection path, name, flow, tags, data, defaults, and filters', function () {
     $router = routerSystemRouter();
 

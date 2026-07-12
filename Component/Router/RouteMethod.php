@@ -28,6 +28,8 @@ final class RouteMethod
 
     public const DELETE = 'DELETE';
 
+    public const QUERY = 'QUERY';
+
     public const OPTIONS = 'OPTIONS';
 
     public const PURGE = 'PURGE';
@@ -46,6 +48,7 @@ final class RouteMethod
         self::PUT,
         self::PATCH,
         self::DELETE,
+        self::QUERY,
         self::OPTIONS,
         self::PURGE,
         self::TRACE,

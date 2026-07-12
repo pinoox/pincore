@@ -82,6 +82,11 @@ class RouteRegistrar
         return $this->register()->delete($path, $action);
     }
 
+    public function query(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->register()->query($path, $action);
+    }
+
     public function match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
     {
         return $this->register()->match($methods, $path, $action);

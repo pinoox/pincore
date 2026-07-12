@@ -401,6 +401,16 @@ class AppTestKit
         return self::call($package, 'POST', $uri, ['json' => $json, 'headers' => $headers]);
     }
 
+    public static function query(string $package, string $uri, array $data = [], array $headers = []): TestResponse
+    {
+        return self::call($package, 'QUERY', $uri, compact('data', 'headers'));
+    }
+
+    public static function queryJson(string $package, string $uri, array $json = [], array $headers = []): TestResponse
+    {
+        return self::call($package, 'QUERY', $uri, ['json' => $json, 'headers' => $headers]);
+    }
+
     public static function projectRoot(): string
     {
         return SystemConfig::rootPath();
