@@ -202,6 +202,10 @@ class Pinker
             return HelperObject::closure_dump($data);
         }
 
+        if ($data instanceof ExportableManifestValue) {
+            return $data->exportForPinker();
+        }
+
         if (!is_array($data)) {
             return var_export($data, true);
         }

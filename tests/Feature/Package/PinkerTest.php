@@ -260,6 +260,47 @@ it('stores runtime config changes as state overrides', function () {
         ->and(is_file($pinker->getOverrideFile()))->toBeTrue();
 });
 
+it('bakes theme flow aliases from app.php helpers', function () {
+    $appsRoot = pinkerTestAppsRoot();
+    $package = 'com_test_pinker';
+    $appDir = $appsRoot . '/' . $package;
+
+    if (!is_dir($appDir)) {
+        mkdir($appDir, 0777, true);
+    }
+
+    file_put_contents($appDir . '/app.php', <<<'PHP'
+<?php
+
+return [
+    'package' => 'com_test_pinker',
+    'alias' => [
+        'auth' => 'App\\com_test_pinker\\Flow\\AuthFlow',
+        ...theme_flow_aliases(['site', 'panel']),
+    ],
+];
+PHP);
+
+    $pinker = Pinker::folder($appDir, 'app.php')->dumping(true);
+    $data = $pinker->pickup();
+
+    expect($data['alias']['theme']['site'])->toBeInstanceOf(\Pinoox\Flow\ThemeContextFlow::class)
+        ->and($data['alias']['theme']['panel'])->toBeInstanceOf(\Pinoox\Flow\ThemeContextFlow::class)
+        ->and($data['alias']['theme']['site']->context())->toBe('site');
+
+    $baked = file_get_contents($pinker->getBakedFile());
+
+    expect($baked)
+        ->toContain('\\Pinoox\\Flow\\ThemeContextFlow::for(\'site\')')
+        ->toContain('\\Pinoox\\Flow\\ThemeContextFlow::for(\'panel\')')
+        ->not->toContain('__set_state');
+
+    $reloaded = include $pinker->getBakedFile();
+
+    expect($reloaded['alias']['theme']['panel'])->toBeInstanceOf(\Pinoox\Flow\ThemeContextFlow::class)
+        ->and($reloaded['alias']['theme']['panel']->context())->toBe('panel');
+});
+
 it('bakes closures in app config files', function () {
     $appsRoot = pinkerTestAppsRoot();
     $package = 'com_test_pinker';
