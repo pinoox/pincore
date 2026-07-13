@@ -16,7 +16,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'user:logout',
-    description: 'Clear PINOOX_LOGIN auto-login and end the current auth session',
+    description: 'End the current auth session (token/cookie)',
 )]
 class UserLogoutCommand extends Terminal
 {
@@ -27,17 +27,20 @@ class UserLogoutCommand extends Terminal
         $this
             ->setHelp(
                 <<<'HELP'
-Clear PINOOX_LOGIN from .env for an app (or all apps) and log out the current session.
+Log out the current auth session for an app scope.
+
+With --force, removes PINOOX_LOGIN_TOKEN from .env.
+Does not change PINOOX_LOGIN (manual declarative auto-login).
 
 Examples:
   php pinoox user:logout com_pinoox_manager
-  php pinoox user:logout --all
+  php pinoox user:logout --force
   php pinoox user:logout --json
-  pinx user:logout
+  pinx user:logout --force
 HELP
             )
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
-            ->addOption('all', 'a', InputOption::VALUE_NONE, 'Clear every PINOOX_LOGIN line')
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Remove PINOOX_LOGIN_TOKEN from .env')
             ->addOption('json', null, InputOption::VALUE_NONE, 'Output JSON');
     }
 
@@ -46,64 +49,59 @@ HELP
         parent::execute($input, $output);
 
         $io = new SymfonyStyle($input, $output);
-        $clearAll = (bool) $input->getOption('all');
-        $package = '';
+        $package = $this->resolveUserPackageInput($input, $output, $io, 'Logout for');
+        $this->prepareUserScope($package);
+        $this->prepareCliRequestContext();
 
-        if (!$clearAll) {
-            $package = $this->resolveUserPackageInput($input, $output, $io, 'Logout PINOOX_LOGIN for');
-            $this->prepareUserScope($package);
-            $this->prepareCliRequestContext();
-        }
-
-        $before = array_map(
-            static fn (array $entry): string => DevLogin::format($entry),
-            DevLogin::parseAll(),
-        );
-
+        $wasLoggedIn = false;
         try {
-            if (Auth::check()) {
+            $wasLoggedIn = Auth::check();
+            if ($wasLoggedIn) {
                 Auth::logout();
             }
-        } catch (\Throwable) {
-            // Env/session may already be empty in CLI.
+        } catch (\Throwable $e) {
+            if ($input->getOption('json')) {
+                $io->writeln(json_encode([
+                    'ok' => false,
+                    'message' => $e->getMessage(),
+                    'package' => $package,
+                ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+                return Command::FAILURE;
+            }
+
+            $io->error('Logout failed: ' . $e->getMessage());
+
+            return Command::FAILURE;
         }
 
-        $ok = $clearAll ? DevLogin::clear() : DevLogin::forget($package);
-        $after = array_map(
-            static fn (array $entry): string => DevLogin::format($entry),
-            DevLogin::parseAll(),
-        );
+        $clearedToken = false;
+        if ((bool) $input->getOption('force')) {
+            $clearedToken = DevLogin::clearToken();
+        }
 
         $payload = [
-            'ok' => $ok,
-            'cleared_all' => $clearAll,
-            'package' => $clearAll ? null : $package,
-            'before' => $before,
-            'after' => $after,
-            'pinoox_login' => $clearAll ? '' : DevLogin::expression($package),
-            'dev_login_enabled' => DevLogin::enabled(),
+            'ok' => true,
+            'package' => $package,
+            'was_logged_in' => $wasLoggedIn,
+            'logged_out' => true,
+            'pinoox_login_token_cleared' => $clearedToken,
         ];
 
         if ($input->getOption('json')) {
             $io->writeln(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
 
-            return $ok ? Command::SUCCESS : Command::FAILURE;
+            return Command::SUCCESS;
         }
 
-        if (!$ok) {
-            $io->error('Could not clear PINOOX_LOGIN.');
+        $io->success($wasLoggedIn
+            ? sprintf('Logged out for %s.', $package)
+            : sprintf('No active session for %s (ok).', $package));
 
-            return Command::FAILURE;
-        }
-
-        if ($clearAll) {
-            $io->success('Cleared all PINOOX_LOGIN entries.');
-        } else {
-            $io->success(sprintf('Cleared PINOOX_LOGIN for %s.', $package));
-        }
-
-        if ($after !== []) {
-            $io->note('Remaining: ' . implode(', ', $after));
+        if ((bool) $input->getOption('force')) {
+            $io->note($clearedToken
+                ? 'Removed PINOOX_LOGIN_TOKEN from .env.'
+                : 'PINOOX_LOGIN_TOKEN was already absent (or could not be removed).');
         }
 
         return Command::SUCCESS;

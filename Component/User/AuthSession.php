@@ -227,6 +227,10 @@ class AuthSession
             return 'env-login';
         }
 
+        if (self::$requestToken !== null && self::$requestToken !== '') {
+            return self::$requestToken;
+        }
+
         if (!empty(self::$token_key)) {
             return self::$token_key;
         }

@@ -11,22 +11,18 @@ use Pinoox\Portal\Auth;
 use Pinoox\Portal\Env;
 
 /**
- * Env auto-login via PINOOX_LOGIN=package:field:value
+ * Env auto-login helpers (local/dev).
  *
- * Multiple apps (one line each — read from .env, not only the last Env value):
- *   PINOOX_LOGIN=com_pinoox_manager:id:1
- *   PINOOX_LOGIN=com_pinoox_manager:user_id:1
- *   PINOOX_LOGIN=com_pinoox_manager:personal_id:1
- *   PINOOX_LOGIN=com_pinoox_account:username:yoosef
- *   PINOOX_LOGIN=com_pinoox_app:email:info@pinoox.com
- *   PINOOX_LOGIN=com_pinoox_shop:mobile:09122220000
+ * PINOOX_LOGIN=package:field:value — optional, manual only (not written by CLI).
+ * PINOOX_LOGIN_TOKEN=… — session/JWT token; CLI user:login|logout --force updates it.
  *
- * Fields: id | user_id | personal_id | username | email | login | mobile
- * Independent of jwt/cookie/session client auth. Empty/missing => off.
+ * Fields for PINOOX_LOGIN: id | user_id | personal_id | username | email | login | mobile
  */
 final class DevLogin
 {
     public const ENV_LOGIN = 'PINOOX_LOGIN';
+
+    public const ENV_LOGIN_TOKEN = 'PINOOX_LOGIN_TOKEN';
 
     /** @var list<string> */
     private const FIELDS = ['id', 'user_id', 'personal_id', 'username', 'email', 'login', 'mobile'];
@@ -37,7 +33,36 @@ final class DevLogin
 
     public static function enabled(): bool
     {
-        return self::parseAll() !== [];
+        return self::parseAll() !== [] || self::envToken() !== '';
+    }
+
+    public static function envToken(): string
+    {
+        return trim((string) (Env::get(self::ENV_LOGIN_TOKEN) ?? ''));
+    }
+
+    public static function rememberToken(string $token): bool
+    {
+        $token = trim($token);
+        if ($token === '') {
+            return false;
+        }
+
+        $env = EnvFile::forProject();
+        $ok = $env->setMany([self::ENV_LOGIN_TOKEN => $token]);
+        $env->applyToRuntime([self::ENV_LOGIN_TOKEN => $token]);
+
+        return $ok;
+    }
+
+    public static function clearToken(): bool
+    {
+        $env = EnvFile::forProject();
+        $ok = $env->removeKeys([self::ENV_LOGIN_TOKEN]);
+        $env->applyToRuntime([self::ENV_LOGIN_TOKEN => '']);
+        AuthSession::setRequestToken(null);
+
+        return $ok;
     }
 
     /**
@@ -144,7 +169,7 @@ final class DevLogin
     }
 
     /**
-     * Resolve PINOOX_LOGIN for the active app into a forced in-request user.
+     * Apply PINOOX_LOGIN (forced user) and/or PINOOX_LOGIN_TOKEN (request token).
      */
     public static function apply(): void
     {
@@ -153,27 +178,30 @@ final class DevLogin
             return;
         }
 
-        $parsed = self::parse($current !== '' ? $current : null);
-        if ($parsed === null) {
-            AuthSession::setForcedUser(null);
-            self::$applied = true;
-            self::$appliedPackage = $current;
-
-            return;
-        }
-
-        TransportRuntime::use($parsed['package']);
-        UserModel::clearBootedModels();
-
-        $user = self::resolveUser($parsed);
         self::$applied = true;
-        self::$appliedPackage = $parsed['package'];
+        self::$appliedPackage = $current;
 
-        if ($user === null || $user->status !== UserModel::ACTIVE) {
-            return;
+        $parsed = self::parse($current !== '' ? $current : null);
+        if ($parsed !== null) {
+            TransportRuntime::use($parsed['package']);
+            UserModel::clearBootedModels();
+
+            $user = self::resolveUser($parsed);
+            if ($user !== null && $user->status === UserModel::ACTIVE) {
+                AuthSession::setForcedUser($user);
+
+                return;
+            }
+
+            AuthSession::setForcedUser(null);
+        } else {
+            AuthSession::setForcedUser(null);
         }
 
-        AuthSession::setForcedUser($user);
+        $token = self::envToken();
+        if ($token !== '') {
+            AuthSession::setRequestToken($token);
+        }
     }
 
     /**
@@ -219,7 +247,6 @@ final class DevLogin
 
         $env = EnvFile::forProject();
         $env->removeKeys([
-            'PINOOX_LOGIN_TOKEN',
             'PINOOX_DEV_LOGIN',
             'PINOOX_DEV_LOGIN_TOKEN',
         ]);
@@ -241,7 +268,6 @@ final class DevLogin
     {
         $env = EnvFile::forProject();
         $env->removeKeys([
-            'PINOOX_LOGIN_TOKEN',
             'PINOOX_DEV_LOGIN',
             'PINOOX_DEV_LOGIN_TOKEN',
         ]);

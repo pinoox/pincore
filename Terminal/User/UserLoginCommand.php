@@ -19,7 +19,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'user:login',
-    description: 'Login a user, print token for browser apply, and set PINOOX_LOGIN',
+    description: 'Authenticate a user and print a session/JWT token',
 )]
 class UserLoginCommand extends Terminal
 {
@@ -30,21 +30,16 @@ class UserLoginCommand extends Terminal
         $this
             ->setHelp(
                 <<<'HELP'
-Authenticate a user for an app scope.
+Authenticate a user and print a token for cookie/JWT/browser apply.
 
-Writes PINOOX_LOGIN=package:id:N to .env (server auto-login) and prints a
-token for Inspector “Apply to browser” (localStorage/cookie).
-
-Clear with: user:logout
+With --force, writes PINOOX_LOGIN_TOKEN to .env (CLI token auto-login).
+Does not write PINOOX_LOGIN (optional manual declarative auto-login).
 
 Examples:
   php pinoox user:login
   php pinoox user:login com_my_shop --id=1
-  php pinoox user:login platform --id=1 --no-env
-  pinx user:login --id=1
-
-.env:
-  PINOOX_LOGIN=com_pinoox_manager:id:1
+  php pinoox user:login --id=1 --force
+  pinx user:login --id=1 --force
 HELP
             )
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp())
@@ -52,9 +47,7 @@ HELP
             ->addOption('username', 'u', InputOption::VALUE_REQUIRED, 'Username or email')
             ->addOption('password', 'p', InputOption::VALUE_REQUIRED, 'Plain password')
             ->addOption('remember', 'r', InputOption::VALUE_NONE, 'Use remember-me lifetime')
-            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Persist PINOOX_LOGIN (default; kept for compatibility)')
-            ->addOption('no-env', null, InputOption::VALUE_NONE, 'Do not write PINOOX_LOGIN to .env')
-            ->addOption('clear', null, InputOption::VALUE_NONE, 'Deprecated: use user:logout')
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Write PINOOX_LOGIN_TOKEN to .env')
             ->addOption('json', null, InputOption::VALUE_NONE, 'Output JSON');
     }
 
@@ -64,19 +57,13 @@ HELP
 
         $io = new SymfonyStyle($input, $output);
 
-        if ($input->getOption('clear')) {
-            $io->warning('user:login --clear is deprecated; use user:logout instead.');
-
-            return $this->clearDevLogin($io, (bool) $input->getOption('json'));
-        }
-
         $useWizard = $input->isInteractive()
             && !$input->getOption('json')
             && !$this->hasExplicitCredentials($input);
 
         if ($useWizard) {
             $io->title('User login');
-            $io->text('Signs in, sets PINOOX_LOGIN in .env, and prints a browser token.');
+            $io->text('Signs in and prints a session/JWT token for browser apply.');
             $io->newLine();
         }
 
@@ -89,7 +76,6 @@ HELP
         try {
             if ($useWizard) {
                 [$user, $token] = $this->runLoginWizard($input, $output, $io, $package, $remember);
-                $persist = $this->shouldPersistEnv($input);
             } else {
                 $userIdOption = $input->getOption('id');
                 if ($userIdOption !== null && $userIdOption !== '') {
@@ -97,7 +83,6 @@ HELP
                 } else {
                     [$user, $token] = $this->loginByCredentials($input, $io, $remember);
                 }
-                $persist = $this->shouldPersistEnv($input);
             }
         } catch (\Throwable $e) {
             $io->error('Login failed: ' . $e->getMessage());
@@ -112,14 +97,8 @@ HELP
         $auth = AuthConfig::resolve();
         $persisted = false;
 
-        if ($persist) {
-            $persisted = DevLogin::remember([
-                'package' => $package,
-                'field' => 'id',
-                'value' => (string) $user->user_id,
-                'user_id' => $user->user_id,
-                'username' => $user->username,
-            ]);
+        if ((bool) $input->getOption('force') && $token !== '') {
+            $persisted = DevLogin::rememberToken($token);
         }
 
         $payload = [
@@ -132,9 +111,7 @@ HELP
             'remember' => $remember,
             'auth_key' => (string) ($auth['key'] ?? ''),
             'auth_mode' => (string) ($auth['mode'] ?? AuthConfig::MODE_COOKIE),
-            'dev_login' => $persisted,
-            'dev_login_enabled' => DevLogin::enabled(),
-            'pinoox_login' => DevLogin::expression($package),
+            'pinoox_login_token' => $persisted,
         ];
 
         if ($input->getOption('json')) {
@@ -160,11 +137,11 @@ HELP
             ['Auth mode' => (string) ($auth['mode'] ?? '—')],
             ['Auth key' => (string) ($auth['key'] ?? '—')],
             ['Token' => $token !== '' ? $token : '—'],
-            ['.env' => $persisted ? 'PINOOX_LOGIN=' . DevLogin::expression($package) : 'not updated'],
+            ['.env' => $persisted ? 'PINOOX_LOGIN_TOKEN updated' : 'not updated'],
         );
 
         if ($persisted) {
-            $io->note('Auto-login is active while PINOOX_LOGIN is set. Clear with: user:logout');
+            $io->note('PINOOX_LOGIN_TOKEN is set. Clear with: user:logout --force');
         }
 
         return Command::SUCCESS;
@@ -212,8 +189,7 @@ HELP
 
                 return [null, ''];
             }
-            Auth::login($user, $remember);
-            $token = (string) (Auth::getTokenKey() ?: '');
+            $token = (string) (Auth::login($user, $remember) ?? '');
         } elseif ($method === 'id') {
             $id = (string) $io->ask('User id');
             $input->setOption('id', $id);
@@ -229,37 +205,6 @@ HELP
         }
 
         return [$user, $token];
-    }
-
-    private function shouldPersistEnv(InputInterface $input): bool
-    {
-        return !(bool) $input->getOption('no-env');
-    }
-
-    private function clearDevLogin(SymfonyStyle $io, bool $json): int
-    {
-        $ok = DevLogin::clear();
-
-        if ($json) {
-            $io->writeln(json_encode([
-                'ok' => $ok,
-                'cleared' => true,
-                'deprecated' => 'Use user:logout instead of user:login --clear',
-                'dev_login_enabled' => DevLogin::enabled(),
-            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
-
-            return $ok ? Command::SUCCESS : Command::FAILURE;
-        }
-
-        if (!$ok) {
-            $io->error('Could not clear PINOOX_LOGIN.');
-
-            return Command::FAILURE;
-        }
-
-        $io->success('Cleared PINOOX_LOGIN. Prefer: user:logout');
-
-        return Command::SUCCESS;
     }
 
     /**
@@ -298,32 +243,23 @@ HELP
      */
     private function loginByCredentials(InputInterface $input, SymfonyStyle $io, bool $remember): array
     {
-        $username = (string) ($input->getOption('username') ?: '');
-        $password = (string) ($input->getOption('password') ?: '');
-
+        $username = (string) ($input->getOption('username') ?? '');
         if ($username === '') {
-            if (!$input->isInteractive()) {
-                $io->error('Provide --id or --username in non-interactive mode.');
+            $io->error('Username or email is required (or pass --id).');
 
-                return [null, ''];
-            }
-            $username = (string) $io->ask('Username or email');
+            return [null, ''];
         }
 
-        if ($password === '') {
-            if (!$input->isInteractive()) {
-                $io->error('Password is required in non-interactive mode.');
-
-                return [null, ''];
-            }
+        $password = (string) ($input->getOption('password') ?? '');
+        if ($password === '' && $input->isInteractive()) {
             $question = new Question('Password');
             $question->setHidden(true);
             $question->setHiddenFallback(false);
             $password = (string) $io->askQuestion($question);
         }
 
-        if ($username === '' || $password === '') {
-            $io->error('Username and password are required.');
+        if ($password === '') {
+            $io->error('Password is required.');
 
             return [null, ''];
         }
@@ -334,22 +270,11 @@ HELP
         ], $remember);
 
         if (!$result->success) {
-            $message = $result->message ?: ($result->reason ?: 'Login failed.');
-            $io->error($message);
+            $io->error($result->message ?: 'Invalid credentials.');
 
             return [null, ''];
         }
 
         return [$result->user, (string) ($result->token ?? '')];
-    }
-
-    protected function prepareCliRequestContext(): void
-    {
-        $_SERVER['REMOTE_ADDR'] = (string) ($_SERVER['REMOTE_ADDR'] ?? '') !== ''
-            ? (string) $_SERVER['REMOTE_ADDR']
-            : '127.0.0.1';
-        $_SERVER['HTTP_USER_AGENT'] = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '') !== ''
-            ? (string) $_SERVER['HTTP_USER_AGENT']
-            : 'pinoox-cli';
     }
 }

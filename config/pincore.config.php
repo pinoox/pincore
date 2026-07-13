@@ -24,7 +24,7 @@ return [
 
     'version_code' => 170,
 
-    'version_name' => '3.8.0',
+    'version_name' => '3.7.4',
 
 ];
 

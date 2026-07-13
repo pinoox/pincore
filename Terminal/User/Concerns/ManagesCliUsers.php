@@ -38,6 +38,12 @@ trait ManagesCliUsers
         TransportRuntime::use($package);
     }
 
+    protected function prepareCliRequestContext(): void
+    {
+        $_SERVER['REMOTE_ADDR'] ??= '127.0.0.1';
+        $_SERVER['HTTP_USER_AGENT'] ??= 'pinoox-cli';
+    }
+
     protected function resolveUser(string $identifier): ?UserModel
     {
         if ($identifier === '') {
