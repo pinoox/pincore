@@ -3,6 +3,7 @@
 namespace Pinoox\Terminal\User;
 
 use Pinoox\Component\Terminal;
+use Pinoox\Component\User\AuthConfig;
 use Pinoox\Model\UserModel;
 use Pinoox\Portal\Auth;
 use Pinoox\Terminal\User\Concerns\ManagesCliUsers;
@@ -74,6 +75,7 @@ HELP
             return Command::FAILURE;
         }
 
+        $auth = AuthConfig::resolve();
         $payload = [
             'user_id' => $user->user_id,
             'username' => $user->username,
@@ -82,6 +84,8 @@ HELP
             'context' => $package,
             'token' => $token,
             'remember' => $remember,
+            'auth_key' => (string) ($auth['key'] ?? ''),
+            'auth_mode' => (string) ($auth['mode'] ?? AuthConfig::MODE_COOKIE),
         ];
 
         if ($input->getOption('json')) {
@@ -104,6 +108,8 @@ HELP
             ['Email' => (string) ($user->email ?: '—')],
             ['App scope' => (string) ($user->app ?? '—')],
             ['Context' => $package],
+            ['Auth mode' => (string) ($auth['mode'] ?? '—')],
+            ['Auth key' => (string) ($auth['key'] ?? '—')],
             ['Token' => $token !== '' ? $token : '—'],
         );
 
@@ -193,7 +199,11 @@ HELP
 
     protected function prepareCliRequestContext(): void
     {
-        $_SERVER['REMOTE_ADDR'] ??= '127.0.0.1';
-        $_SERVER['HTTP_USER_AGENT'] ??= 'pinoox-cli';
+        $_SERVER['REMOTE_ADDR'] = (string) ($_SERVER['REMOTE_ADDR'] ?? '') !== ''
+            ? (string) $_SERVER['REMOTE_ADDR']
+            : '127.0.0.1';
+        $_SERVER['HTTP_USER_AGENT'] = (string) ($_SERVER['HTTP_USER_AGENT'] ?? '') !== ''
+            ? (string) $_SERVER['HTTP_USER_AGENT']
+            : 'pinoox-cli';
     }
 }

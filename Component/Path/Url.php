@@ -89,7 +89,7 @@ class Url implements UrlInterface
 
     public function clientIp(): string
     {
-        return $this->request->getClientIp();
+        return $this->request->getClientIp() ?? '127.0.0.1';
     }
 
     public function userAgent(): ?string
