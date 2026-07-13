@@ -262,6 +262,42 @@ final class DevLogin
     }
 
     /**
+     * Remove one package's PINOOX_LOGIN line, or all when $package is null/empty.
+     */
+    public static function forget(?string $package = null): bool
+    {
+        $package = is_string($package) ? trim($package) : '';
+        if ($package === '') {
+            return self::clear();
+        }
+
+        $lines = [];
+        foreach (self::parseAll() as $entry) {
+            if ($entry['package'] === $package) {
+                continue;
+            }
+            $lines[] = self::format($entry);
+        }
+
+        $env = EnvFile::forProject();
+        $ok = $env->setLines(self::ENV_LOGIN, $lines);
+
+        if (self::$appliedPackage === $package) {
+            AuthSession::setForcedUser(null);
+            AuthSession::setRequestToken(null);
+            self::$applied = false;
+            self::$appliedPackage = null;
+        }
+
+        $store = self::readStore();
+        if (($store['package'] ?? null) === $package) {
+            @unlink(self::storePath());
+        }
+
+        return $ok;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public static function readStore(): array
