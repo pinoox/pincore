@@ -41,6 +41,9 @@ class AuthSession
 
     private static ?string $requestToken = null;
 
+    /** @var array<string, mixed>|null Env-driven user (PINOOX_LOGIN), separate from jwt/cookie/session */
+    private static ?array $forcedUser = null;
+
     private static bool $updateLifetime = true;
 
     private static bool $updateTokenKey = false;
@@ -126,6 +129,7 @@ class AuthSession
         self::$user = null;
         self::$token_key = false;
         self::$requestToken = null;
+        self::$forcedUser = null;
         self::$appliedFingerprint = null;
     }
 
@@ -135,6 +139,30 @@ class AuthSession
         self::$token_key = false;
         self::$token = null;
         self::$user = null;
+    }
+
+    /**
+     * Force the current request user from PINOOX_LOGIN (no client jwt/cookie).
+     */
+    public static function setForcedUser(?UserModel $user): void
+    {
+        if ($user === null) {
+            if (self::$forcedUser !== null) {
+                self::$user = null;
+            }
+            self::$forcedUser = null;
+
+            return;
+        }
+
+        $user->makeHidden('password');
+        self::$forcedUser = $user->toArray();
+        self::$user = self::$forcedUser;
+    }
+
+    public static function forcedUser(): ?array
+    {
+        return self::$forcedUser;
     }
 
     /**
@@ -157,11 +185,28 @@ class AuthSession
 
     public static function isLoggedIn(): bool
     {
+        if (self::$forcedUser !== null) {
+            return true;
+        }
+
         return !empty(self::getToken());
     }
 
     public static function getToken(?string $field = null): mixed
     {
+        if (self::$forcedUser !== null) {
+            $synthetic = [
+                'token_key' => 'env-login',
+                'token_data' => self::$forcedUser,
+            ];
+
+            if ($field !== null && $field !== '') {
+                return $synthetic[$field] ?? null;
+            }
+
+            return $synthetic;
+        }
+
         if (empty(self::$token)) {
             $token_key = self::getTokenKey();
             if ($token_key) {
@@ -178,16 +223,12 @@ class AuthSession
 
     public static function getTokenKey(): string|false|null
     {
-        if (!empty(self::$token_key)) {
-            return self::$token_key;
+        if (self::$forcedUser !== null) {
+            return 'env-login';
         }
 
-        // PINOOX_LOGIN_TOKEN path — independent of jwt/cookie/session client auth
-        if (DevLogin::enabled()) {
-            $fromEnv = self::resolveEnvLoginTokenKey();
-            if ($fromEnv !== false && $fromEnv !== '') {
-                return self::$token_key = $fromEnv;
-            }
+        if (!empty(self::$token_key)) {
+            return self::$token_key;
         }
 
         self::$token_key = match (self::$type) {
@@ -206,26 +247,6 @@ class AuthSession
         };
 
         return self::$token_key;
-    }
-
-    /**
-     * Resolve DB token_key from PINOOX_LOGIN_TOKEN only (not Authorization / browser cookie).
-     */
-    private static function resolveEnvLoginTokenKey(): string|false
-    {
-        $raw = trim(DevLogin::token());
-        if ($raw === '') {
-            return false;
-        }
-
-        $raw = self::normalizeBearerToken($raw);
-        $decoded = self::authToken($raw);
-        if ($decoded !== false && $decoded !== '') {
-            return $decoded;
-        }
-
-        // Non-JWT token_key stored directly in env (cookie-mode apps)
-        return $raw;
     }
 
     public static function authToken(?string $token = null): string|false
@@ -334,6 +355,14 @@ class AuthSession
 
     public static function get(?string $field = null): mixed
     {
+        if (self::$forcedUser !== null) {
+            if ($field !== null && $field !== '') {
+                return self::$forcedUser[$field] ?? null;
+            }
+
+            return self::$forcedUser;
+        }
+
         $token = self::getToken();
         $tokenData = self::getTokenData();
         $user_id = $tokenData['user_id'] ?? null;
@@ -361,6 +390,15 @@ class AuthSession
 
     public static function logout(): void
     {
+        if (self::$forcedUser !== null) {
+            self::$forcedUser = null;
+            self::$user = null;
+            self::$token = null;
+            self::$token_key = false;
+
+            return;
+        }
+
         if (self::isLoggedIn()) {
             self::removeToken();
         }
@@ -370,8 +408,12 @@ class AuthSession
 
     private static function removeToken(): void
     {
+        if (self::$forcedUser !== null) {
+            return;
+        }
+
         $token_key = self::getTokenKey();
-        if (empty($token_key)) {
+        if (empty($token_key) || $token_key === 'env-login') {
             return;
         }
 

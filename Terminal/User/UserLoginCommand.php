@@ -32,8 +32,8 @@ class UserLoginCommand extends Terminal
                 <<<'HELP'
 Interactive login wizard (or pass options for non-interactive use).
 
-With --force (or when you confirm in the wizard), the token is saved as
-PINOOX_LOGIN_TOKEN in .env so HTTP requests auto-login in any auth mode.
+With --force (or when you confirm in the wizard), upserts
+PINOOX_LOGIN=package:id:N in .env (one line per app; multi-app OK).
 
 Examples:
   php pinoox user:login
@@ -41,6 +41,13 @@ Examples:
   php pinoox user:login platform --id=1 --force
   php pinoox user:login --clear
   pinx user:login
+
+.env formats (multiple lines = login per app):
+  PINOOX_LOGIN=com_pinoox_manager:id:1
+  PINOOX_LOGIN=com_pinoox_manager:user_id:1
+  PINOOX_LOGIN=com_pinoox_manager:personal_id:1
+  PINOOX_LOGIN=com_pinoox_account:username:yoosef
+  PINOOX_LOGIN=com_pinoox_shop:mobile:09122220000
 HELP
             )
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp())
@@ -48,8 +55,8 @@ HELP
             ->addOption('username', 'u', InputOption::VALUE_REQUIRED, 'Username or email')
             ->addOption('password', 'p', InputOption::VALUE_REQUIRED, 'Plain password')
             ->addOption('remember', 'r', InputOption::VALUE_NONE, 'Use remember-me lifetime')
-            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Persist token to PINOOX_LOGIN_TOKEN for auto-login')
-            ->addOption('clear', null, InputOption::VALUE_NONE, 'Clear PINOOX_LOGIN_TOKEN from .env and storage')
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Persist PINOOX_LOGIN=package:id:N for auto-login')
+            ->addOption('clear', null, InputOption::VALUE_NONE, 'Clear PINOOX_LOGIN from .env and storage')
             ->addOption('json', null, InputOption::VALUE_NONE, 'Output JSON');
     }
 
@@ -69,7 +76,7 @@ HELP
 
         if ($useWizard) {
             $io->title('User login');
-            $io->text('Sign in for an app scope, then optionally save PINOOX_LOGIN_TOKEN to .env.');
+            $io->text('Sign in for an app scope, then optionally save PINOOX_LOGIN to .env.');
             $io->newLine();
         }
 
@@ -104,15 +111,14 @@ HELP
         $auth = AuthConfig::resolve();
         $persisted = false;
 
-        if ($persist && $token !== '') {
+        if ($persist) {
             $persisted = DevLogin::remember([
-                'token' => $token,
-                'auth_key' => (string) ($auth['key'] ?? ''),
-                'auth_mode' => (string) ($auth['mode'] ?? AuthConfig::MODE_COOKIE),
                 'package' => $package,
+                'field' => 'id',
+                'value' => (string) $user->user_id,
                 'user_id' => $user->user_id,
                 'username' => $user->username,
-            ], enable: true);
+            ]);
         }
 
         $payload = [
@@ -127,6 +133,7 @@ HELP
             'auth_mode' => (string) ($auth['mode'] ?? AuthConfig::MODE_COOKIE),
             'dev_login' => $persisted,
             'dev_login_enabled' => DevLogin::enabled(),
+            'pinoox_login' => DevLogin::expression(),
         ];
 
         if ($input->getOption('json')) {
@@ -152,11 +159,11 @@ HELP
             ['Auth mode' => (string) ($auth['mode'] ?? '—')],
             ['Auth key' => (string) ($auth['key'] ?? '—')],
             ['Token' => $token !== '' ? $token : '—'],
-            ['.env' => $persisted ? 'PINOOX_LOGIN_TOKEN updated' : 'not updated'],
+            ['.env' => $persisted ? 'PINOOX_LOGIN=' . DevLogin::expression() : 'not updated'],
         );
 
         if ($persisted) {
-            $io->note('Auto-login is active while PINOOX_LOGIN_TOKEN is set. Clear with: user:login --clear');
+            $io->note('Auto-login is active while PINOOX_LOGIN is set. Clear with: user:login --clear');
         }
 
         return Command::SUCCESS;
@@ -232,14 +239,14 @@ HELP
 
         if ($wizardAsked && $input->isInteractive()) {
             return $io->confirm(
-                'Update .env with PINOOX_LOGIN_TOKEN for automatic login?',
+                'Update .env with PINOOX_LOGIN=package:id:… for automatic login?',
                 true,
             );
         }
 
         if ($input->isInteractive() && !$input->getOption('json')) {
             return $io->confirm(
-                'Update .env with PINOOX_LOGIN_TOKEN for automatic login?',
+                'Update .env with PINOOX_LOGIN=package:id:… for automatic login?',
                 true,
             );
         }
@@ -262,12 +269,12 @@ HELP
         }
 
         if (!$ok) {
-            $io->error('Could not clear PINOOX_LOGIN_TOKEN.');
+            $io->error('Could not clear PINOOX_LOGIN.');
 
             return Command::FAILURE;
         }
 
-        $io->success('Cleared PINOOX_LOGIN_TOKEN.');
+        $io->success('Cleared PINOOX_LOGIN.');
 
         return Command::SUCCESS;
     }
