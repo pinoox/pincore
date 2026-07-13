@@ -40,6 +40,8 @@ use Pinoox\Support\SystemApp;
  * @method static bool supports(\Pinoox\Component\Package\Reference\ReferenceInterface|string $packageName)
  * @method static bool checkName(string $packageName)
  * @method static array all()
+ * @method static array packagePaths()
+ * @method static array registeredPackages()
  * @method static \Pinoox\Component\Package\Engine\AppEngine ___()
  *
  * @see \Pinoox\Component\Package\Engine\AppEngine

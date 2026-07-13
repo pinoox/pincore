@@ -121,7 +121,7 @@ class ThemeFrontend
             return [];
         }
 
-        $root = rtrim(str_replace('\\', '/', AppEngine::path($package) . '/theme'), '/');
+        $root = ThemeFrontendPaths::themesRoot($package);
         if (!is_dir($root)) {
             return [];
         }
@@ -178,8 +178,8 @@ class ThemeFrontend
     {
         $packages = [];
 
-        foreach (AppEngine::all() as $package => $manager) {
-            if (!self::supportsViteDev($package)) {
+        foreach (array_keys(AppEngine::packagePaths()) as $package) {
+            if (!AppEngine::exists($package) || !self::supportsViteDev($package)) {
                 continue;
             }
 
@@ -242,7 +242,11 @@ class ThemeFrontend
 
         $matches = [];
 
-        foreach (AppEngine::all() as $package => $manager) {
+        foreach (array_keys(AppEngine::packagePaths()) as $package) {
+            if (!AppEngine::exists($package)) {
+                continue;
+            }
+
             $themes = self::listThemeFolders($package);
             if (isset($themes[$themeName])) {
                 $matches[$package] = AppManifest::displayName($package);

@@ -466,6 +466,6 @@ final class ThemeFrontendDevTarget
 
     private static function themePath(string $package, string $themeFolder): string
     {
-        return rtrim(str_replace('\\', '/', AppEngine::path($package) . '/theme/' . $themeFolder), '/');
+        return ThemeFrontendPaths::themeDir($package, $themeFolder);
     }
 }

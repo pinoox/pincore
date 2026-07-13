@@ -14,9 +14,11 @@ use Pinoox\Component\Template\Frontend\FrontendDevStack;
 use Pinoox\Component\Template\Frontend\FrontendDevSync;
 use Pinoox\Component\Template\Frontend\ThemeFrontend;
 use Pinoox\Component\Template\Frontend\ThemeFrontendDevTarget;
+use Pinoox\Component\Template\Frontend\ThemeFrontendPaths;
 use Pinoox\Component\Template\Theme\ThemeContextRegistry;
 use Pinoox\Component\Terminal;
 use Pinoox\Support\CliText;
+use Pinoox\Support\DevApp;
 use Pinoox\Support\ProjectCli;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Terminal\Concerns\SelectsPackage;
@@ -64,7 +66,7 @@ class ThemeFrontendCommand extends Terminal
         $this
             ->setHelp($this->cliHelp(
                 <<<'INTRO'
-Manage frontend assets inside apps/{package}/theme/{theme}/.
+Manage frontend assets inside {app}/theme/{theme}/ (app root from AppEngine — apps/, apps.config.php, single-app ~, …).
 
 Actions:
   info      Stack, recommended Twig line (vite_tags), npm scripts
@@ -424,6 +426,15 @@ FOOTER
         }
 
         $themeOption = $this->readThemeInput($input);
+
+        $devPackage = $this->defaultDevPackage();
+        if ($positional === '' && $themeOption === '' && $devPackage !== null) {
+            return [
+                'package' => $devPackage,
+                'theme' => $this->resolveThemeForPackage($input, $output, $io, $devPackage, 'dev', ''),
+            ];
+        }
+
         $candidates = $this->frontendPackageCandidates();
 
         if ($positional !== '' && AppEngine::exists($positional)) {
@@ -449,6 +460,14 @@ FOOTER
             ] + $candidates;
 
             if (!$input->isInteractive() && $positional === '') {
+                $devPackage = $this->defaultDevPackage();
+                if ($devPackage !== null) {
+                    return [
+                        'package' => $devPackage,
+                        'theme' => $this->resolveThemeForPackage($input, $output, $io, $devPackage, 'dev', $themeOption),
+                    ];
+                }
+
                 throw new \RuntimeException('Dev target is required in non-interactive mode.');
             }
 
@@ -666,7 +685,9 @@ FOOTER
         }
 
         if ($themeChoices === [] && $action !== 'scaffold') {
-            throw new \RuntimeException('No theme folders were found under apps/' . $package . '/theme/.');
+            throw new \RuntimeException(
+                'No theme folders were found under ' . ThemeFrontendPaths::themesRootLabel($package) . '.',
+            );
         }
 
         if ($action === 'scaffold' && $themeChoices === []) {
@@ -771,7 +792,11 @@ FOOTER
     {
         $candidates = [];
 
-        foreach (AppEngine::all() as $package => $manager) {
+        foreach (AppEngine::packagePaths() as $package => $appRoot) {
+            if (!is_string($package) || $package === '' || !AppEngine::exists($package)) {
+                continue;
+            }
+
             if (ThemeFrontend::listThemeFolders($package) === []) {
                 continue;
             }
@@ -780,6 +805,21 @@ FOOTER
         }
 
         return $candidates;
+    }
+
+    private function defaultDevPackage(): ?string
+    {
+        $package = DevApp::defaultCliPackage();
+
+        if ($package === '' || $package === 'platform' || !AppEngine::exists($package)) {
+            return null;
+        }
+
+        if (ThemeFrontend::listThemeFolders($package) === []) {
+            return null;
+        }
+
+        return $package;
     }
 
     /**
@@ -897,7 +937,9 @@ FOOTER
         $targets = $this->installBuildTargets($package);
 
         if ($targets === []) {
-            throw new \RuntimeException('No npm targets (package.json) were found under apps/' . $package . '/theme/.');
+            throw new \RuntimeException(
+                'No npm targets (package.json) were found under ' . ThemeFrontendPaths::themesRootLabel($package) . '.',
+            );
         }
 
         $total = count($targets);

@@ -3,8 +3,11 @@
 namespace Pinoox\Terminal\Theme;
 
 use Pinoox\Component\Template\Frontend\FrontendConfig;
+use Pinoox\Component\Template\Frontend\ThemeFrontend;
 use Pinoox\Component\Terminal;
+use Pinoox\Support\DevApp;
 use Pinoox\Support\ProjectCli;
+use Pinoox\Portal\App\AppEngine;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\ArrayInput;
@@ -72,6 +75,15 @@ class DevCommand extends Terminal
 
         $io = new SymfonyStyle($input, $output);
         $target = trim((string) $input->getArgument('target'));
+
+        if ($target === '') {
+            $default = DevApp::defaultCliPackage();
+            if ($default !== 'platform'
+                && AppEngine::exists($default)
+                && ThemeFrontend::listThemeFolders($default) !== []) {
+                $target = $default;
+            }
+        }
 
         if ($target === '') {
             $io->title('Pinoox dev');
