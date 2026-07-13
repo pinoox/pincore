@@ -31,11 +31,16 @@ final class DepsConsolePresenter
      */
     public function renderHeader(string $action, string $scope, array $targets): void
     {
+        $composerCount = count(array_filter($targets, static fn (DependencyTarget $target): bool => $target->type === 'composer'));
+        $npmCount = count(array_filter($targets, static fn (DependencyTarget $target): bool => $target->type === 'npm'));
+        $missingCount = count(array_filter($targets, static fn (DependencyTarget $target): bool => !$target->isInstalled()));
+
         if ($this->isPlain()) {
             $this->io->title('Pinoox Dependencies — ' . ucfirst($action));
             $this->io->text([
                 'Scope: <info>' . $scope . '</info>',
-                'Targets: <info>' . count($targets) . '</info>',
+                'Targets: <info>' . count($targets) . '</info> (composer: ' . $composerCount . ', npm: ' . $npmCount . ')',
+                'Missing: <info>' . $missingCount . '</info>',
             ]);
 
             return;
@@ -45,6 +50,7 @@ final class DepsConsolePresenter
         $this->io->writeln('  <fg=cyan;options=bold>╭──────────────────────────────────────────────────────────────────────────╮</>');
         $this->io->writeln('  <fg=cyan;options=bold>│</> <fg=white;options=bold>Pinoox Dependencies</>                                                      <fg=cyan;options=bold>│</>');
         $this->io->writeln('  <fg=cyan;options=bold>│</> Action: <info>' . $this->padLabel(ucfirst($action), 12) . '</info> Scope: <info>' . $this->padLabel($scope, 20) . '</info> Targets: <info>' . count($targets) . '</info>   <fg=cyan;options=bold>│</>');
+        $this->io->writeln('  <fg=cyan;options=bold>│</> Composer: <info>' . $this->padLabel((string) $composerCount, 10) . '</info> npm: <info>' . $this->padLabel((string) $npmCount, 10) . '</info> Missing: <info>' . $this->padLabel((string) $missingCount, 10) . '</info>             <fg=cyan;options=bold>│</>');
         $this->io->writeln('  <fg=cyan;options=bold>╰──────────────────────────────────────────────────────────────────────────╯</>');
         $this->io->writeln('');
     }
@@ -197,12 +203,13 @@ final class DepsConsolePresenter
                 $target->scope,
                 $this->shortLabel($target),
                 $this->relativePath($target->path),
+                $this->manifestHint($target),
                 $installed ? '<fg=green>installed</>' : '<fg=yellow>missing</>',
             ];
         }
 
         $table = new Table($this->output);
-        $table->setHeaders(['#', 'Type', 'Scope', 'Target', 'Path', 'Vendor']);
+        $table->setHeaders(['#', 'Type', 'Scope', 'Target', 'Path', 'Manifest', 'Vendor']);
         $table->setRows($rows);
         $table->setStyle('box');
         $table->render();
@@ -215,13 +222,34 @@ final class DepsConsolePresenter
         );
 
         if ($missing > 0) {
+            $scope = $targets[0]->scope ?? 'all';
             $this->io->note(sprintf(
-                '%d target(s) are not installed yet. Run: <info>php pinoox deps install <scope></info>',
+                '%d target(s) are not installed yet. Run: <info>php pinoox deps install %s</info>',
                 $missing,
+                $scope,
             ));
         } else {
             $this->io->success('All discovered dependency targets are installed.');
         }
+    }
+
+    private function manifestHint(DependencyTarget $target): string
+    {
+        $manifest = $target->manifestPath();
+
+        if (!is_file($manifest)) {
+            return '<fg=red>missing</>';
+        }
+
+        if ($target->type === 'npm') {
+            $lock = $target->path . '/package-lock.json';
+
+            return is_file($lock) ? '<fg=green>package.json + lock</>' : '<fg=yellow>package.json</>';
+        }
+
+        $lock = $target->path . '/composer.lock';
+
+        return is_file($lock) ? '<fg=green>composer.json + lock</>' : '<fg=yellow>composer.json</>';
     }
 
     private function renderStepOpening(string $action, int $step, int $total, DependencyTarget $target): void

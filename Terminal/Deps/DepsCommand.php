@@ -7,6 +7,7 @@ use Pinoox\Component\Deps\DependencyInstaller;
 use Pinoox\Component\Deps\DependencyRunResult;
 use Pinoox\Component\Deps\DependencyScanner;
 use Pinoox\Component\Deps\DependencyTarget;
+use Pinoox\Component\Template\Frontend\ThemeFrontendDevTarget;
 use Pinoox\Component\Terminal;
 use Pinoox\Terminal\Concerns\SelectsPackage;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -15,6 +16,7 @@ use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\Console\Question\Question;
 use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
@@ -49,22 +51,25 @@ Scopes:
   com_my_shop Single app composer.json + active theme package.json
 
 Examples:
+  php pinoox deps
   php pinoox deps status all
   php pinoox deps install platform
   php pinoox deps install com_pinoox_manager
   php pinoox deps install com_pinoox_manager --all-themes
+  php pinoox deps install com_pinoox_manager --theme=panel
+  php pinoox deps install com_pinoox_manager --theme=all
   php pinoox deps install all --production
   php pinoox deps update com_my_shop --composer-only
 
-Documentation: docs/pinoox-deps.md
+Leave action and scope empty to pick interactively.
 HELP
             )
-            ->addArgument('action', InputArgument::REQUIRED, 'Action: status, install, update')
+            ->addArgument('action', InputArgument::OPTIONAL, 'Action: status, install, update (interactive when omitted)')
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(allowAll: true))
             ->addOption('composer-only', null, InputOption::VALUE_NONE, 'Only run Composer targets')
             ->addOption('npm-only', null, InputOption::VALUE_NONE, 'Only run npm targets')
-            ->addOption('theme', null, InputOption::VALUE_REQUIRED, 'Theme folder name (defaults to app.php theme)')
-            ->addOption('all-themes', null, InputOption::VALUE_NONE, 'Include every theme with package.json in the app')
+            ->addOption('theme', null, InputOption::VALUE_REQUIRED, 'Theme folder, theme context (site, panel, …), or all')
+            ->addOption('all-themes', null, InputOption::VALUE_NONE, 'Include every theme context or theme folder with package.json')
             ->addOption('production', null, InputOption::VALUE_NONE, 'Composer: install/update without dev dependencies')
             ->addOption('no-ci', null, InputOption::VALUE_NONE, 'npm: use install instead of ci when package-lock.json exists')
             ->addOption('plain', null, InputOption::VALUE_NONE, 'Plain output without step panels (CI-friendly)')
@@ -78,6 +83,16 @@ HELP
         $io = new SymfonyStyle($input, $output);
         $presenter = new DepsConsolePresenter($io, $output, (bool) $input->getOption('plain'));
         $action = strtolower(trim((string) $input->getArgument('action')));
+
+        if ($action === '') {
+            try {
+                $action = $this->resolveDepsAction($input, $output, $io);
+            } catch (\Throwable $e) {
+                $io->error($e->getMessage());
+
+                return Command::FAILURE;
+            }
+        }
 
         if (!in_array($action, ['status', 'install', 'update'], true)) {
             $io->error('Unknown action "' . $action . '". Use status, install, or update.');
@@ -100,11 +115,13 @@ HELP
             'sectionTitle' => 'Dependency scope',
         ]);
 
+        [$themeName, $allThemes] = $this->resolveThemeSelection($input);
+
         $typeFilter = $this->resolveTypeFilter($input);
         $targets = $this->scanner->discover(
             scope: $package,
-            themeName: $input->getOption('theme') ? (string) $input->getOption('theme') : null,
-            allThemes: (bool) $input->getOption('all-themes'),
+            themeName: $themeName,
+            allThemes: $allThemes,
             typeFilter: $typeFilter,
         );
 
@@ -193,5 +210,58 @@ HELP
         }
 
         return null;
+    }
+
+    private function resolveDepsAction(InputInterface $input, OutputInterface $output, SymfonyStyle $io): string
+    {
+        if (!$input->isInteractive()) {
+            throw new \RuntimeException('Action is required in non-interactive mode. Use status, install, or update.');
+        }
+
+        $choices = [
+            'status' => 'Show dependency inventory',
+            'install' => 'Install Composer and npm dependencies',
+            'update' => 'Update Composer and npm dependencies',
+        ];
+
+        $io->section('Dependency action');
+        $io->table(['Action', 'Description'], array_map(
+            static fn (string $action, string $description): array => [$action, $description],
+            array_keys($choices),
+            array_values($choices),
+        ));
+
+        $question = new Question('Select action [status]: ', 'status');
+        $question->setAutocompleterValues(array_keys($choices));
+        $question->setValidator(static function ($answer) use ($choices): string {
+            $answer = strtolower(trim((string) $answer));
+
+            if (!isset($choices[$answer])) {
+                throw new \RuntimeException('Choose status, install, or update.');
+            }
+
+            return $answer;
+        });
+
+        return $this->getHelper('question')->ask($input, $output, $question);
+    }
+
+    /**
+     * @return array{0: ?string, 1: bool}
+     */
+    private function resolveThemeSelection(InputInterface $input): array
+    {
+        $themeOption = trim((string) ($input->getOption('theme') ?? ''));
+        $allThemes = (bool) $input->getOption('all-themes');
+
+        if ($allThemes || ThemeFrontendDevTarget::isAllContexts($themeOption)) {
+            return [null, true];
+        }
+
+        if ($themeOption !== '') {
+            return [$themeOption, false];
+        }
+
+        return [null, false];
     }
 }

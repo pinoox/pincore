@@ -2,6 +2,10 @@
 
 namespace Pinoox\Component\Deps;
 
+use Pinoox\Component\Package\AppManifest;
+use Pinoox\Component\Template\Frontend\ThemeFrontend;
+use Pinoox\Component\Template\Frontend\ThemeFrontendDevTarget;
+use Pinoox\Component\Template\Theme\ThemeContextRegistry;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Support\SystemConfig;
 
@@ -104,17 +108,18 @@ final class DependencyScanner
         }
 
         if ($typeFilter === null || $typeFilter === 'npm') {
-            foreach ($this->themePaths($package, $themeName, $allThemes) as $themePath) {
+            foreach ($this->themePaths($package, $themeName, $allThemes) as $themeMeta) {
+                $themePath = $themeMeta['path'];
+
                 if (!is_file($themePath . '/package.json')) {
                     continue;
                 }
 
-                $themeFolder = basename($themePath);
                 $targets[] = new DependencyTarget(
                     type: 'npm',
                     scope: $package,
                     path: $themePath,
-                    label: $package . ' / theme/' . $themeFolder . ' (npm)',
+                    label: $themeMeta['label'],
                 );
             }
         }
@@ -123,20 +128,121 @@ final class DependencyScanner
     }
 
     /**
-     * @return list<string>
+     * @return list<array{path: string, label: string}>
      */
     private function themePaths(string $package, ?string $themeName, bool $allThemes): array
     {
         $appPath = rtrim(str_replace('\\', '/', AppEngine::path($package)), '/');
         $themesRoot = $appPath . '/theme';
+        $config = AppManifest::load($package);
+        $hasContexts = ThemeContextRegistry::hasContexts($config);
 
-        if ($allThemes) {
-            return $this->discoverThemeDirectories($themesRoot);
+        if ($allThemes || ($themeName !== null && ThemeFrontendDevTarget::isAllContexts($themeName))) {
+            if ($hasContexts) {
+                return $this->contextThemeEntries($package, $config);
+            }
+
+            return $this->folderThemeEntries($package, $this->discoverThemeDirectories($themesRoot));
         }
 
-        $theme = $themeName ?: (string) AppEngine::config($package)->get('theme', 'default');
+        if ($themeName !== null && $themeName !== '') {
+            if ($hasContexts && in_array($themeName, ThemeContextRegistry::names($config), true)) {
+                $resolved = ThemeFrontendDevTarget::resolve($package, $themeName);
+                $folder = $resolved['theme'];
+                $context = $resolved['context'];
 
-        return [rtrim($themesRoot . '/' . $theme, '/')];
+                return [[
+                    'path' => rtrim($themesRoot . '/' . $folder, '/'),
+                    'label' => $this->npmTargetLabel($package, $folder, $context),
+                ]];
+            }
+
+            $folder = $themeName;
+
+            if ($hasContexts) {
+                foreach (ThemeContextRegistry::names($config) as $context) {
+                    $ctx = ThemeContextRegistry::context($config, $context);
+                    $ctxTheme = $ctx['theme'] ?? null;
+
+                    if (is_string($ctxTheme) && trim($ctxTheme) === $folder) {
+                        return [[
+                            'path' => rtrim($themesRoot . '/' . $folder, '/'),
+                            'label' => $this->npmTargetLabel($package, $folder, $context),
+                        ]];
+                    }
+                }
+            }
+
+            return [[
+                'path' => rtrim($themesRoot . '/' . $folder, '/'),
+                'label' => $this->npmTargetLabel($package, $folder, null),
+            ]];
+        }
+
+        if ($hasContexts) {
+            $defaultContext = ThemeFrontendDevTarget::defaultChoice($package);
+            $resolved = ThemeFrontendDevTarget::resolve($package, $defaultContext);
+
+            return [[
+                'path' => rtrim($themesRoot . '/' . $resolved['theme'], '/'),
+                'label' => $this->npmTargetLabel($package, $resolved['theme'], $resolved['context']),
+            ]];
+        }
+
+        $theme = (string) AppEngine::config($package)->get('theme', 'default');
+
+        return [[
+            'path' => rtrim($themesRoot . '/' . $theme, '/'),
+            'label' => $this->npmTargetLabel($package, $theme, null),
+        ]];
+    }
+
+    /**
+     * @param array<string, mixed> $config
+     * @return list<array{path: string, label: string}>
+     */
+    private function contextThemeEntries(string $package, array $config): array
+    {
+        $entries = [];
+
+        foreach (ThemeFrontendDevTarget::installBuildTargetsForPackage($package) as $target) {
+            $entries[] = [
+                'path' => rtrim(str_replace('\\', '/', AppEngine::path($package) . '/theme/' . $target['theme']), '/'),
+                'label' => $this->npmTargetLabel($package, $target['theme'], $target['context']),
+            ];
+        }
+
+        return $entries;
+    }
+
+    /**
+     * @param list<string> $paths
+     * @return list<array{path: string, label: string}>
+     */
+    private function folderThemeEntries(string $package, array $paths): array
+    {
+        $entries = [];
+
+        foreach ($paths as $path) {
+            $folder = basename($path);
+            $entries[] = [
+                'path' => $path,
+                'label' => $this->npmTargetLabel($package, $folder, null),
+            ];
+        }
+
+        return $entries;
+    }
+
+    private function npmTargetLabel(string $package, string $themeFolder, ?string $context): string
+    {
+        if ($context !== null && $context !== '') {
+            return $package . ' / context:' . $context . ' (theme/' . $themeFolder . ', npm)';
+        }
+
+        $details = ThemeFrontend::listThemeFolders($package)[$themeFolder] ?? $themeFolder;
+
+        return $package . ' / theme/' . $themeFolder . ' (' . $details . ', npm)';
     }
 
     /**

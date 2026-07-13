@@ -55,6 +55,113 @@ final class ThemeFrontendDevTarget
         return implode(', ', $contexts);
     }
 
+    public static function hasMultipleInstallBuildTargets(string $package): bool
+    {
+        return count(self::installBuildTargetsForPackage($package)) > 1;
+    }
+
+    public static function allInstallBuildTargetsChoiceLabel(string $package): string
+    {
+        $config = AppManifest::load($package);
+
+        if (ThemeContextRegistry::hasContexts($config)) {
+            $contexts = array_values(array_filter(
+                array_column(self::installBuildTargetsForPackage($package), 'context'),
+                static fn ($context): bool => is_string($context) && trim($context) !== '',
+            ));
+
+            if ($contexts === []) {
+                return 'all theme contexts';
+            }
+
+            return 'all contexts: ' . implode(', ', $contexts);
+        }
+
+        $folders = array_map(
+            static fn (array $target): string => $target['theme'],
+            self::installBuildTargetsForPackage($package),
+        );
+
+        if ($folders === []) {
+            return 'all themes';
+        }
+
+        return 'all themes: ' . implode(', ', $folders);
+    }
+
+    /**
+     * @return list<array{package: string, theme: string, context: ?string}>
+     */
+    public static function installBuildTargetsForPackage(string $package, ?string $selection = null): array
+    {
+        if (!AppEngine::exists($package)) {
+            return [];
+        }
+
+        $config = AppManifest::load($package);
+
+        if (!ThemeContextRegistry::hasContexts($config)) {
+            if ($selection !== null && !self::isAllContexts($selection)) {
+                $resolved = self::resolve($package, $selection);
+
+                return [[
+                    'package' => $package,
+                    'theme' => $resolved['theme'],
+                    'context' => null,
+                ]];
+            }
+
+            $targets = [];
+
+            foreach (ThemeFrontend::listThemeFolders($package) as $folder => $_details) {
+                $themePath = self::themePath($package, $folder);
+
+                if (!is_file($themePath . '/package.json')) {
+                    continue;
+                }
+
+                $targets[] = [
+                    'package' => $package,
+                    'theme' => $folder,
+                    'context' => null,
+                ];
+            }
+
+            return $targets;
+        }
+
+        $selection = self::selectionForTargets($selection);
+
+        if ($selection !== null) {
+            $resolved = self::resolve($package, $selection);
+
+            return [[
+                'package' => $package,
+                'theme' => $resolved['theme'],
+                'context' => $resolved['context'],
+            ]];
+        }
+
+        $targets = [];
+
+        foreach (ThemeContextRegistry::names($config) as $context) {
+            $themeFolder = self::themeFolderForContext($config, $context);
+            $themePath = self::themePath($package, $themeFolder);
+
+            if (!is_file($themePath . '/package.json')) {
+                continue;
+            }
+
+            $targets[] = [
+                'package' => $package,
+                'theme' => $themeFolder,
+                'context' => $context,
+            ];
+        }
+
+        return $targets;
+    }
+
     /**
      * @return array<string, string> context or theme folder => details label
      */

@@ -120,6 +120,13 @@ Apps with theme-contexts (site / panel / …) and multiple Vite themes start eve
 by default — pick "all vite contexts" interactively or use {$this->cliFormat('fe com_my_shop dev --theme=all')}.
 Use {$this->cliFormat('fe com_my_shop dev --theme=panel')} for a single context.
 
+install and build support theme-contexts too. Pick a context interactively, or use
+{$this->cliFormat('fe com_my_shop install --theme=all')} / {$this->cliFormat('fe:install --theme=panel')}
+to run every theme with package.json.
+
+Dedicated shortcuts: {$this->cliFormat('fe:install')} and {$this->cliFormat('fe:build')} open the theme wizard when
+--theme is omitted (same as {$this->cliFormat('fe install')} / {$this->cliFormat('fe build')}).
+
 dev:apps starts one shared {$serve} plus Vite for multiple apps. Use full package names (e.g. com_pinoox_manager, io_yoosefap_ai).
 
 Dev auto-setup (no manual .env required):
@@ -142,7 +149,7 @@ FOOTER
             ->addArgument('target', InputArgument::OPTIONAL, 'App package (com_my_shop) or theme folder (spark). Leave empty to pick interactively.')
             ->addArgument('action', InputArgument::OPTIONAL, 'Action: info, install, build, dev, dev:apps, run, scaffold')
             ->addOption('stack', null, InputOption::VALUE_REQUIRED, 'Frontend stack for scaffold: twig, vite, vue, react (default: auto or vue)')
-            ->addOption('theme', null, InputOption::VALUE_REQUIRED, 'Theme folder or theme context (site, panel, …) — defaults to app.php theme-context or interactive pick')
+            ->addOption('theme', null, InputOption::VALUE_REQUIRED, 'Theme folder, theme context (site, panel, …), or all — interactive when omitted')
             ->addOption('script', null, InputOption::VALUE_REQUIRED, 'npm script name for the run action')
             ->addOption('install', null, InputOption::VALUE_NONE, 'Run npm install alongside the command (or force reinstall with the install action)')
             ->addOption('no-install', null, InputOption::VALUE_NONE, 'Skip npm install (default for build/dev/run)')
@@ -230,11 +237,21 @@ FOOTER
             }
         }
 
+        $installMode = $this->resolveInstallMode($input, $action);
+
+        if ($this->isBatchFeAction($action) && ThemeFrontendDevTarget::isAllContexts($themeName)) {
+            try {
+                return $this->runBatchFeAction($io, $output, $package, $action, $installMode);
+            } catch (\Throwable $e) {
+                $io->error($e->getMessage());
+
+                return Command::FAILURE;
+            }
+        }
+
         $resolvedTarget = ThemeFrontendDevTarget::resolve($package, $themeName);
         $frontend = ThemeFrontend::forPackageAndTheme($package, $resolvedTarget['theme'], $resolvedTarget['context']);
         $frontend->setOutputWriter(static fn (string $buffer) => $output->write($buffer));
-
-        $installMode = $this->resolveInstallMode($input, $action);
 
         try {
             return match ($action) {
@@ -251,6 +268,11 @@ FOOTER
 
             return Command::FAILURE;
         }
+    }
+
+    private function isBatchFeAction(string $action): bool
+    {
+        return in_array($action, ['install', 'build'], true);
     }
 
     /**
@@ -582,23 +604,34 @@ FOOTER
     ): string {
         $appConfig = AppManifest::load($package);
         $hasContexts = ThemeContextRegistry::hasContexts($appConfig);
-        $devPick = in_array($action, ['dev', 'dev:apps'], true);
-        $themeChoices = ($hasContexts && $devPick)
-            ? ThemeFrontendDevTarget::choices($package, true)
+        $contextPick = $this->usesContextThemePick($action);
+        $viteOnly = $this->usesViteOnlyThemeChoices($action);
+        $themeChoices = ($hasContexts && $contextPick)
+            ? ThemeFrontendDevTarget::choices($package, $viteOnly)
             : ThemeFrontend::listThemeFolders($package);
-        $defaultTheme = ($hasContexts && $devPick)
+        $defaultTheme = ($hasContexts && $contextPick)
             ? ThemeFrontendDevTarget::defaultChoice($package)
             : (string) AppEngine::config($package)->get('theme', 'default');
 
-        if ($hasContexts && $devPick && ThemeFrontendDevTarget::hasMultipleViteContexts($package)) {
+        if ($hasContexts && $viteOnly && ThemeFrontendDevTarget::hasMultipleViteContexts($package)) {
             $themeChoices = [
                 ThemeFrontendDevTarget::ALL_CONTEXTS => ThemeFrontendDevTarget::allContextsChoiceLabel($package),
+            ] + $themeChoices;
+            $defaultTheme = ThemeFrontendDevTarget::ALL_CONTEXTS;
+        } elseif ($this->isBatchFeAction($action) && ThemeFrontendDevTarget::hasMultipleInstallBuildTargets($package)) {
+            $themeChoices = [
+                ThemeFrontendDevTarget::ALL_CONTEXTS => ThemeFrontendDevTarget::allInstallBuildTargetsChoiceLabel($package),
+            ] + $themeChoices;
+            $defaultTheme = ThemeFrontendDevTarget::ALL_CONTEXTS;
+        } elseif (!$hasContexts && $this->isBatchFeAction($action) && count($themeChoices) > 1) {
+            $themeChoices = [
+                ThemeFrontendDevTarget::ALL_CONTEXTS => ThemeFrontendDevTarget::allInstallBuildTargetsChoiceLabel($package),
             ] + $themeChoices;
             $defaultTheme = ThemeFrontendDevTarget::ALL_CONTEXTS;
         }
 
         if ($themeOption !== '') {
-            if ($hasContexts && $devPick) {
+            if ($hasContexts && $contextPick) {
                 if (ThemeFrontendDevTarget::isAllContexts($themeOption)) {
                     return ThemeFrontendDevTarget::ALL_CONTEXTS;
                 }
@@ -621,6 +654,10 @@ FOOTER
                 return $themeOption;
             }
 
+            if (ThemeFrontendDevTarget::isAllContexts($themeOption) && $this->isBatchFeAction($action)) {
+                return ThemeFrontendDevTarget::ALL_CONTEXTS;
+            }
+
             if (!isset($themeChoices[$themeOption]) && $action !== 'scaffold') {
                 throw new \RuntimeException(sprintf("Theme '%s' was not found in package '%s'.", $themeOption, $package));
             }
@@ -636,7 +673,7 @@ FOOTER
             return $defaultTheme;
         }
 
-        if ($hasContexts && $devPick && $themeOption === ''
+        if ($hasContexts && $viteOnly && $themeOption === ''
             && $action === 'dev' && ThemeFrontendDevTarget::hasMultipleViteContexts($package)) {
             $contexts = array_values(array_filter(
                 array_column(ThemeFrontendDevTarget::targetsForPackage($package), 'context'),
@@ -651,18 +688,33 @@ FOOTER
             return ThemeFrontendDevTarget::ALL_CONTEXTS;
         }
 
-        if ($hasContexts && $devPick && $themeOption === '' && !$input->isInteractive()
+        if ($hasContexts && $viteOnly && $themeOption === '' && !$input->isInteractive()
             && ThemeFrontendDevTarget::hasMultipleViteContexts($package)) {
+            return ThemeFrontendDevTarget::ALL_CONTEXTS;
+        }
+
+        if ($this->isBatchFeAction($action) && $themeOption === '' && !$input->isInteractive()
+            && ThemeFrontendDevTarget::hasMultipleInstallBuildTargets($package)) {
             return ThemeFrontendDevTarget::ALL_CONTEXTS;
         }
 
         return $this->resolveThemeChoice($input, $output, $io, $package, $themeChoices, [
             'default' => $defaultTheme,
-            'sectionTitle' => ($hasContexts && $devPick)
+            'sectionTitle' => ($hasContexts && $contextPick)
                 ? 'Theme contexts in ' . $package
                 : 'Themes in ' . $package,
-            'labelColumn' => ($hasContexts && $devPick) ? 'Context' : 'Theme',
+            'labelColumn' => ($hasContexts && $contextPick) ? 'Context' : 'Theme',
         ]);
+    }
+
+    private function usesContextThemePick(string $action): bool
+    {
+        return in_array($action, ['dev', 'dev:apps', 'install', 'build', 'watch'], true);
+    }
+
+    private function usesViteOnlyThemeChoices(string $action): bool
+    {
+        return in_array($action, ['dev', 'dev:apps'], true);
     }
 
     private function resolveDevContextSelection(
@@ -825,6 +877,85 @@ FOOTER
         $code = $frontend->install();
 
         return $code === 0 ? Command::SUCCESS : Command::FAILURE;
+    }
+
+    /**
+     * @return list<array{package: string, theme: string, context: ?string}>
+     */
+    private function installBuildTargets(string $package): array
+    {
+        return ThemeFrontendDevTarget::installBuildTargetsForPackage($package);
+    }
+
+    private function runBatchFeAction(
+        SymfonyStyle $io,
+        OutputInterface $output,
+        string $package,
+        string $action,
+        string $installMode,
+    ): int {
+        $targets = $this->installBuildTargets($package);
+
+        if ($targets === []) {
+            throw new \RuntimeException('No npm targets (package.json) were found under apps/' . $package . '/theme/.');
+        }
+
+        $total = count($targets);
+        $io->section(ucfirst($action) . ' all theme targets (' . $total . ')');
+
+        $rows = [];
+        foreach ($targets as $index => $target) {
+            $label = $target['context'] !== null && $target['context'] !== ''
+                ? $target['context'] . ' → theme/' . $target['theme']
+                : 'theme/' . $target['theme'];
+            $rows[] = [(string) ($index + 1), $label];
+        }
+        $io->table(['#', 'Target'], $rows);
+
+        $failed = 0;
+
+        foreach ($targets as $index => $target) {
+            $step = $index + 1;
+            $frontend = ThemeFrontend::forPackageAndTheme($package, $target['theme'], $target['context']);
+            $frontend->setOutputWriter(static fn (string $buffer) => $output->write($buffer));
+            $label = $target['context'] !== null && $target['context'] !== ''
+                ? $target['context']
+                : $target['theme'];
+
+            $io->writeln('');
+            $io->writeln(sprintf(
+                '  <fg=cyan;options=bold>┌─ [%d/%d]</> <fg=white;options=bold>%s</> <fg=gray>·</> <comment>theme/%s</comment>',
+                $step,
+                $total,
+                $label,
+                $target['theme'],
+            ));
+
+            $code = match ($action) {
+                'install' => $this->runInstall($io, $frontend, $installMode),
+                'build' => $this->runBuild($io, $frontend, $installMode),
+                default => Command::FAILURE,
+            };
+
+            if ($code !== Command::SUCCESS) {
+                $failed++;
+                $io->writeln('  <fg=cyan>└─</> <fg=red;options=bold>✖ failed</>');
+            } else {
+                $io->writeln('  <fg=cyan>└─</> <fg=green;options=bold>✔ completed</>');
+            }
+        }
+
+        $io->newLine();
+
+        if ($failed > 0) {
+            $io->error(sprintf('%d of %d target(s) failed.', $failed, $total));
+
+            return Command::FAILURE;
+        }
+
+        $io->success(sprintf('All %d target(s) %s successfully.', $total, $action === 'install' ? 'installed' : 'built'));
+
+        return Command::SUCCESS;
     }
 
     private function runBuild(SymfonyStyle $io, ThemeFrontend $frontend, string $installMode): int
