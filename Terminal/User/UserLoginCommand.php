@@ -4,6 +4,7 @@ namespace Pinoox\Terminal\User;
 
 use Pinoox\Component\Terminal;
 use Pinoox\Component\User\AuthConfig;
+use Pinoox\Component\User\DevLogin;
 use Pinoox\Model\UserModel;
 use Pinoox\Portal\Auth;
 use Pinoox\Terminal\User\Concerns\ManagesCliUsers;
@@ -29,14 +30,17 @@ class UserLoginCommand extends Terminal
         $this
             ->setHelp(
                 <<<'HELP'
-Authenticate against the user scope resolved from the app's transport.user settings.
+Interactive login wizard (or pass options for non-interactive use).
+
+With --force (or when you confirm in the wizard), the token is saved as
+PINOOX_LOGIN_TOKEN in .env so HTTP requests auto-login in any auth mode.
 
 Examples:
-  php pinoox user:login com_my_shop --username=admin --password=secret
-  php pinoox user:login platform --id=1 --remember
-  php pinoox user:login platform -u admin --remember
-  pinx user:login --username=admin --password=secret --json
-  pinx user:login --id=1 --json
+  php pinoox user:login
+  php pinoox user:login com_my_shop
+  php pinoox user:login platform --id=1 --force
+  php pinoox user:login --clear
+  pinx user:login
 HELP
             )
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp())
@@ -44,6 +48,8 @@ HELP
             ->addOption('username', 'u', InputOption::VALUE_REQUIRED, 'Username or email')
             ->addOption('password', 'p', InputOption::VALUE_REQUIRED, 'Plain password')
             ->addOption('remember', 'r', InputOption::VALUE_NONE, 'Use remember-me lifetime')
+            ->addOption('force', 'f', InputOption::VALUE_NONE, 'Persist token to PINOOX_LOGIN_TOKEN for auto-login')
+            ->addOption('clear', null, InputOption::VALUE_NONE, 'Clear PINOOX_LOGIN_TOKEN from .env and storage')
             ->addOption('json', null, InputOption::VALUE_NONE, 'Output JSON');
     }
 
@@ -52,18 +58,38 @@ HELP
         parent::execute($input, $output);
 
         $io = new SymfonyStyle($input, $output);
-        $package = $this->resolveUserPackage($input, $output, $io, 'Login user for');
+
+        if ($input->getOption('clear')) {
+            return $this->clearDevLogin($io, (bool) $input->getOption('json'));
+        }
+
+        $useWizard = $input->isInteractive()
+            && !$input->getOption('json')
+            && !$this->hasExplicitCredentials($input);
+
+        if ($useWizard) {
+            $io->title('User login');
+            $io->text('Sign in for an app scope, then optionally save PINOOX_LOGIN_TOKEN to .env.');
+            $io->newLine();
+        }
+
+        $package = $this->resolveUserPackage($input, $output, $io, $useWizard ? 'Which app?' : 'Login user for');
         $this->prepareUserScope($package);
         $this->prepareCliRequestContext();
 
         $remember = (bool) $input->getOption('remember');
-        $userIdOption = $input->getOption('id');
 
         try {
-            if ($userIdOption !== null && $userIdOption !== '') {
-                [$user, $token] = $this->loginById($io, $userIdOption, $remember);
+            if ($useWizard) {
+                [$user, $token, $persist] = $this->runLoginWizard($input, $output, $io, $package, $remember);
             } else {
-                [$user, $token] = $this->loginByCredentials($input, $io, $remember);
+                $userIdOption = $input->getOption('id');
+                if ($userIdOption !== null && $userIdOption !== '') {
+                    [$user, $token] = $this->loginById($io, $userIdOption, $remember);
+                } else {
+                    [$user, $token] = $this->loginByCredentials($input, $io, $remember);
+                }
+                $persist = $this->shouldPersistToken($input, $io, wizardAsked: false);
             }
         } catch (\Throwable $e) {
             $io->error('Login failed: ' . $e->getMessage());
@@ -76,6 +102,19 @@ HELP
         }
 
         $auth = AuthConfig::resolve();
+        $persisted = false;
+
+        if ($persist && $token !== '') {
+            $persisted = DevLogin::remember([
+                'token' => $token,
+                'auth_key' => (string) ($auth['key'] ?? ''),
+                'auth_mode' => (string) ($auth['mode'] ?? AuthConfig::MODE_COOKIE),
+                'package' => $package,
+                'user_id' => $user->user_id,
+                'username' => $user->username,
+            ], enable: true);
+        }
+
         $payload = [
             'user_id' => $user->user_id,
             'username' => $user->username,
@@ -86,6 +125,8 @@ HELP
             'remember' => $remember,
             'auth_key' => (string) ($auth['key'] ?? ''),
             'auth_mode' => (string) ($auth['mode'] ?? AuthConfig::MODE_COOKIE),
+            'dev_login' => $persisted,
+            'dev_login_enabled' => DevLogin::enabled(),
         ];
 
         if ($input->getOption('json')) {
@@ -111,7 +152,122 @@ HELP
             ['Auth mode' => (string) ($auth['mode'] ?? '—')],
             ['Auth key' => (string) ($auth['key'] ?? '—')],
             ['Token' => $token !== '' ? $token : '—'],
+            ['.env' => $persisted ? 'PINOOX_LOGIN_TOKEN updated' : 'not updated'],
         );
+
+        if ($persisted) {
+            $io->note('Auto-login is active while PINOOX_LOGIN_TOKEN is set. Clear with: user:login --clear');
+        }
+
+        return Command::SUCCESS;
+    }
+
+    private function hasExplicitCredentials(InputInterface $input): bool
+    {
+        $id = (string) ($input->getOption('id') ?? '');
+        $username = (string) ($input->getOption('username') ?? '');
+
+        return $id !== '' || $username !== '';
+    }
+
+    /**
+     * @return array{0: ?UserModel, 1: string, 2: bool}
+     */
+    private function runLoginWizard(
+        InputInterface $input,
+        OutputInterface $output,
+        SymfonyStyle $io,
+        string $package,
+        bool $remember,
+    ): array {
+        $io->section('User');
+        $io->text(sprintf('App context: <info>%s</info>', $package));
+
+        $method = $io->choice(
+            'Sign in with',
+            ['id' => 'User id', 'login' => 'Username or email', 'pick' => 'Pick from user list'],
+            'pick',
+        );
+
+        $user = null;
+        $token = '';
+
+        if ($method === 'pick') {
+            $user = $this->promptUserSelection($input, $output, $io, 'Select user to login');
+            if ($user === null) {
+                $io->error('No users found for this app scope.');
+
+                return [null, '', false];
+            }
+            if ($user->status !== UserModel::ACTIVE) {
+                $io->error(sprintf('User #%d is not active (status: %s).', $user->user_id, $user->status));
+
+                return [null, '', false];
+            }
+            $token = (string) (Auth::login($user, $remember) ?? '');
+        } elseif ($method === 'id') {
+            $id = (string) $io->ask('User id');
+            [$user, $token] = $this->loginById($io, $id, $remember);
+        } else {
+            $login = (string) $io->ask('Username or email');
+            $input->setOption('username', $login);
+            [$user, $token] = $this->loginByCredentials($input, $io, $remember);
+        }
+
+        if ($user === null) {
+            return [null, '', false];
+        }
+
+        $io->section('.env auto-login');
+        $persist = $this->shouldPersistToken($input, $io, wizardAsked: true);
+
+        return [$user, $token, $persist];
+    }
+
+    private function shouldPersistToken(InputInterface $input, SymfonyStyle $io, bool $wizardAsked): bool
+    {
+        if ((bool) $input->getOption('force')) {
+            return true;
+        }
+
+        if ($wizardAsked && $input->isInteractive()) {
+            return $io->confirm(
+                'Update .env with PINOOX_LOGIN_TOKEN for automatic login?',
+                true,
+            );
+        }
+
+        if ($input->isInteractive() && !$input->getOption('json')) {
+            return $io->confirm(
+                'Update .env with PINOOX_LOGIN_TOKEN for automatic login?',
+                true,
+            );
+        }
+
+        return DevLogin::enabled();
+    }
+
+    private function clearDevLogin(SymfonyStyle $io, bool $json): int
+    {
+        $ok = DevLogin::clear();
+
+        if ($json) {
+            $io->writeln(json_encode([
+                'ok' => $ok,
+                'cleared' => true,
+                'dev_login_enabled' => DevLogin::enabled(),
+            ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+
+            return $ok ? Command::SUCCESS : Command::FAILURE;
+        }
+
+        if (!$ok) {
+            $io->error('Could not clear PINOOX_LOGIN_TOKEN.');
+
+            return Command::FAILURE;
+        }
+
+        $io->success('Cleared PINOOX_LOGIN_TOKEN.');
 
         return Command::SUCCESS;
     }

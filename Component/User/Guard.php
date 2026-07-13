@@ -38,6 +38,8 @@ class Guard
         $this->booted = true;
         $this->bootedPackage = $package;
         $this->bootedFingerprint = $fingerprint;
+
+        DevLogin::apply();
     }
 
     public function check(): bool
