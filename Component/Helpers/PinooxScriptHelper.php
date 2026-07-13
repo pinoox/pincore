@@ -3,6 +3,7 @@
 namespace Pinoox\Component\Helpers;
 
 use Pinoox\Component\Template\Frontend\FrontendConfig;
+use Pinoox\Component\User\AuthConfig;
 use Pinoox\Portal\Url;
 use Pinoox\Portal\View;
 
@@ -11,6 +12,10 @@ final class PinooxScriptHelper
     /**
      * Runtime + page props for window.__PINOOX__.
      *
+     * Always includes `url.*`. When `auth.client` is enabled in app.php
+     * (default true; legacy: via, expose, bootstrap), also includes `auth`
+     * from AuthConfig::forClient(). Pass `$page['auth']` from Flow to override.
+     *
      * @param array<string, mixed> $page
      * @return array<string, mixed>
      */
@@ -18,7 +23,7 @@ final class PinooxScriptHelper
     {
         $url = Url::accessor()->toArray();
 
-        return array_replace_recursive([
+        $defaults = [
             'url' => [
                 'APP' => $url['app'],
                 'BASE' => $url['appPath'],
@@ -31,7 +36,26 @@ final class PinooxScriptHelper
                 'AVATAR' => $url['avatar'],
                 'APP_ICON' => $url['appIcon'],
             ],
-        ], $page);
+        ];
+
+        $auth = self::resolveAuthClient();
+        if ($auth !== null) {
+            $defaults['auth'] = $auth;
+        }
+
+        return array_replace_recursive($defaults, $page);
+    }
+
+    /**
+     * @return array<string, mixed>|null
+     */
+    private static function resolveAuthClient(): ?array
+    {
+        try {
+            return AuthConfig::forClient();
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     /**
