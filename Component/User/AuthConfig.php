@@ -100,4 +100,74 @@ class AuthConfig
                 ?? 'BAF55D93DF7A2B3AA64722AA85448424AAB5CF4214AD2899CD9440BEC9B44894'),
         ];
     }
+
+    /**
+     * Client-safe auth payload for window.__PINOOX__.auth (@pinooxhq/auth).
+     *
+     * Controlled by app.php `auth.client` (legacy: via, expose, bootstrap):
+     * - true / null (default): mode, key, provider, source
+     * - false: omit auth from __PINOOX__
+     * - list: whitelist of those base fields, e.g. ['mode', 'key']
+     * - map: merge extras onto the base (strategy, loginUrl, baseUrl, endpoints, …)
+     *
+     * @return array<string, mixed>|null
+     */
+    public static function forClient(): ?array
+    {
+        $package = App::package();
+        if ($package === '' || $package === null) {
+            return null;
+        }
+
+        $config = AppEngine::config($package);
+        $flag = $config->get('auth.client');
+        foreach (['auth.via', 'auth.expose', 'auth.bootstrap'] as $legacy) {
+            if ($flag === null && $config->get($legacy) !== null) {
+                $flag = $config->get($legacy);
+                break;
+            }
+        }
+
+        if ($flag === false) {
+            return null;
+        }
+
+        $resolved = self::resolve();
+        $base = [
+            'mode' => $resolved['mode'],
+            'key' => $resolved['key'],
+            'provider' => $resolved['provider'],
+            'source' => $resolved['source'],
+        ];
+
+        if ($flag === null || $flag === true) {
+            return $base;
+        }
+
+        if (!is_array($flag)) {
+            return $base;
+        }
+
+        if (array_is_list($flag)) {
+            $allowed = [];
+            foreach ($flag as $field) {
+                if (is_string($field) && array_key_exists($field, $base)) {
+                    $allowed[$field] = $base[$field];
+                }
+            }
+
+            return $allowed;
+        }
+
+        return array_replace($base, $flag);
+    }
+
+    /**
+     * @deprecated Use forClient()
+     * @return array<string, mixed>|null
+     */
+    public static function forBootstrap(): ?array
+    {
+        return self::forClient();
+    }
 }

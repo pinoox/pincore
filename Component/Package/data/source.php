@@ -44,6 +44,9 @@ return [
         'mode' => 'cookie',
         'lifetime' => 30,
         'lifetime_unit' => 'day',
+        // Client-safe slice for window.__PINOOX__.auth (@pinooxhq/auth).
+        // true = mode/key/provider/source | false = omit | list = whitelist | map = merge extras
+        'client' => true,
     ],
     // Transport: scenario presets (full, user, storage, access) or granular keys
     // (user_table, auth, token, file, access_table). Values: local | platform | host | {package}
