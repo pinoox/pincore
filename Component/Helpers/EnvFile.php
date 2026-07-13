@@ -72,6 +72,33 @@ class EnvFile
         }
     }
 
+    /**
+     * Remove keys from the .env file entirely.
+     *
+     * @param list<string> $keys
+     */
+    public function removeKeys(array $keys): bool
+    {
+        if (!$this->exists()) {
+            return true;
+        }
+
+        $content = (string) @file_get_contents($this->path);
+        foreach ($keys as $key) {
+            $content = (string) preg_replace(
+                '/^' . preg_quote((string) $key, '/') . '=.*\R?/m',
+                '',
+                $content,
+            );
+            putenv((string) $key);
+            unset($_ENV[$key], $_SERVER[$key]);
+        }
+
+        $content = preg_replace("/\n{3,}/", "\n\n", $content) ?? $content;
+
+        return @file_put_contents($this->path, rtrim($content) . "\n", LOCK_EX) !== false;
+    }
+
     private function defaultTemplate(): string
     {
         $example = dirname($this->path) . '/.env.example';

@@ -182,9 +182,12 @@ class AuthSession
             return self::$token_key;
         }
 
-        $explicit = self::resolveExplicitTokenKey();
-        if ($explicit !== false && $explicit !== null && $explicit !== '') {
-            return self::$token_key = $explicit;
+        // PINOOX_LOGIN_TOKEN path — independent of jwt/cookie/session client auth
+        if (DevLogin::enabled()) {
+            $fromEnv = self::resolveEnvLoginTokenKey();
+            if ($fromEnv !== false && $fromEnv !== '') {
+                return self::$token_key = $fromEnv;
+            }
         }
 
         self::$token_key = match (self::$type) {
@@ -206,18 +209,12 @@ class AuthSession
     }
 
     /**
-     * Prefer Authorization / request / cookie bearer when present.
-     * In JWT mode this always applies; in cookie/session modes when PINOOX_LOGIN_TOKEN is set.
+     * Resolve DB token_key from PINOOX_LOGIN_TOKEN only (not Authorization / browser cookie).
      */
-    private static function resolveExplicitTokenKey(): string|false
+    private static function resolveEnvLoginTokenKey(): string|false
     {
-        $allowRaw = self::$type === self::JWT || DevLogin::enabled();
-        if (!$allowRaw) {
-            return false;
-        }
-
-        $raw = self::resolveBearerToken();
-        if (empty($raw)) {
+        $raw = trim(DevLogin::token());
+        if ($raw === '') {
             return false;
         }
 
@@ -227,12 +224,8 @@ class AuthSession
             return $decoded;
         }
 
-        // Cookie-mode / CLI raw token_key (dev login only, or already-decoded values)
-        if (DevLogin::enabled() && $raw !== '') {
-            return $raw;
-        }
-
-        return false;
+        // Non-JWT token_key stored directly in env (cookie-mode apps)
+        return $raw;
     }
 
     public static function authToken(?string $token = null): string|false

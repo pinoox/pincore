@@ -2,25 +2,20 @@
 
 namespace Pinoox\Component\User;
 
-use Pinoox\Component\Cookie;
 use Pinoox\Component\Helpers\EnvFile;
 use Pinoox\Component\Kernel\Loader;
 use Pinoox\Portal\Env;
 
 /**
- * Auto-login when PINOOX_LOGIN_TOKEN is set in .env (any mode / environment).
+ * Env-based auto-login via PINOOX_LOGIN_TOKEN.
  *
- * Empty or missing token => disabled. Cleared with: user:login --clear
+ * Separate from normal jwt / cookie / session client auth:
+ * - token set  → Auth uses this token
+ * - token empty/missing → normal jwt/cookie/session only
  */
 final class DevLogin
 {
     public const ENV_TOKEN = 'PINOOX_LOGIN_TOKEN';
-
-    /** @deprecated Legacy keys cleared on remember/clear */
-    private const LEGACY_ENV_ENABLED = 'PINOOX_DEV_LOGIN';
-
-    /** @deprecated */
-    private const LEGACY_ENV_TOKEN = 'PINOOX_DEV_LOGIN_TOKEN';
 
     private static bool $applied = false;
 
@@ -36,19 +31,13 @@ final class DevLogin
             return $fromEnv;
         }
 
-        // Migrate legacy env name if still present
-        $legacy = trim((string) (Env::get(self::LEGACY_ENV_TOKEN) ?? ''));
-        if ($legacy !== '') {
-            return $legacy;
-        }
-
         $stored = self::readStore();
 
         return trim((string) ($stored['token'] ?? ''));
     }
 
     /**
-     * Inject the saved token into the current request auth stack.
+     * Activate env-token auth for this request (does not touch jwt/cookie client stores).
      */
     public static function apply(): void
     {
@@ -57,34 +46,10 @@ final class DevLogin
         }
 
         self::$applied = true;
-
-        $token = self::token();
-        if ($token === '') {
-            return;
-        }
-
-        AuthSession::setRequestToken($token);
-
-        $auth = AuthConfig::resolve();
-        $key = (string) ($auth['key'] ?? '');
-        if ($key === '') {
-            return;
-        }
-
-        $lifetime = (int) ($auth['lifetime'] ?? 30);
-        $unit = (string) ($auth['lifetime_unit'] ?? 'day');
-        $seconds = match ($unit) {
-            'min', 'minute', 'minutes' => $lifetime * 60,
-            'hour', 'hours' => $lifetime * 3600,
-            default => $lifetime * 86400,
-        };
-
-        Cookie::set($key, $token, $seconds);
+        AuthSession::setRequestToken(self::token());
     }
 
     /**
-     * Persist a CLI/Inspector login token to .env + storage.
-     *
      * @param array{
      *     token: string,
      *     auth_key?: string,
@@ -101,19 +66,10 @@ final class DevLogin
             return false;
         }
 
-        $variables = [
-            self::ENV_TOKEN => $token,
-            self::LEGACY_ENV_ENABLED => '',
-            self::LEGACY_ENV_TOKEN => '',
-        ];
-
         $env = EnvFile::forProject();
-        $ok = $env->setMany($variables);
-        $env->applyToRuntime([
-            self::ENV_TOKEN => $token,
-            self::LEGACY_ENV_ENABLED => '',
-            self::LEGACY_ENV_TOKEN => '',
-        ]);
+        $env->removeKeys(['PINOOX_DEV_LOGIN', 'PINOOX_DEV_LOGIN_TOKEN']);
+        $ok = $env->setMany([self::ENV_TOKEN => $token]);
+        $env->applyToRuntime([self::ENV_TOKEN => $token]);
 
         $store = [
             'token' => $token,
@@ -131,20 +87,18 @@ final class DevLogin
     public static function clear(): bool
     {
         $env = EnvFile::forProject();
-        $ok = $env->setMany([
-            self::ENV_TOKEN => '',
-            self::LEGACY_ENV_ENABLED => '',
-            self::LEGACY_ENV_TOKEN => '',
-        ]);
-        $env->applyToRuntime([
-            self::ENV_TOKEN => '',
-            self::LEGACY_ENV_ENABLED => '',
-            self::LEGACY_ENV_TOKEN => '',
-        ]);
+        $env->removeKeys(['PINOOX_DEV_LOGIN', 'PINOOX_DEV_LOGIN_TOKEN']);
+        $ok = $env->setMany([self::ENV_TOKEN => '']);
+        $env->applyToRuntime([self::ENV_TOKEN => '']);
 
         $path = self::storePath();
         if (is_file($path)) {
             @unlink($path);
+        }
+
+        $legacy = dirname($path) . '/dev-login.json';
+        if (is_file($legacy)) {
+            @unlink($legacy);
         }
 
         AuthSession::setRequestToken(null);
@@ -189,7 +143,6 @@ final class DevLogin
             return false;
         }
 
-        // Drop legacy filename if present
         $legacy = dirname($path) . '/dev-login.json';
         if (is_file($legacy)) {
             @unlink($legacy);
