@@ -62,7 +62,10 @@
   "autoload": {
     "psr-4": {
       "Pinoox\\": ""
-    }
+    },
+    "files": [
+      "functions/base.php"
+    ]
   },
   "autoload-dev": {
     "psr-4": {

@@ -25,8 +25,6 @@ use Pinoox\Portal\App\AppProvider;
 
 define('PINOOX_START', microtime(true));
 
-require_once PINOOX_CORE_PATH . 'functions/base.php';
-
 $loader = require PINOOX_BASE_PATH . '/vendor/autoload.php';
 
 if ($loader instanceof Composer\Autoload\ClassLoader) {
