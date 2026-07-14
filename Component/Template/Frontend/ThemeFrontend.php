@@ -109,7 +109,7 @@ class ThemeFrontend
             return $config;
         }
 
-        return array_replace_recursive($config, $frontend);
+        return FrontendConfig::mergeOverrides($config, $frontend);
     }
 
     /**

@@ -96,6 +96,22 @@ class FrontendConfig
     }
 
     /**
+     * Merge frontend overrides without letting null placeholders wipe theme defaults.
+     *
+     * @param array<string, mixed> $base
+     * @param array<string, mixed> $overrides
+     * @return array<string, mixed>
+     */
+    public static function mergeOverrides(array $base, array $overrides): array
+    {
+        $overrides = self::filterNullValues($overrides);
+
+        return $overrides === []
+            ? $base
+            : array_replace_recursive($base, $overrides);
+    }
+
+    /**
      * Vite-powered stacks render assets with vite_tags() / vite_js_tags() — not webpack mix-manifest.
      *
      * @param array<string, mixed> $config

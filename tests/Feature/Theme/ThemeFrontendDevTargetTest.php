@@ -87,6 +87,30 @@ it('expands platform targets for each vite-capable context', function () {
         ->and(array_column($targets, 'context'))->toBe(['panel', 'kids']);
 });
 
+it('detects vite from theme frontend.config.php when app frontend defaults are null', function () {
+    writeThemeFrontendDevTargetApp([
+        'theme' => 'panel',
+        'theme-context' => 'panel',
+        'theme-contexts' => [
+            'site' => ['theme' => 'site'],
+            'panel' => ['theme' => 'panel'],
+        ],
+    ], [
+        'panel/package.json' => json_encode(['scripts' => ['dev' => 'vite']], JSON_THROW_ON_ERROR),
+        'panel/frontend.config.php' => "<?php\n\nreturn ['stack' => 'vue'];\n",
+        'site/package.json' => json_encode(['scripts' => ['dev' => 'vite']], JSON_THROW_ON_ERROR),
+        'site/frontend.config.php' => "<?php\n\nreturn ['stack' => 'vue'];\n",
+    ]);
+    AppEngine::__rebuild();
+
+    $config = \Pinoox\Component\Package\AppManifest::load('com_test_fe_ctx');
+
+    expect($config['frontend']['stack'] ?? null)->toBeNull()
+        ->and(ThemeFrontendDevTarget::supportsVite('com_test_fe_ctx', 'panel'))->toBeTrue()
+        ->and(ThemeFrontendDevTarget::supportsVite('com_test_fe_ctx', 'site'))->toBeTrue()
+        ->and(ThemeFrontendDevTarget::choices('com_test_fe_ctx', true))->toHaveKeys(['panel', 'site']);
+});
+
 it('treats all-context selection as every vite-capable theme context', function () {
     writeThemeFrontendDevTargetApp([
         'theme-context' => 'site',

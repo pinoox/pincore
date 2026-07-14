@@ -412,7 +412,7 @@ final class ThemeFrontendDevTarget
         $frontendConfig = FrontendConfig::forThemePath($themePath);
 
         if (isset($effective['frontend']) && is_array($effective['frontend'])) {
-            $frontendConfig = array_replace_recursive($frontendConfig, $effective['frontend']);
+            $frontendConfig = FrontendConfig::mergeOverrides($frontendConfig, $effective['frontend']);
         }
 
         return FrontendConfig::usesViteAssets($frontendConfig);
