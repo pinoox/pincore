@@ -88,13 +88,27 @@ final class FrontendDevSession
 
     public function viteDevServerUrl(): string
     {
-        $host = $this->viteHost;
+        return 'http://' . $this->vitePublicHost() . ':' . $this->vitePort;
+    }
 
-        if ($host === '0.0.0.0' || $host === 'true' || $host === '[::]') {
-            $host = '127.0.0.1';
+    /**
+     * Browser-facing Vite hostname (LAN IP when bound to 0.0.0.0 / network mode).
+     */
+    public function vitePublicHost(): string
+    {
+        $host = trim((string) $this->viteHost);
+
+        if ($host === '' || $host === '0.0.0.0' || $host === 'true' || $host === '[::]' || $host === 'all') {
+            return self::publicHostForUrl('0.0.0.0', $this->serveDomain);
         }
 
-        return 'http://' . $host . ':' . $this->vitePort;
+        return self::normalizeHost($host);
+    }
+
+    /** Local health-check origin — always loopback (avoids Windows LAN self-connect blocks). */
+    public function viteLoopbackProbeUrl(): string
+    {
+        return 'http://127.0.0.1:' . $this->vitePort;
     }
 
     /** CLI hint — port only (not a browser URL). */
@@ -546,7 +560,7 @@ final class FrontendDevSession
     /**
      * Hostname for URLs shown to the developer (LAN IP when bound to 0.0.0.0).
      */
-    private static function publicHostForUrl(string $host, ?string $serveDomain = null): string
+    public static function publicHostForUrl(string $host, ?string $serveDomain = null): string
     {
         $domain = ServeLocalDomain::normalize($serveDomain);
 
@@ -556,7 +570,7 @@ final class FrontendDevSession
 
         $host = trim($host);
 
-        if ($host === '0.0.0.0' || $host === '[::]') {
+        if ($host === '0.0.0.0' || $host === '[::]' || $host === 'true' || $host === 'all') {
             return self::detectLanIp() ?? '127.0.0.1';
         }
 
@@ -566,6 +580,27 @@ final class FrontendDevSession
     public static function detectLanIp(): ?string
     {
         return self::pickBestLanIp(self::collectLanIps());
+    }
+
+    public static function isLoopbackHost(string $host): bool
+    {
+        $host = strtolower(trim($host));
+
+        return $host === '127.0.0.1'
+            || $host === 'localhost'
+            || $host === '::1'
+            || $host === '[::1]';
+    }
+
+    public static function isWildcardHost(string $host): bool
+    {
+        $host = strtolower(trim($host));
+
+        return $host === '0.0.0.0'
+            || $host === '[::]'
+            || $host === '::'
+            || $host === 'true'
+            || $host === 'all';
     }
 
     /**

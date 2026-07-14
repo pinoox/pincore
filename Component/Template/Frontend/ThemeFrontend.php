@@ -448,7 +448,7 @@ class ThemeFrontend
             return false;
         }
 
-        $probeUrl = rtrim($this->devSession->viteDevServerUrl(), '/') . '/@vite/client';
+        $probeUrl = rtrim($this->devSession->viteLoopbackProbeUrl(), '/') . '/@vite/client';
         $deadline = microtime(true) + max(1, $timeoutSeconds);
 
         while (microtime(true) < $deadline) {
@@ -512,7 +512,12 @@ class ThemeFrontend
         FrontendDevSync::removeDevState($this->themePath);
 
         if ($this->devSession !== null) {
-            FrontendDevSync::writeDevState($this->themePath, $this->config, $this->devSession->vitePort);
+            FrontendDevSync::writeDevState(
+                $this->themePath,
+                $this->config,
+                $this->devSession->vitePort,
+                $this->devSession->viteDevServerUrl(),
+            );
         }
 
         $this->syncDev();

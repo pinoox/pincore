@@ -907,7 +907,7 @@ class FrontendConfig
         $fromState = FrontendDevState::viteUrl($themePath);
 
         if ($fromState !== null) {
-            return $fromState;
+            return self::alignDevServerUrlWithBrowser($fromState);
         }
 
         $devUrl = self::resolveConfiguredDevServerUrl($config, $themePath);
@@ -917,7 +917,7 @@ class FrontendConfig
         }
 
         if (self::viteHmrEnvExplicitlySet() && self::envBool(self::VITE_HMR_ENV, false)) {
-            return $devUrl;
+            return self::alignDevServerUrlWithBrowser($devUrl);
         }
 
         $manifestRelative ??= self::manifestRelativePath($config);
@@ -930,18 +930,90 @@ class FrontendConfig
         $devEnabled = self::isDevEnabled($config);
 
         if ($forceDev) {
-            return $devUrl;
+            return self::alignDevServerUrlWithBrowser($devUrl);
         }
 
         if (!$manifestExists) {
-            return $devUrl;
+            return self::alignDevServerUrlWithBrowser($devUrl);
         }
 
         if ($devEnabled && !$preferManifest) {
-            return $devUrl;
+            return self::alignDevServerUrlWithBrowser($devUrl);
         }
 
         return null;
+    }
+
+    /**
+     * When the page is opened via LAN/domain, rewrite loopback Vite URLs to that host
+     * so vite_tags() / HMR work on phones (pinx dev -N).
+     */
+    public static function alignDevServerUrlWithBrowser(string $devUrl): string
+    {
+        $browserHost = self::browserHostname();
+
+        if ($browserHost === null) {
+            return rtrim($devUrl, '/');
+        }
+
+        $parts = parse_url($devUrl);
+
+        if (!is_array($parts) || empty($parts['host'])) {
+            return rtrim($devUrl, '/');
+        }
+
+        $viteHost = (string) $parts['host'];
+
+        if (strcasecmp($viteHost, $browserHost) === 0) {
+            return rtrim($devUrl, '/');
+        }
+
+        if (!self::isAutoAlignViteHost($viteHost)) {
+            return rtrim($devUrl, '/');
+        }
+
+        $scheme = $parts['scheme'] ?? 'http';
+        $port = isset($parts['port']) ? ':' . $parts['port'] : '';
+
+        return $scheme . '://' . $browserHost . $port;
+    }
+
+    private static function isAutoAlignViteHost(string $host): bool
+    {
+        if (FrontendDevSession::isLoopbackHost($host) || FrontendDevSession::isWildcardHost($host)) {
+            return true;
+        }
+
+        $lan = FrontendDevSession::detectLanIp();
+
+        return $lan !== null && strcasecmp($host, $lan) === 0;
+    }
+
+    private static function browserHostname(): ?string
+    {
+        $raw = (string) ($_SERVER['HTTP_HOST'] ?? '');
+
+        if ($raw === '') {
+            return null;
+        }
+
+        $host = $raw;
+
+        if (str_starts_with($host, '[')) {
+            $end = strpos($host, ']');
+
+            if ($end !== false) {
+                return substr($host, 0, $end + 1);
+            }
+        }
+
+        if (str_contains($host, ':') && substr_count($host, ':') === 1) {
+            $host = explode(':', $host, 2)[0];
+        }
+
+        $host = trim($host);
+
+        return $host !== '' ? $host : null;
     }
 
     /**
@@ -954,23 +1026,24 @@ class FrontendConfig
         $fromEnv = trim((string) (self::runtimeEnv('VITE_DEV_SERVER') ?? ''));
 
         if ($fromEnv !== '') {
-            return rtrim($fromEnv, '/');
+            return self::publicizeConfiguredDevServerUrl(rtrim($fromEnv, '/'));
         }
 
         $fromConfig = trim((string) ($config['dev']['url'] ?? ''));
 
         if ($fromConfig !== '') {
-            return rtrim($fromConfig, '/');
+            return self::publicizeConfiguredDevServerUrl(rtrim($fromConfig, '/'));
         }
 
         if (!self::usesViteAssets($config)) {
             return null;
         }
 
-        $host = self::devHost($config);
+        $host = self::runtimeEnv('VITE_DEV_HOST');
+        $host = is_string($host) && trim($host) !== '' ? trim($host) : self::devHost($config);
 
-        if ($host === '0.0.0.0' || $host === '[::]') {
-            $host = '127.0.0.1';
+        if (FrontendDevSession::isWildcardHost($host) || $host === 'true') {
+            $host = FrontendDevSession::publicHostForUrl('0.0.0.0');
         }
 
         $port = $themePath !== null && $themePath !== ''
@@ -978,6 +1051,30 @@ class FrontendConfig
             : self::devPort($config);
 
         return 'http://' . $host . ':' . $port;
+    }
+
+    /**
+     * Replace 0.0.0.0 / wildcard Vite origins with a LAN (or loopback) hostname browsers can open.
+     */
+    private static function publicizeConfiguredDevServerUrl(string $url): string
+    {
+        $parts = parse_url($url);
+
+        if (!is_array($parts) || empty($parts['host'])) {
+            return $url;
+        }
+
+        $host = (string) $parts['host'];
+
+        if (!FrontendDevSession::isWildcardHost($host)) {
+            return $url;
+        }
+
+        $publicHost = FrontendDevSession::publicHostForUrl('0.0.0.0');
+        $scheme = $parts['scheme'] ?? 'http';
+        $port = isset($parts['port']) ? ':' . $parts['port'] : '';
+
+        return $scheme . '://' . $publicHost . $port;
     }
 
     public static function isSsrEnabled(array $config): bool

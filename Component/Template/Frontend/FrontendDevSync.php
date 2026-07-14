@@ -57,7 +57,7 @@ final class FrontendDevSync
         }
 
         if ($session !== null) {
-            self::writeDevState($themePath, $config, $session->vitePort);
+            self::writeDevState($themePath, $config, $session->vitePort, $session->viteDevServerUrl());
         }
 
         return [
@@ -564,11 +564,12 @@ final class FrontendDevSync
     }
 
     /**
-     * Written during `fe dev` so PHP can resolve the allocated Vite port before dev.json has viteUrl.
+     * Written during `fe dev` so PHP can resolve the allocated Vite port / public URL before the
+     * Vite plugin finishes writing viteUrl into `.pinoox/dev.json`.
      *
      * @param array<string, mixed> $config
      */
-    public static function writeDevState(string $themePath, array $config, int $port): void
+    public static function writeDevState(string $themePath, array $config, int $port, ?string $viteUrl = null): void
     {
         if ($port < 1 || $port > 65535) {
             return;
@@ -576,6 +577,7 @@ final class FrontendDevSync
 
         FrontendDevState::write(
             $themePath,
+            viteUrl: $viteUrl,
             port: $port,
             outDir: FrontendConfig::buildOutDir($config, $themePath),
         );

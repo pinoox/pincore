@@ -227,3 +227,32 @@ test('FrontendDevSession npmEnvironment adds backend refresh globs for Flow rout
         ->and($npmEnv['VITE_DEV_REFRESH'])->toContain('/lang/')
         ->and($npmEnv['VITE_DEV_REFRESH'])->toContain('/app.php');
 });
+
+test('FrontendDevSession network mode exposes LAN Vite URL and loopback probe', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-theme-lan-vite-' . uniqid();
+    mkdir($themePath, 0777, true);
+    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue'];\n");
+
+    $config = FrontendConfig::forThemePath($themePath);
+    $session = FrontendDevSession::fromOptions(
+        'com_demo_app',
+        $config,
+        '0.0.0.0',
+        18080,
+        'com_demo_app',
+        true,
+        5176,
+        '0.0.0.0',
+    );
+
+    $lan = FrontendDevSession::detectLanIp() ?? '127.0.0.1';
+
+    expect($session->vitePublicHost())->toBe($lan)
+        ->and($session->viteDevServerUrl())->toBe('http://' . $lan . ':5176')
+        ->and($session->viteLoopbackProbeUrl())->toBe('http://127.0.0.1:5176')
+        ->and($session->npmEnvironment($config, [], $themePath)['VITE_DEV_SERVER'])->toBe('http://' . $lan . ':5176')
+        ->and($session->npmEnvironment($config, [], $themePath)['VITE_DEV_NETWORK'])->toBe('true');
+
+    @unlink($themePath . '/frontend.config.php');
+    @rmdir($themePath);
+});

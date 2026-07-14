@@ -297,6 +297,46 @@ test('FrontendConfig ignores dev state and dev url when runtime is production', 
     @rmdir($themePath);
 });
 
+test('FrontendConfig rewrites loopback Vite URL to LAN request host', function () {
+    $themePath = sys_get_temp_dir() . '/pinoox-theme-lan-align-' . uniqid();
+    mkdir($themePath . '/.pinoox', 0777, true);
+    file_put_contents($themePath . '/.pinoox/dev.json', json_encode([
+        'viteUrl' => 'http://127.0.0.1:5176',
+        'port' => 5176,
+    ], JSON_PRETTY_PRINT));
+    file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue'];\n");
+
+    $previousHost = $_SERVER['HTTP_HOST'] ?? null;
+    $_SERVER['HTTP_HOST'] = '192.168.1.10:8000';
+
+    putenv(FrontendConfig::VITE_HMR_ENV . '=1');
+    $_ENV[FrontendConfig::VITE_HMR_ENV] = '1';
+    $_SERVER[FrontendConfig::VITE_HMR_ENV] = '1';
+
+    try {
+        $config = FrontendConfig::forThemePath($themePath);
+
+        expect(FrontendConfig::alignDevServerUrlWithBrowser('http://127.0.0.1:5176'))
+            ->toBe('http://192.168.1.10:5176')
+            ->and(FrontendConfig::resolveDevServerUrl($themePath, $config))
+            ->toBe('http://192.168.1.10:5176');
+    } finally {
+        if ($previousHost === null) {
+            unset($_SERVER['HTTP_HOST']);
+        } else {
+            $_SERVER['HTTP_HOST'] = $previousHost;
+        }
+
+        putenv(FrontendConfig::VITE_HMR_ENV);
+        unset($_ENV[FrontendConfig::VITE_HMR_ENV], $_SERVER[FrontendConfig::VITE_HMR_ENV]);
+    }
+
+    @unlink($themePath . '/.pinoox/dev.json');
+    @rmdir($themePath . '/.pinoox');
+    @unlink($themePath . '/frontend.config.php');
+    @rmdir($themePath);
+});
+
 test('FrontendWebServerFixSync registers vite chunk paths and skips twig themes', function () {
     $themePath = sys_get_temp_dir() . '/pinoox-fe-sync-' . uniqid();
     mkdir($themePath . '/dist/.vite', 0777, true);

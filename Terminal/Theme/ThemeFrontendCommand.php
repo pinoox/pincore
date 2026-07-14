@@ -1100,7 +1100,7 @@ FOOTER
             $frontend->setDevEnvFile(trim($envFileOption));
         }
 
-        FrontendDevSync::writeDevState($frontend->themePath(), $frontend->config(), $session->vitePort);
+        FrontendDevSync::writeDevState($frontend->themePath(), $frontend->config(), $session->vitePort, $session->viteDevServerUrl());
         $sync = $frontend->syncDev();
         $this->renderDevDiagnostics($io, $frontend, $sync);
 
@@ -1264,7 +1264,7 @@ FOOTER
             );
 
             $frontend->setDevSession($session);
-            FrontendDevSync::writeDevState($frontend->themePath(), $frontend->config(), $session->vitePort);
+            FrontendDevSync::writeDevState($frontend->themePath(), $frontend->config(), $session->vitePort, $session->viteDevServerUrl());
             $sync = $frontend->syncDev();
 
             if (!$quietStack) {
