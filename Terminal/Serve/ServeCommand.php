@@ -149,8 +149,14 @@ FOOTER
 
         if (!(bool) $input->getOption('no-inspector') && InspectorRuntime::isAvailable()) {
             $inspectorPackage = InspectorRuntime::resolveDefaultPackage($serveApp);
-            InspectorRuntime::applyEnvironment($documentRoot, $inspectorPackage);
-            $io->note('Pinx Inspector: ' . $server->inspectorUrl());
+            $allowLan = $this->isNetworkMode($input) || $host === '0.0.0.0' || $host === '[::]';
+            InspectorRuntime::applyEnvironment($documentRoot, $inspectorPackage, true, $allowLan);
+
+            if ($allowLan) {
+                $io->note('Pinx Inspector: ' . $server->inspectorUrl() . ' (LAN allowed for private IPs)');
+            } else {
+                $io->note('Pinx Inspector: ' . $server->inspectorUrl());
+            }
 
             if ((bool) $input->getOption('open-inspector')) {
                 InspectorRuntime::openBrowser($server->inspectorUrl());

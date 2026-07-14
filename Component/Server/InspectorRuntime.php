@@ -25,8 +25,12 @@ final class InspectorRuntime
     /**
      * @return array<string, string>
      */
-    public static function environment(string $projectRoot, ?string $defaultPackage = null, bool $widget = true): array
-    {
+    public static function environment(
+        string $projectRoot,
+        ?string $defaultPackage = null,
+        bool $widget = true,
+        bool $allowLan = false,
+    ): array {
         if (!self::isAvailable()) {
             return [];
         }
@@ -40,6 +44,10 @@ final class InspectorRuntime
             'PINX_INSPECTOR_WIDGET' => $widget ? '1' : '0',
         ];
 
+        if ($allowLan) {
+            $env['PINX_INSPECTOR_ALLOW_LAN'] = '1';
+        }
+
         if ($defaultPackage !== null && $defaultPackage !== '') {
             $env['PINX_INSPECTOR_DEFAULT_PACKAGE'] = $defaultPackage;
             $env['PINX_INSPECTOR_PACKAGE'] = $defaultPackage;
@@ -48,9 +56,13 @@ final class InspectorRuntime
         return $env;
     }
 
-    public static function applyEnvironment(string $projectRoot, ?string $defaultPackage = null, bool $widget = true): void
-    {
-        foreach (self::environment($projectRoot, $defaultPackage, $widget) as $key => $value) {
+    public static function applyEnvironment(
+        string $projectRoot,
+        ?string $defaultPackage = null,
+        bool $widget = true,
+        bool $allowLan = false,
+    ): void {
+        foreach (self::environment($projectRoot, $defaultPackage, $widget, $allowLan) as $key => $value) {
             putenv($key . '=' . $value);
             $_ENV[$key] = $value;
             $_SERVER[$key] = $value;

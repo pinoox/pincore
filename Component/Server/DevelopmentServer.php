@@ -35,6 +35,7 @@ class DevelopmentServer
         'PINX_INSPECTOR_PROJECT_ROOT',
         'PINX_INSPECTOR_DEFAULT_PACKAGE',
         'PINX_INSPECTOR_PACKAGE',
+        'PINX_INSPECTOR_ALLOW_LAN',
     ];
 
     private int $portOffset = 0;
