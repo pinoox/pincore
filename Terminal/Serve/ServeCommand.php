@@ -66,7 +66,7 @@ FOOTER
             ->addOption('no-fix-hosts', null, InputOption::VALUE_NONE, 'Do not auto-update the system hosts file for --domain')
             ->addOption('network', 'N', InputOption::VALUE_NONE, 'Listen on 0.0.0.0 and show LAN URL for other devices on your network')
             ->addOption('app', null, InputOption::VALUE_REQUIRED, 'Lock to one app (package, route path, alias, or package@path)')
-            ->addOption('tries', null, InputOption::VALUE_OPTIONAL, 'How many ports to try if the default is busy', 10)
+            ->addOption('tries', null, InputOption::VALUE_OPTIONAL, 'How many ports to try if the default is busy', ServerPort::MAX_TRIES)
             ->addOption('no-reload', null, InputOption::VALUE_NONE, 'Do not restart when .env changes')
             ->addOption('no-inspector', null, InputOption::VALUE_NONE, 'Disable Pinx Inspector on /~inspector')
             ->addOption('open-inspector', null, InputOption::VALUE_NONE, 'Open Pinx Inspector in the browser')
