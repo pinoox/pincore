@@ -173,7 +173,9 @@ abstract class Model extends EloquentModel
         $column = (string) $column;
 
         if (!str_contains($column, '.')) {
-            return $column;
+            $logical = (string) ($this->table ?? '');
+
+            return $logical !== '' ? $logical . '.' . $column : $column;
         }
 
         [$table, $name] = explode('.', $column, 2);
