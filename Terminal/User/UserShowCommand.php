@@ -26,14 +26,19 @@ class UserShowCommand extends Terminal
         $this
             ->setHelp(
                 <<<'HELP'
-Show a single user by id, username, or email.
+Show a single user by id, username, email, mobile, or personal id.
+
+Run without arguments for an interactive wizard. If the identifier matches
+more than one user, you will be asked to pick the user id.
 
 Examples:
+  php pinoox user:show
   php pinoox user:show com_my_shop admin
-  pinx user:show 12
+  php pinoox user:show 09120000000
+  pinx user:show 12 --json
 HELP
             )
-            ->addArgument('user', InputArgument::REQUIRED, 'User id, username, or email')
+            ->addArgument('user', InputArgument::OPTIONAL, 'User id, username, email, mobile, or personal id')
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
             ->addOption('json', null, InputOption::VALUE_NONE, 'Output JSON');
     }
@@ -43,14 +48,33 @@ HELP
         parent::execute($input, $output);
 
         $io = new SymfonyStyle($input, $output);
+
+        $useWizard = $input->isInteractive() && $this->resolveUserIdentifier($input) === '';
+
+        if ($useWizard) {
+            $io->title('Show user');
+            $io->text('Find a user by id, username, email, mobile, or personal id.');
+            $io->newLine();
+        }
+
         $package = $this->resolveUserPackageInput($input, $output, $io, 'Show user for');
         $this->prepareUserScope($package);
 
-        $identifier = $this->resolveUserIdentifier($input);
-        $user = $this->resolveUser($identifier);
+        try {
+            $user = $this->resolveCliUserFromInput(
+                $input,
+                $output,
+                $io,
+                'Multiple users found — which one?',
+            );
+        } catch (\RuntimeException $e) {
+            $io->error($e->getMessage());
+
+            return Command::FAILURE;
+        }
 
         if ($user === null) {
-            $io->error('User not found: ' . $identifier);
+            $io->error('User not found.');
 
             return Command::FAILURE;
         }
@@ -73,6 +97,7 @@ HELP
             ['Status' => (string) $user->status],
             ['Group' => (string) ($user->group_key ?: '—')],
             ['Mobile' => (string) ($user->mobile ?: '—')],
+            ['Personal ID' => (string) ($user->personal_id ?: '—')],
             ['Roles' => $row['roles'] === [] ? '—' : implode(', ', $row['roles'])],
             ['Created' => (string) ($user->created_at?->format('Y-m-d H:i:s') ?: '—')],
         );

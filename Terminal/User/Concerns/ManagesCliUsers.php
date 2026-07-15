@@ -159,6 +159,25 @@ trait ManagesCliUsers
         return trim((string) $io->ask('User id, username, email, mobile, or personal id'));
     }
 
+    protected function resolveCliUserFromInput(
+        InputInterface $input,
+        OutputInterface $output,
+        SymfonyStyle $io,
+        string $ambiguousSectionTitle = 'Multiple users found — which one?',
+    ): ?UserModel {
+        $identifier = $this->resolveUserIdentifier($input);
+
+        if ($identifier === '' && $input->isInteractive()) {
+            $identifier = $this->promptCliUserIdentifier($io);
+        }
+
+        if ($identifier === '') {
+            throw new \RuntimeException('User identifier is required.');
+        }
+
+        return $this->resolveCliUser($input, $output, $io, $identifier, $ambiguousSectionTitle);
+    }
+
     protected function resolveUserInput(
         InputInterface $input,
         OutputInterface $output,
@@ -168,7 +187,7 @@ trait ManagesCliUsers
         $identifier = $this->resolveUserIdentifier($input);
 
         if ($identifier !== '') {
-            return $this->resolveUser($identifier);
+            return $this->resolveCliUser($input, $output, $io, $identifier, $sectionTitle);
         }
 
         if (!$input->isInteractive()) {
@@ -193,12 +212,14 @@ trait ManagesCliUsers
         $io->section($sectionTitle);
 
         $table = new Table($output);
-        $table->setHeaders(['ID', 'Username', 'Email', 'Name', 'Status']);
+        $table->setHeaders(['ID', 'Username', 'Email', 'Mobile', 'Personal ID', 'Name', 'Status']);
         foreach ($users as $user) {
             $table->addRow([
                 $user->user_id,
                 $user->username,
                 $user->email ?: '—',
+                $user->mobile ?: '—',
+                $user->personal_id ?: '—',
                 trim($user->full_name) ?: '—',
                 $user->status,
             ]);
@@ -212,17 +233,23 @@ trait ManagesCliUsers
             if (is_string($user->email) && $user->email !== '') {
                 $candidates[] = $user->email;
             }
+            if (is_string($user->mobile) && $user->mobile !== '') {
+                $candidates[] = $user->mobile;
+            }
+            if (is_string($user->personal_id) && $user->personal_id !== '') {
+                $candidates[] = $user->personal_id;
+            }
         }
 
-        $question = new Question('User id, username, or email: ');
+        $question = new Question('User id, username, email, mobile, or personal id: ');
         $question->setAutocompleterValues(array_values(array_unique($candidates)));
-        $question->setValidator(function ($answer) {
+        $question->setValidator(function ($answer) use ($input, $output, $io, $sectionTitle) {
             $answer = trim((string) $answer);
             if ($answer === '') {
                 throw new \RuntimeException('User is required.');
             }
 
-            $user = $this->resolveUser($answer);
+            $user = $this->resolveCliUser($input, $output, $io, $answer, $sectionTitle);
             if ($user === null) {
                 throw new \RuntimeException('User not found: ' . $answer);
             }

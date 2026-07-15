@@ -29,12 +29,17 @@ class UserStatusCommand extends Terminal
                 <<<'HELP'
 Set user status: active, inactive, suspend, pending.
 
+Run without arguments for an interactive wizard. The user can be found by
+user id, username, email, mobile, or personal id.
+
 Examples:
+  php pinoox user:status
   php pinoox user:status com_my_shop admin --status=inactive
+  php pinoox user:status 09120000000 --status=active
   pinx user:status admin --status=active
 HELP
             )
-            ->addArgument('user', InputArgument::REQUIRED, 'User id, username, or email')
+            ->addArgument('user', InputArgument::OPTIONAL, 'User id, username, email, mobile, or personal id')
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
             ->addOption('status', 's', InputOption::VALUE_REQUIRED, 'New status');
     }
@@ -44,14 +49,35 @@ HELP
         parent::execute($input, $output);
 
         $io = new SymfonyStyle($input, $output);
+
+        $useWizard = $input->isInteractive()
+            && $this->resolveUserIdentifier($input) === ''
+            && !$input->getOption('status');
+
+        if ($useWizard) {
+            $io->title('Change user status');
+            $io->text('Find a user by id, username, email, mobile, or personal id, then set a new status.');
+            $io->newLine();
+        }
+
         $package = $this->resolveUserPackageInput($input, $output, $io, 'Change user status for');
         $this->prepareUserScope($package);
 
-        $identifier = $this->resolveUserIdentifier($input);
-        $user = $this->resolveUser($identifier);
+        try {
+            $user = $this->resolveCliUserFromInput(
+                $input,
+                $output,
+                $io,
+                'Multiple users found — which one?',
+            );
+        } catch (\RuntimeException $e) {
+            $io->error($e->getMessage());
+
+            return Command::FAILURE;
+        }
 
         if ($user === null) {
-            $io->error('User not found: ' . $identifier);
+            $io->error('User not found.');
 
             return Command::FAILURE;
         }
@@ -73,7 +99,7 @@ HELP
             return Command::FAILURE;
         }
 
-        $io->success(sprintf('User #%d status set to %s.', $user->user_id, $status));
+        $io->success(sprintf('User #%d (%s) status set to %s.', $user->user_id, $user->username, $status));
 
         return Command::SUCCESS;
     }

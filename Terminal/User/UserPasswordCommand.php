@@ -69,20 +69,10 @@ HELP
         $this->prepareUserScope($package);
 
         try {
-            $identifier = $this->resolveUserIdentifier($input);
-            if ($identifier === '' && $input->isInteractive()) {
-                $identifier = $this->promptCliUserIdentifier($io);
-            } elseif ($identifier === '') {
-                $io->error('User identifier is required.');
-
-                return Command::FAILURE;
-            }
-
-            $user = $this->resolveCliUser(
+            $user = $this->resolveCliUserFromInput(
                 $input,
                 $output,
                 $io,
-                $identifier,
                 'Multiple users found — which one?',
             );
         } catch (\RuntimeException $e) {
@@ -92,7 +82,7 @@ HELP
         }
 
         if ($user === null) {
-            $io->error('User not found: ' . ($identifier ?? ''));
+            $io->error('User not found.');
 
             return Command::FAILURE;
         }

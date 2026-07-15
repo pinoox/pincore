@@ -29,12 +29,17 @@ class UserDeleteCommand extends Terminal
                 <<<'HELP'
 Delete a user from the current app scope.
 
+Run without arguments for an interactive wizard. The user can be found by
+user id, username, email, mobile, or personal id.
+
 Examples:
+  php pinoox user:delete
   php pinoox user:delete com_my_shop demo --force
-  pinx user:delete demo
+  php pinoox user:delete 09120000000 --force
+  pinx user:delete demo --revoke-sessions
 HELP
             )
-            ->addArgument('user', InputArgument::REQUIRED, 'User id, username, or email')
+            ->addArgument('user', InputArgument::OPTIONAL, 'User id, username, email, mobile, or personal id')
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip confirmation')
             ->addOption('revoke-sessions', null, InputOption::VALUE_NONE, 'Revoke tokens before delete');
@@ -45,14 +50,33 @@ HELP
         parent::execute($input, $output);
 
         $io = new SymfonyStyle($input, $output);
+
+        $useWizard = $input->isInteractive() && $this->resolveUserIdentifier($input) === '';
+
+        if ($useWizard) {
+            $io->title('Delete user');
+            $io->text('Find a user by id, username, email, mobile, or personal id.');
+            $io->newLine();
+        }
+
         $package = $this->resolveUserPackageInput($input, $output, $io, 'Delete user for');
         $this->prepareUserScope($package);
 
-        $identifier = $this->resolveUserIdentifier($input);
-        $user = $this->resolveUser($identifier);
+        try {
+            $user = $this->resolveCliUserFromInput(
+                $input,
+                $output,
+                $io,
+                'Multiple users found — which one?',
+            );
+        } catch (\RuntimeException $e) {
+            $io->error($e->getMessage());
+
+            return Command::FAILURE;
+        }
 
         if ($user === null) {
-            $io->error('User not found: ' . $identifier);
+            $io->error('User not found.');
 
             return Command::FAILURE;
         }
@@ -76,7 +100,7 @@ HELP
             return Command::FAILURE;
         }
 
-        $io->success('User #' . $user->user_id . ' deleted.');
+        $io->success('User #' . $user->user_id . ' (' . $user->username . ') deleted.');
 
         return Command::SUCCESS;
     }

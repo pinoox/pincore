@@ -28,6 +28,11 @@ class UserRoleCommand extends Terminal
             ->setHelp(
                 <<<'HELP'
 Manage roles assigned to a user.
+
+Find users by id, username, email, mobile, or personal id. If the identifier
+matches more than one user, you will be asked to pick the user id. Run without
+arguments to pick a user from the list interactively.
+
 Recommended workflow:
   1. php pinoox role:create com_my_shop --key=admin --name=Administrator
   2. php pinoox role:list com_my_shop
@@ -35,12 +40,12 @@ Recommended workflow:
 Examples:
   php pinoox user:role
   php pinoox user:role admin --role=admin --role=editor
-  php pinoox user:role admin --role=editor --sync
+  php pinoox user:role 09120000000 --role=editor --sync
   php pinoox user:role admin --role=legacy --detach
   php pinoox user:role admin --list
 HELP
             )
-            ->addArgument('user', InputArgument::OPTIONAL, 'User id, username, or email. Leave empty to pick from the list.')
+            ->addArgument('user', InputArgument::OPTIONAL, 'User id, username, email, mobile, or personal id. Leave empty to pick from the list.')
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
             ->addOption('role', 'r', InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Role key (repeatable)')
             ->addOption('sync', null, InputOption::VALUE_NONE, 'Replace existing roles instead of attaching')
@@ -51,6 +56,18 @@ HELP
     {
         parent::execute($input, $output);
         $io = new SymfonyStyle($input, $output);
+
+        $useWizard = $input->isInteractive()
+            && $this->resolveUserIdentifier($input) === ''
+            && !$input->getOption('list')
+            && $input->getOption('role') === [];
+
+        if ($useWizard) {
+            $io->title('Manage user roles');
+            $io->text('Pick a user from the list or pass an id, username, email, mobile, or personal id.');
+            $io->newLine();
+        }
+
         try {
             $package = $this->resolveUserPackageInput($input, $output, $io, 'Manage user roles for');
             $this->prepareRoleScope($package);

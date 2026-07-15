@@ -25,10 +25,15 @@ class UserUpdateCommand extends Terminal
             ->setHelp(
                 <<<'HELP'
 Update user profile fields.
-Run without arguments to pick package and user interactively, then edit fields.
+
+Find users by id, username, email, mobile, or personal id. If the identifier
+matches more than one user, you will be asked to pick the user id. Run without
+arguments to pick a user from the list interactively, then edit fields.
+
 Examples:
   php pinoox user:update
   php pinoox user:update admin --email=new@example.com --mobile=09120000000
+  php pinoox user:update 09120000000 --fname=Ali
   php pinoox user:update admin --meta theme=dark --meta locale=fa
   php pinoox user:update admin --metadata='{"theme":"dark","locale":"fa"}'
   php pinoox user:update admin --set meta.theme=dark --set meta.locale=fa
@@ -37,7 +42,7 @@ Metadata is merged with existing values. Use empty value to remove a key.
 Field aliases for --set: first-name, last-name, group, phone, personal-id, meta.key
 HELP
             )
-            ->addArgument('user', InputArgument::OPTIONAL, 'User id, username, or email. Leave empty to pick from the list.')
+            ->addArgument('user', InputArgument::OPTIONAL, 'User id, username, email, mobile, or personal id. Leave empty to pick from the list.')
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
             ->addOption('set', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Set field=value (repeatable)')
             ->addOption('meta', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Set metadata key=value (repeatable, merged)')
@@ -55,6 +60,15 @@ HELP
     {
         parent::execute($input, $output);
         $io = new SymfonyStyle($input, $output);
+
+        $useWizard = $input->isInteractive() && $this->resolveUserIdentifier($input) === '';
+
+        if ($useWizard) {
+            $io->title('Update user');
+            $io->text('Pick a user from the list or pass an id, username, email, mobile, or personal id.');
+            $io->newLine();
+        }
+
         try {
             $package = $this->resolveUserPackageInput($input, $output, $io, 'Update user for');
             $this->prepareUserScope($package);
