@@ -32,12 +32,18 @@ class UserPasswordCommand extends Terminal
                 <<<'HELP'
 Reset a user password without the old password (admin CLI).
 
+Run without arguments for an interactive wizard. The user can be found by
+user id, username, email, mobile, or personal id. If username, email, or
+mobile matches more than one user, you will be asked to pick the user id.
+
 Examples:
+  php pinoox user:password
   php pinoox user:password com_my_shop admin --password=secret
-  pinx user:password admin --password=secret --revoke-sessions
+  php pinoox user:password 09120000000
+  pinx user:password admin@example.com --password=secret --revoke-sessions
 HELP
             )
-            ->addArgument('user', InputArgument::REQUIRED, 'User id, username, or email')
+            ->addArgument('user', InputArgument::OPTIONAL, 'User id, username, email, mobile, or personal id')
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
             ->addOption('password', 'p', InputOption::VALUE_REQUIRED, 'New plain password')
             ->addOption('revoke-sessions', null, InputOption::VALUE_NONE, 'Revoke active tokens after reset');
@@ -48,14 +54,45 @@ HELP
         parent::execute($input, $output);
 
         $io = new SymfonyStyle($input, $output);
+
+        $useWizard = $input->isInteractive()
+            && $this->resolveUserIdentifier($input) === ''
+            && !$input->getOption('password');
+
+        if ($useWizard) {
+            $io->title('Reset user password');
+            $io->text('Find a user by id, username, email, mobile, or personal id, then set a new password.');
+            $io->newLine();
+        }
+
         $package = $this->resolveUserPackageInput($input, $output, $io, 'Reset password for');
         $this->prepareUserScope($package);
 
-        $identifier = $this->resolveUserIdentifier($input);
-        $user = $this->resolveUser($identifier);
+        try {
+            $identifier = $this->resolveUserIdentifier($input);
+            if ($identifier === '' && $input->isInteractive()) {
+                $identifier = $this->promptCliUserIdentifier($io);
+            } elseif ($identifier === '') {
+                $io->error('User identifier is required.');
+
+                return Command::FAILURE;
+            }
+
+            $user = $this->resolveCliUser(
+                $input,
+                $output,
+                $io,
+                $identifier,
+                'Multiple users found — which one?',
+            );
+        } catch (\RuntimeException $e) {
+            $io->error($e->getMessage());
+
+            return Command::FAILURE;
+        }
 
         if ($user === null) {
-            $io->error('User not found: ' . $identifier);
+            $io->error('User not found: ' . ($identifier ?? ''));
 
             return Command::FAILURE;
         }
@@ -81,7 +118,7 @@ HELP
             $io->note('Revoked ' . $count . ' session token(s).');
         }
 
-        $io->success('Password updated for user #' . $user->user_id . '.');
+        $io->success('Password updated for user #' . $user->user_id . ' (' . $user->username . ').');
 
         return Command::SUCCESS;
     }

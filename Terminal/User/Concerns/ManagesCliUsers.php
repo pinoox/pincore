@@ -8,6 +8,8 @@ use Pinoox\Model\RoleModel;
 use Pinoox\Model\UserModel;
 use Pinoox\Portal\Auth;
 use Pinoox\Portal\Database\DB;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Pinoox\Component\Package\PackageName;
 use Pinoox\Support\Platform;
 use Pinoox\Terminal\Concerns\SelectsPackage;
@@ -46,15 +48,115 @@ trait ManagesCliUsers
 
     protected function resolveUser(string $identifier): ?UserModel
     {
+        $users = $this->findUsersByCliIdentifier($identifier);
+
+        return $users->count() === 1 ? $users->first() : null;
+    }
+
+    /**
+     * @return EloquentCollection<int, UserModel>
+     */
+    protected function findUsersByCliIdentifier(string $identifier): EloquentCollection
+    {
         if ($identifier === '') {
-            return null;
+            return UserModel::query()->whereRaw('0 = 1')->get();
         }
 
         if (ctype_digit($identifier)) {
-            return Auth::find((int) $identifier);
+            $user = Auth::find((int) $identifier);
+
+            return $user !== null
+                ? UserModel::query()->where('user_id', $user->user_id)->get()
+                : UserModel::query()->whereRaw('0 = 1')->get();
         }
 
-        return Auth::findByLogin($identifier, false);
+        return UserModel::query()
+            ->where(function (Builder $builder) use ($identifier) {
+                $builder
+                    ->where('username', $identifier)
+                    ->orWhere('email', $identifier)
+                    ->orWhere('mobile', $identifier)
+                    ->orWhere('personal_id', $identifier);
+            })
+            ->orderBy('user_id')
+            ->get();
+    }
+
+    protected function resolveCliUser(
+        InputInterface $input,
+        OutputInterface $output,
+        SymfonyStyle $io,
+        string $identifier,
+        string $sectionTitle = 'Select user',
+    ): ?UserModel {
+        $users = $this->findUsersByCliIdentifier($identifier);
+
+        if ($users->isEmpty()) {
+            return null;
+        }
+
+        if ($users->count() === 1) {
+            return $users->first();
+        }
+
+        if (!$input->isInteractive()) {
+            throw new \RuntimeException(
+                sprintf('Multiple users match "%s". Pass a unique user id.', $identifier),
+            );
+        }
+
+        return $this->promptAmbiguousUserSelection($input, $output, $io, $users, $sectionTitle);
+    }
+
+    /**
+     * @param EloquentCollection<int, UserModel> $users
+     */
+    protected function promptAmbiguousUserSelection(
+        InputInterface $input,
+        OutputInterface $output,
+        SymfonyStyle $io,
+        EloquentCollection $users,
+        string $sectionTitle = 'Select user',
+    ): ?UserModel {
+        $io->warning(sprintf('%d users match your input. Enter the user id from the list below.', $users->count()));
+        $io->section($sectionTitle);
+
+        $table = new Table($output);
+        $table->setHeaders(['ID', 'Username', 'Email', 'Mobile', 'Personal ID', 'Name', 'Status']);
+        foreach ($users as $user) {
+            $table->addRow([
+                $user->user_id,
+                $user->username,
+                $user->email ?: '—',
+                $user->mobile ?: '—',
+                $user->personal_id ?: '—',
+                trim($user->full_name) ?: '—',
+                $user->status,
+            ]);
+        }
+        $table->render();
+
+        $validIds = $users->pluck('user_id')->map(static fn ($id) => (string) $id)->all();
+
+        $question = new Question('User id: ');
+        $question->setAutocompleterValues($validIds);
+        $question->setValidator(function ($answer) use ($validIds, $users) {
+            $answer = trim((string) $answer);
+            if ($answer === '' || !in_array($answer, $validIds, true)) {
+                throw new \RuntimeException('Enter a valid user id from the list above.');
+            }
+
+            return $users->firstWhere('user_id', (int) $answer);
+        });
+
+        $selected = $this->getHelper('question')->ask($input, $output, $question);
+
+        return $selected instanceof UserModel ? $selected : null;
+    }
+
+    protected function promptCliUserIdentifier(SymfonyStyle $io): string
+    {
+        return trim((string) $io->ask('User id, username, email, mobile, or personal id'));
     }
 
     protected function resolveUserInput(
