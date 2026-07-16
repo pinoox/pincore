@@ -303,6 +303,7 @@ trait ManagesCliUsers
             'status' => $user->status,
             'group_key' => $user->group_key,
             'mobile' => $user->mobile,
+            'personal_id' => $user->personal_id,
             'app' => $user->app,
             'created_at' => $user->created_at?->format('Y-m-d H:i:s'),
         ];
