@@ -55,6 +55,13 @@ Examples:
   php pinoox migrate com_my_shop
   php pinoox migrate --status
   php pinoox migrate --reset
+  php pinoox migrate --fresh
+  php pinoox migrate --refresh
+
+Related:
+  php pinoox migrate:rollback --step=1
+  php pinoox migrate:drop
+  php pinoox migrate:fresh
 HELP
             )
             ->addArgument('package', InputArgument::OPTIONAL, 'App package or platform. Leave empty to pick from the list.')
@@ -63,7 +70,9 @@ HELP
             ->addOption('devdb', null, InputOption::VALUE_NONE, 'Run migrations using Pinoox DevDB in local development')
             ->addOption('preview', null, InputOption::VALUE_NONE, 'Preview DevDB schema metadata without writing project DevDB files')
             ->addOption('status', 's', InputOption::VALUE_NONE, 'Show which migrations ran and which are pending')
-            ->addOption('reset', 'r', InputOption::VALUE_NONE, 'Rollback all migrations, then run them again')
+            ->addOption('reset', 'r', InputOption::VALUE_NONE, 'Rollback all migration batches via down()')
+            ->addOption('fresh', null, InputOption::VALUE_NONE, 'Drop package tables, clear history, then migrate')
+            ->addOption('refresh', null, InputOption::VALUE_NONE, 'Rollback all batches via down(), then migrate again')
             ->addOption('force', null, InputOption::VALUE_NONE, 'Run even when tables already exist');
     }
 
@@ -77,6 +86,8 @@ HELP
         $ignoreFk = $input->getOption('ignore-fk');
         $showStatus = $input->getOption('status');
         $reset = $input->getOption('reset');
+        $fresh = $input->getOption('fresh');
+        $refresh = $input->getOption('refresh');
         $force = $input->getOption('force');
 
         if ($input->getOption('devdb') || $input->getOption('preview')) {
@@ -118,9 +129,20 @@ HELP
         $foreignKeyChecksDisabled = false;
 
         try {
+            if ($fresh) {
+                $result = (new Migrator($package))->fresh();
+                $this->printMessages($io, $result);
+                return Command::SUCCESS;
+            }
+
+            if ($refresh) {
+                $result = (new Migrator($package))->refresh();
+                $this->printMessages($io, $result);
+                return Command::SUCCESS;
+            }
+
             if ($reset) {
-                $migrator = new Migrator($package);
-                $result = $migrator->reset();
+                $result = (new Migrator($package))->reset();
                 $this->printMessages($io, $result);
                 return Command::SUCCESS;
             }

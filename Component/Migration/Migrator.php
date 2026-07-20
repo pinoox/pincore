@@ -248,7 +248,7 @@ class Migrator
             $this->statistics['total_migrations'] = count($migrationsToRollback);
             $messages = [];
 
-            foreach (array_reverse($migrationsToRollback) as $migration) {
+            foreach ($migrationsToRollback as $migration) {
                 try {
                     if ($this->dryRun) {
                         $messages[] = "[DRY RUN] Would rollback: {$migration['migration']}";
@@ -323,62 +323,204 @@ class Migrator
     }
 
     /**
-     * Reset all migrations (rollback everything)
+     * Reset all migrations by rolling back every batch via down().
      */
     public function reset(): array
     {
-        $this->log('Starting migration reset (rollback all)');
+        $this->log('Starting migration reset (rollback all batches)');
+
+        $messages = $this->rollback(0);
+
+        if ($messages === ['Nothing to rollback.']) {
+            return ['Nothing to reset for package: ' . $this->package];
+        }
+
+        return array_merge(
+            ['Reset complete for package: ' . $this->package],
+            $messages,
+        );
+    }
+
+    /**
+     * Hard-drop tables created by this package's migrations and clear history.
+     *
+     * @return array{dropped: list<string>, messages: list<string>}
+     */
+    public function dropTables(bool $clearHistory = true): array
+    {
+        $this->acquireLock();
+        $this->log('Starting table drop for package: ' . $this->package);
 
         try {
-            // Load migrations first
             $this->toolkit->package($this->package)->action('status')->load();
-            $migrations = array_reverse($this->toolkit->getMigrations());
+            if (!$this->toolkit->isSuccess()) {
+                throw new Exception($this->toolkit->getErrors());
+            }
 
+            $tables = $this->collectDroppableTables($this->toolkit->getMigrations());
+            $dropped = [];
             $foreignKeyChecksDisabled = $this->disableForeignKeyChecks();
 
             try {
-                // Get all tables in the database
-                $tables = DB::select("SHOW TABLES LIKE '{$this->package}_%'");
-                
-                // Drop all matching tables
                 foreach ($tables as $table) {
-                    $tableName = reset($table);
-                    $this->log("Dropping table: {$tableName}");
-                    DB::statement("DROP TABLE IF EXISTS `{$tableName}`");
+                    if ($this->isProtectedTable($table)) {
+                        $this->log("Skipping protected table: {$table}", 'warning');
+                        continue;
+                    }
+
+                    if ($this->dropTableIfExists($table)) {
+                        $dropped[] = $table;
+                        $this->log("Dropped table: {$table}");
+                    }
                 }
 
-                // Delete all migration records for this package
-                HistoryModel::where('type', MigrationQuery::TYPE_MIGRATION)
-                    ->where('app', $this->package)
-                    ->delete();
-
-                return ['Successfully reset all migrations for package: ' . $this->package];
+                if ($clearHistory && $this->toolkit->isExistsMigrationTable()) {
+                    HistoryModel::where('type', MigrationQuery::TYPE_MIGRATION)
+                        ->where('app', $this->package)
+                        ->delete();
+                }
             } finally {
                 if ($foreignKeyChecksDisabled) {
                     $this->enableForeignKeyChecks();
                 }
             }
+
+            $messages = empty($dropped)
+                ? ['No tables to drop for package: ' . $this->package]
+                : array_merge(
+                    ['Dropped ' . count($dropped) . ' table(s) for package: ' . $this->package],
+                    array_map(static fn (string $table): string => '✓ Dropped: ' . $table, $dropped),
+                );
+
+            return [
+                'dropped' => $dropped,
+                'messages' => $messages,
+            ];
         } catch (Exception $e) {
-            throw new Exception("Failed to reset migrations: " . $e->getMessage());
+            $this->log('Drop tables failed: ' . $e->getMessage(), 'error');
+            throw new Exception('Failed to drop tables: ' . $e->getMessage());
+        } finally {
+            $this->releaseLock();
+            $this->finalizeStatistics();
         }
     }
 
     /**
-     * Refresh migrations (reset + migrate)
+     * Drop package tables, then run migrations from scratch.
+     */
+    public function fresh(): array
+    {
+        $this->log('Starting migration fresh (drop tables + migrate)');
+
+        $dropResult = $this->dropTables(true);
+        $this->toolkit = new MigrationToolkit();
+        $migrateResult = $this->run();
+
+        return array_merge(
+            ['=== DROP PHASE ==='],
+            $dropResult['messages'],
+            ['=== MIGRATE PHASE ==='],
+            $this->normalizeResultMessages($migrateResult),
+        );
+    }
+
+    /**
+     * Refresh migrations (rollback all via down + migrate)
      */
     public function refresh(): array
     {
         $this->log('Starting migration refresh (reset + migrate)');
 
         $resetResult = $this->reset();
+        $this->toolkit = new MigrationToolkit();
         $migrateResult = $this->run();
 
         return array_merge(
             ['=== RESET PHASE ==='],
             $resetResult,
             ['=== MIGRATE PHASE ==='],
-            $migrateResult
+            $this->normalizeResultMessages($migrateResult),
         );
+    }
+
+    /**
+     * @param list<array<string, mixed>> $migrations
+     * @return list<string>
+     */
+    private function collectDroppableTables(array $migrations): array
+    {
+        $tables = [];
+
+        foreach (array_reverse($migrations) as $migration) {
+            $fileName = (string) ($migration['fileName'] ?? '');
+
+            if (str_contains($fileName, 'create_access_tables')) {
+                foreach ([Table::USER_ROLE, Table::ROLE_PERMISSION, Table::PERMISSION, Table::ROLE] as $accessTable) {
+                    $tables[] = $accessTable;
+                }
+                continue;
+            }
+
+            $table = $migration['tableName'] ?? null;
+            if (is_string($table) && $table !== '') {
+                $tables[] = $table;
+            }
+        }
+
+        return array_values(array_unique($tables));
+    }
+
+    private function isProtectedTable(string $table): bool
+    {
+        return in_array($table, [Table::HISTORY, 'migration', 'migrations'], true);
+    }
+
+    private function dropTableIfExists(string $table): bool
+    {
+        if (!$this->schemaHasTable($table, $this->package)) {
+            return false;
+        }
+
+        $connection = $this->package === 'platform'
+            ? 'platform'
+            : DB::connectionNameForPackage($this->package);
+        $conn = DB::connection($connection);
+        $physical = DB::physicalTableName($table, $this->package);
+        $prefix = (string) $conn->getTablePrefix();
+        $logical = $physical;
+
+        if ($prefix !== '' && str_starts_with($physical, $prefix)) {
+            $logical = substr($physical, strlen($prefix));
+        }
+
+        DB::schema($connection)->dropIfExists($logical);
+
+        return true;
+    }
+
+    /**
+     * @param array<string, mixed>|list<string> $result
+     * @return list<string>
+     */
+    private function normalizeResultMessages(array $result): array
+    {
+        if (isset($result['executed']) || isset($result['skipped'])) {
+            $messages = [];
+            foreach ($result['executed'] ?? [] as $name) {
+                $messages[] = '✓ Migrated: ' . $name;
+            }
+            foreach ($result['skipped'] ?? [] as $name) {
+                $messages[] = '• Skipped: ' . $name;
+            }
+
+            if ($messages === []) {
+                return ['Nothing to migrate.'];
+            }
+
+            return $messages;
+        }
+
+        return array_values(array_map(static fn ($message): string => (string) $message, $result));
     }
 
     /**
@@ -716,7 +858,7 @@ class Migrator
 
             // Include the migration file and get the class instance
             MigrationBase::usePackage($this->package);
-            $migrationClass = require_once $migrationFile;
+            $migrationClass = include $migrationFile;
             MigrationBase::usePackage(null);
 
             if (!is_object($migrationClass)) {
@@ -745,12 +887,12 @@ class Migrator
     }
 
     /**
-     * Get migrations for rollback
+     * Get migrations for rollback (newest batch / record first)
      */
     private function getMigrationsForRollback(int $steps): array
     {
         if ($steps <= 0) {
-            return MigrationQuery::fetchAllByBatch(null, $this->package);
+            return $this->sortMigrationsForRollback(MigrationQuery::fetchAllByBatch(null, $this->package) ?? []);
         }
 
         $latestBatch = MigrationQuery::fetchLatestBatch($this->package);
@@ -758,10 +900,28 @@ class Migrator
         $currentSteps = 0;
 
         for ($batch = $latestBatch; $batch >= 1 && $currentSteps < $steps; $batch--) {
-            $batchMigrations = MigrationQuery::fetchAllByBatch($batch, $this->package);
-            $migrations = array_merge($migrations, $batchMigrations);
+            $batchMigrations = MigrationQuery::fetchAllByBatch($batch, $this->package) ?? [];
+            $migrations = array_merge($migrations, $this->sortMigrationsForRollback($batchMigrations));
             $currentSteps++;
         }
+
+        return $migrations;
+    }
+
+    /**
+     * @param list<array<string, mixed>> $migrations
+     * @return list<array<string, mixed>>
+     */
+    private function sortMigrationsForRollback(array $migrations): array
+    {
+        usort($migrations, static function (array $a, array $b): int {
+            $batchCmp = ((int) ($b['batch'] ?? 0)) <=> ((int) ($a['batch'] ?? 0));
+            if ($batchCmp !== 0) {
+                return $batchCmp;
+            }
+
+            return ((int) ($b['id'] ?? 0)) <=> ((int) ($a['id'] ?? 0));
+        });
 
         return $migrations;
     }
@@ -771,8 +931,9 @@ class Migrator
      */
     private function findMigrationFile(string $migrationName): ?string
     {
-        $this->toolkit->package($this->package)->action('rollback')->load();
-        $migrations = $this->toolkit->getMigrations();
+        $toolkit = new MigrationToolkit();
+        $toolkit->package($this->package)->action('status')->load();
+        $migrations = $toolkit->getMigrations();
 
         foreach ($migrations as $migration) {
             if ($migration['fileName'] === $migrationName) {
