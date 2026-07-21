@@ -41,6 +41,7 @@ class DevelopmentServer
     private int $portOffset = 0;
     private bool $bannerShown = false;
     private string $outputBuffer = '';
+    private ?ShareManager $shareManager = null;
 
     public function __construct(
         private readonly string $host,
@@ -52,6 +53,10 @@ class DevelopmentServer
         private readonly OutputInterface $output,
         private readonly ?string $serveApp = null,
         private readonly ?string $domain = null,
+        private readonly bool $share = false,
+        private readonly ?string $sharePassword = null,
+        private readonly ?string $shareExpire = null,
+        private readonly string $shareProvider = 'auto',
     ) {
     }
 
@@ -63,6 +68,8 @@ class DevelopmentServer
 
         while (true) {
             $process = $this->startProcess($envFile, $hasEnv);
+            $tunnelStarted = false;
+            $tunnelDisconnectWarned = false;
 
             while ($process->isRunning()) {
                 if (!$this->noReload && $hasEnv) {
@@ -76,10 +83,40 @@ class DevelopmentServer
                         $process->stop(5, defined('SIGINT') ? SIGINT : null);
                         $this->bannerShown = false;
                         $process = $this->startProcess($envFile, $hasEnv);
+                        $tunnelStarted = false;
+
+                        continue;
                     }
                 }
 
+                // Start share tunnel once the banner has appeared
+                if ($this->share && $this->bannerShown && !$tunnelStarted) {
+                    $tunnelStarted = true;
+                    $this->startTunnel();
+                }
+
+                // Check tunnel expiry
+                if ($this->shareManager !== null && $this->shareManager->checkExpiry()) {
+                    $this->output->writeln('');
+                    $this->output->writeln('<comment>Share tunnel expired — stopping server.</comment>');
+                    $process->stop(5, defined('SIGINT') ? SIGINT : null);
+
+                    return 0;
+                }
+
+                if ($this->shareManager !== null && !$tunnelDisconnectWarned && $this->shareManager->hasDisconnected()) {
+                    $tunnelDisconnectWarned = true;
+                    $this->output->writeln('');
+                    $label = $this->shareManager->activeProviderLabel() ?? 'tunnel';
+                    $this->output->writeln('<error>Share: ' . $label . ' disconnected — public URL may be unavailable.</error>');
+                    $this->output->writeln('<comment>  Restart serve --share or try --share-provider=auto.</comment>');
+                }
+
                 usleep(500_000);
+            }
+
+            if ($this->shareManager !== null) {
+                $this->shareManager->stop();
             }
 
             $exitCode = $process->getExitCode() ?? 1;
@@ -93,6 +130,66 @@ class DevelopmentServer
 
             return $exitCode;
         }
+    }
+
+    private function startTunnel(): void
+    {
+        $this->output->writeln('');
+        $this->output->writeln('<fg=gray>Starting public tunnel…</>');
+
+        $this->shareManager = new ShareManager(
+            port: $this->port(),
+            projectRoot: $this->documentRoot,
+            output: $this->output,
+            password: $this->sharePassword,
+            expireOption: $this->shareExpire,
+            providerId: $this->shareProvider,
+        );
+
+        $manager = $this->shareManager;
+        register_shutdown_function(static function () use ($manager): void {
+            $manager->stop();
+        });
+
+        $url = $this->shareManager->start();
+
+        if ($url !== null) {
+            $this->output->writeln('');
+            $this->output->writeln('<info>Share:</info>  <comment>' . $url . '</comment>');
+
+            if ($this->shareManager->activeProviderLabel() !== null) {
+                $this->output->writeln('<fg=gray>  Provider: ' . $this->shareManager->activeProviderLabel() . '</>');
+            }
+
+            if ($this->shareManager->activeProviderId() === 'pinggy') {
+                $this->output->writeln('<fg=gray>  Pinggy: browser screening bypass enabled (auto reload once).</>');
+                $this->output->writeln('<fg=gray>  If a warning page appears, click Enter site once — then assets load normally.</>');
+            }
+
+            if ($this->shareManager->hasPassword()) {
+                $this->output->writeln('<fg=gray>  Password protected — visitors must enter the password to access the site.</>');
+            }
+
+            if ($this->shareManager->getExpireSeconds() !== null) {
+                $expire = $this->shareManager->getExpireSeconds();
+                $this->output->writeln('<fg=gray>  Tunnel expires in ' . $this->formatExpire((int) $expire) . '</>');
+            }
+
+            $this->output->writeln('');
+        }
+    }
+
+    private function formatExpire(int $seconds): string
+    {
+        if ($seconds >= 3600) {
+            return round($seconds / 3600, 1) . 'h';
+        }
+
+        if ($seconds >= 60) {
+            return round($seconds / 60) . 'm';
+        }
+
+        return $seconds . 's';
     }
 
     public function url(): string
@@ -123,7 +220,7 @@ class DevelopmentServer
             $this->host . ':' . $this->port(),
             '-t',
             $this->documentRoot,
-            $this->routerScript,
+            $this->effectiveRouterScript(),
         ];
     }
 
@@ -172,6 +269,26 @@ class DevelopmentServer
         });
 
         return $process;
+    }
+
+    /**
+     * Resolve the actual router script to use.
+     * When --share-password is active, wraps the real router with a password gate.
+     */
+    private function effectiveRouterScript(): string
+    {
+        if ($this->share && $this->sharePassword !== null && $this->sharePassword !== '') {
+            $gate = new ShareManager(
+                port: $this->port(),
+                projectRoot: $this->documentRoot,
+                output: $this->output,
+                password: $this->sharePassword,
+            );
+
+            return $gate->writePasswordGateScript($this->routerScript);
+        }
+
+        return $this->routerScript;
     }
 
     /**

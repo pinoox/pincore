@@ -7,6 +7,7 @@ use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Server\HostsFileMapper;
 use Pinoox\Component\Server\ServeLocalDomain;
 use Pinoox\Component\Server\ServerPort;
+use Pinoox\Component\Server\Share\ShareProviderSelector;
 use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\FrontendDevPresenter;
 use Pinoox\Component\Template\Frontend\FrontendDevSession;
@@ -170,7 +171,11 @@ FOOTER
             ->addOption('fix-vite', null, InputOption::VALUE_NONE, 'Auto-wire vite.config.js with pinooxDevState/pinooxServer when missing')
             ->addOption('env-file', null, InputOption::VALUE_REQUIRED, 'Theme env file for fe dev auto-setup (default: .env)')
             ->addOption('no-inspector', null, InputOption::VALUE_NONE, 'Disable Pinx Inspector on /~inspector')
-            ->addOption('open-inspector', null, InputOption::VALUE_NONE, 'Open Pinx Inspector in the browser');
+            ->addOption('open-inspector', null, InputOption::VALUE_NONE, 'Open Pinx Inspector in the browser')
+            ->addOption('share', null, InputOption::VALUE_NONE, 'Expose the server via a public tunnel (Cloudflare, Pinggy, ngrok, …)')
+            ->addOption('share-provider', null, InputOption::VALUE_OPTIONAL, 'Tunnel provider: auto, pinggy, bore, cloudflare, serveo, localhostrun, tunnelmole, ngrok, localtunnel')
+            ->addOption('share-password', null, InputOption::VALUE_OPTIONAL, 'Protect the share URL with a password')
+            ->addOption('share-expire', null, InputOption::VALUE_OPTIONAL, 'Auto-stop the tunnel after a duration (e.g. 2h, 30m, 60s)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -1288,6 +1293,25 @@ FOOTER
             $this->noteResolvedServePort($io, $resolvedServePort, false);
         }
 
+        $shareProvider = ShareProviderSelector::AUTO;
+
+        if ((bool) $input->getOption('share')) {
+            try {
+                $shareProvider = ShareProviderSelector::resolve(
+                    $input,
+                    $output,
+                    ProjectCli::root(),
+                    is_string($input->getOption('share-provider')) ? $input->getOption('share-provider') : null,
+                    (string) _env('SERVER_SHARE_PROVIDER', ''),
+                    $this->getHelper('question'),
+                );
+            } catch (\InvalidArgumentException $e) {
+                $io->error($e->getMessage());
+
+                return Command::FAILURE;
+            }
+        }
+
         return (new FrontendDevStack())->run(
             $io,
             $output,
@@ -1298,6 +1322,10 @@ FOOTER
             $targets,
             $serveBinding,
             $serveDomain,
+            share: (bool) $input->getOption('share'),
+            sharePassword: $this->sharePasswordOption($input),
+            shareExpire: $input->getOption('share-expire') ?: null,
+            shareProvider: $shareProvider,
         ) === 0
             ? Command::SUCCESS
             : Command::FAILURE;
@@ -1568,6 +1596,13 @@ FOOTER
     private function isNetworkMode(InputInterface $input): bool
     {
         return (bool) $input->getOption('network');
+    }
+
+    private function sharePasswordOption(InputInterface $input): ?string
+    {
+        $password = $input->getOption('share-password');
+
+        return is_string($password) && $password !== '' ? $password : null;
     }
 
     private function resolveServeHost(InputInterface $input): ?string

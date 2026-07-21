@@ -40,6 +40,10 @@ class DevCommand extends Terminal
                     'dev spark --no-serve',
                     'dev com_pinoox_manager --network',
                     'dev spark --fix-vite --install',
+                    'dev spark --share',
+                    'dev spark -N --share',
+                    'dev spark --share --share-password=123456',
+                    'dev spark --share --share-expire=2h',
                 ],
                 "Use MAMP or another PHP server:\n  " . $this->cliFormat('dev spark --no-serve')
                 . "\n\nLocal domain (add to hosts: 127.0.0.1 pinoox.test):\n  " . $this->cliFormat('dev spark --domain=pinoox.test')
@@ -66,7 +70,11 @@ class DevCommand extends Terminal
             ->addOption('fix-vite', null, InputOption::VALUE_NONE, 'Auto-wire vite.config.js with pinooxDevState/pinooxServer when missing')
             ->addOption('env-file', null, InputOption::VALUE_REQUIRED, 'Theme env file for dev auto-setup (default: .env)')
             ->addOption('no-inspector', null, InputOption::VALUE_NONE, 'Disable Pinx Inspector on /~inspector')
-            ->addOption('open-inspector', null, InputOption::VALUE_NONE, 'Open Pinx Inspector in the browser');
+            ->addOption('open-inspector', null, InputOption::VALUE_NONE, 'Open Pinx Inspector in the browser')
+            ->addOption('share', null, InputOption::VALUE_NONE, 'Expose the server via a public tunnel (Cloudflare, Pinggy, ngrok, …)')
+            ->addOption('share-provider', null, InputOption::VALUE_OPTIONAL, 'Tunnel provider: auto, pinggy, bore, cloudflare, serveo, localhostrun, tunnelmole, ngrok, localtunnel')
+            ->addOption('share-password', null, InputOption::VALUE_OPTIONAL, 'Protect the share URL with a password')
+            ->addOption('share-expire', null, InputOption::VALUE_OPTIONAL, 'Auto-stop the tunnel after a duration (e.g. 2h, 30m, 60s)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -122,6 +130,10 @@ class DevCommand extends Terminal
             '--env-file' => $input->getOption('env-file'),
             '--no-inspector' => $input->getOption('no-inspector') ? true : null,
             '--open-inspector' => $input->getOption('open-inspector') ? true : null,
+            '--share' => $input->getOption('share') ? true : null,
+            '--share-provider' => $input->getOption('share-provider') ?: null,
+            '--share-password' => $input->getOption('share-password') ?: null,
+            '--share-expire' => $input->getOption('share-expire') ?: null,
         ], static fn ($value) => $value !== null && $value !== false && $value !== '');
 
         return $command->run(new ArrayInput($arguments), $output);
