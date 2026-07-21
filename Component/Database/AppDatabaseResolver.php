@@ -234,6 +234,9 @@ final class AppDatabaseResolver
             $platformDatabase,
         );
         $config['prefix'] = $prefix;
+        // Avoid locking the cloned app connection to the platform name so
+        // Eloquent setConnection(getName()) keeps using the app connection.
+        unset($config['name']);
 
         return $config;
     }
@@ -264,6 +267,9 @@ final class AppDatabaseResolver
 
             $config[$key] = $value;
         }
+
+        // Package registration assigns the real connection name; keep clones nameless.
+        unset($config['name']);
 
         return DatabaseConfig::normalizeConnectionDriver($config);
     }

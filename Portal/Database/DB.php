@@ -145,6 +145,7 @@ use Pinoox\Portal\Config;
  * @method static string connectionNameForModel(string $class)
  * @method static string connectionNameForPackage(?string $package = NULL, string $name = 'default')
  * @method static bool registerPackageConnections(string $package)
+ * @method static void flushPackageConnections()
  * @method static string tableName(string $table, ?string $package = NULL)
  * @method static string tableNameForModel(string $table, string $class)
  * @method static string physicalTableName(string $table, ?string $package = null)
@@ -239,6 +240,8 @@ class DB extends Portal
         self::$registering = false;
 
         $manager = self::___();
+
+        $manager->flushPackageConnections();
 
         foreach (['default', 'platform'] as $connection) {
             try {
