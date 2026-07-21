@@ -73,6 +73,9 @@ class Migrator
         $this->options = array_merge($this->getDefaultOptions(), $options);
         $this->toolkit = new MigrationToolkit();
         $this->initializeStatistics();
+        $this->dryRun = (bool) ($this->options['dry_run'] ?? false);
+        $this->useTransactions = (bool) ($this->options['use_transactions'] ?? true);
+        $this->timeout = (int) ($this->options['timeout'] ?? 300);
     }
 
     /**
@@ -845,7 +848,8 @@ class Migrator
      */
     private function rollbackSingleMigration(array $migration): void
     {
-        if ($this->useTransactions) {
+        $useTransactions = $this->shouldUseTransactions();
+        if ($useTransactions) {
             DB::beginTransaction();
         }
 
@@ -873,16 +877,44 @@ class Migrator
 
             MigrationQuery::delete($migration['migration'], $this->package);
 
-            if ($this->useTransactions) {
+            if ($useTransactions) {
                 DB::commit();
             }
 
         } catch (Exception $e) {
             MigrationBase::usePackage(null);
-            if ($this->useTransactions) {
+            if ($useTransactions) {
                 DB::rollback();
             }
             throw $e;
+        }
+    }
+
+    /**
+     * DevDB (JSON or SQLite rewrite) should not wrap DDL / history writes in long transactions.
+     * SQLite exclusive locks during txs cause "database is locked" when Inspector holds readers.
+     */
+    private function shouldUseTransactions(): bool
+    {
+        if (!($this->options['use_transactions'] ?? true) || !$this->useTransactions) {
+            return false;
+        }
+
+        try {
+            $connection = DB::connection();
+            $driver = $connection->getDriverName();
+            if ($driver === 'devdb') {
+                return false;
+            }
+
+            $config = method_exists($connection, 'getConfig') ? (array) $connection->getConfig() : [];
+            if (!empty($config['devdb'])) {
+                return false;
+            }
+
+            return true;
+        } catch (\Throwable) {
+            return $this->useTransactions;
         }
     }
 
@@ -985,17 +1017,42 @@ class Migrator
     {
         $this->lockFile = sys_get_temp_dir() . "/migration_lock_{$this->package}.lock";
 
-        if (file_exists($this->lockFile)) {
-            $lockTime = filemtime($this->lockFile);
-            if (time() - $lockTime > 60) { // 1 minute timeout
-                unlink($this->lockFile);
+        if (is_file($this->lockFile)) {
+            $raw = trim((string) @file_get_contents($this->lockFile));
+            $ownerPid = ctype_digit($raw) ? (int) $raw : 0;
+            $age = time() - (int) @filemtime($this->lockFile);
+            if ($age > 15 || $this->migrationLockOwnerIsDead($ownerPid)) {
+                @unlink($this->lockFile);
                 $this->log('Removed stale migration lock', 'warning');
             } else {
                 throw new Exception('Another migration is currently running for this package');
             }
         }
 
-        file_put_contents($this->lockFile, time());
+        file_put_contents($this->lockFile, (string) getmypid());
+    }
+
+    private function migrationLockOwnerIsDead(int $pid): bool
+    {
+        if ($pid <= 0) {
+            return true;
+        }
+
+        if (function_exists('posix_kill')) {
+            return !@posix_kill($pid, 0);
+        }
+
+        if (PHP_OS_FAMILY === 'Windows') {
+            $command = 'tasklist /FI "PID eq ' . $pid . '" /NH 2>NUL';
+            $output = @shell_exec($command);
+            if (!is_string($output) || trim($output) === '') {
+                return true;
+            }
+
+            return !str_contains($output, (string) $pid);
+        }
+
+        return false;
     }
 
     /**
