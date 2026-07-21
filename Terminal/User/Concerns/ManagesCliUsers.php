@@ -18,6 +18,7 @@ use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Console\Question\Question;
 use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Console\Command\Command;
 
 trait ManagesCliUsers
 {
@@ -299,6 +300,8 @@ trait ManagesCliUsers
             'user_id' => $user->user_id,
             'username' => $user->username,
             'email' => $user->email,
+            'fname' => $user->fname,
+            'lname' => $user->lname,
             'full_name' => $user->full_name,
             'status' => $user->status,
             'group_key' => $user->group_key,
@@ -703,5 +706,27 @@ trait ManagesCliUsers
         }
 
         return $lines;
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    protected function writeUserJson(SymfonyStyle $io, array $payload): void
+    {
+        $io->writeln(json_encode($payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+    }
+
+    protected function failUserJson(SymfonyStyle $io, InputInterface $input, string $message): int
+    {
+        if ($input->hasOption('json') && $input->getOption('json')) {
+            $this->writeUserJson($io, [
+                'ok' => false,
+                'message' => $message,
+            ]);
+        } else {
+            $io->error($message);
+        }
+
+        return Command::FAILURE;
     }
 }
