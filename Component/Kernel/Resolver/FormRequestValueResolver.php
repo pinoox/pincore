@@ -28,7 +28,10 @@ final class FormRequestValueResolver implements ArgumentValueResolverInterface
     public function supports(Request $request, ArgumentMetadata $argument): bool
     {
         $class = $argument->getType();
-        return is_subclass_of($class, FormRequest::class);
+
+        return \is_string($class)
+            && class_exists($class)
+            && is_subclass_of($class, FormRequest::class);
     }
 
     /**
@@ -37,13 +40,15 @@ final class FormRequestValueResolver implements ArgumentValueResolverInterface
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
         $type = $argument->getType();
-        /**
-         * @var FormRequest $formRequest;
-         */
 
+        // Symfony ArgumentResolver always calls resolve(); skip builtins / non-FormRequest types.
+        if (!\is_string($type) || !class_exists($type) || !is_subclass_of($type, FormRequest::class)) {
+            return;
+        }
+
+        /** @var FormRequest $formRequest */
         $formRequest = new $type($request);
         $formRequest->__resolve();
         yield $formRequest;
     }
 }
-
