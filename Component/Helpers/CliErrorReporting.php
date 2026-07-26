@@ -22,13 +22,17 @@ final class CliErrorReporting
         self::quietPhpOutput();
 
         if (!self::shouldDisplayErrors()) {
+            if (!PinooxDebug::isEnabled()) {
+                PinooxDebug::enable(false);
+            }
+
             return;
         }
 
         error_reporting(self::errorReportingLevel());
 
-        if (RuntimeMode::bootDebugEnabled() && !PinooxDebug::isEnabled()) {
-            PinooxDebug::enable();
+        if (!PinooxDebug::isEnabled()) {
+            PinooxDebug::enable(RuntimeMode::bootDebugEnabled());
         }
     }
 
