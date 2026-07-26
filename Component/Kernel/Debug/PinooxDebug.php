@@ -16,19 +16,25 @@ class PinooxDebug
         return self::$handler !== null;
     }
 
-    public static function enable(): ErrorHandler
+    /**
+     * @param bool|null $debug Rich exception page when true; friendly production page when false.
+     *                         Defaults to {@see RuntimeMode::bootDebugEnabled()} (PINOOX_EXCEPTION).
+     */
+    public static function enable(?bool $debug = null): ErrorHandler
     {
         if (self::$handler !== null) {
             return self::$handler;
         }
 
+        $debug ??= \Pinoox\Component\Runtime\RuntimeMode::bootDebugEnabled();
+
         error_reporting(\E_ALL & ~\E_DEPRECATED & ~\E_USER_DEPRECATED);
 
-        if (!\in_array(\PHP_SAPI, ['cli', 'phpdbg', 'embed'], true)) {
-            ini_set('display_errors', 0);
-        } else {
-            ini_set('display_errors', '0');
-            ini_set('display_startup_errors', '0');
+        // Never leak PHP's default stack traces to the client.
+        ini_set('display_errors', '0');
+        ini_set('display_startup_errors', '0');
+
+        if (\in_array(\PHP_SAPI, ['cli', 'phpdbg', 'embed'], true)) {
             ini_set('log_errors', '0');
         }
 
@@ -36,21 +42,22 @@ class PinooxDebug
         ini_set('assert.active', 1);
         ini_set('assert.exception', 1);
 
-        DebugClassLoader::enable();
+        if ($debug) {
+            DebugClassLoader::enable();
+        }
 
-        $handler = ErrorHandler::register(new ErrorHandler(new BufferingLogger(), true));
+        $handler = ErrorHandler::register(new ErrorHandler(new BufferingLogger(), $debug));
         $projectDir = defined('PINOOX_BASE_PATH')
             ? rtrim(str_replace('\\', '/', (string) PINOOX_BASE_PATH), '/')
             : ExceptionContext::collect()['project_root'];
 
-        $handler->setExceptionHandler(static function (\Throwable $exception) use ($handler, $projectDir): void {
+        $handler->setExceptionHandler(static function (\Throwable $exception) use ($projectDir, $debug): void {
             if (\in_array(\PHP_SAPI, ['cli', 'phpdbg', 'embed'], true)) {
                 fwrite(STDERR, (new PinooxCliErrorRenderer($projectDir))->render($exception));
                 exit(255);
-            } else {
-                $renderer = new PinooxHtmlErrorRenderer(true, null, null, $projectDir);
             }
 
+            $renderer = new PinooxHtmlErrorRenderer($debug, null, null, $projectDir);
             $exception = $renderer->render($exception);
 
             if (!headers_sent()) {
