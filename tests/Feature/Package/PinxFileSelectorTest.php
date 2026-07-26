@@ -98,6 +98,40 @@ it('respects nested gitignore when building from a theme source path', function 
     pinxSelectorDeleteDirectory($root);
 });
 
+it('ships theme dist and drops theme src for production app packages', function () {
+    $root = sys_get_temp_dir() . '/pinx_theme_prod_' . uniqid('', true);
+    mkdir($root . '/theme/hub/src', 0777, true);
+    mkdir($root . '/theme/hub/dist/assets', 0777, true);
+    file_put_contents($root . '/.gitignore', "theme/*/dist\n");
+    file_put_contents($root . '/theme/hub/.gitignore', "dist/\nnode_modules/\n");
+    file_put_contents($root . '/theme/hub/src/main.js', 'console.log(1)');
+    file_put_contents($root . '/theme/hub/dist/assets/app.js', 'console.log(2)');
+    file_put_contents($root . '/theme/hub/main.twig', '{{ content }}');
+    file_put_contents($root . '/theme/hub/package.json', '{}');
+    file_put_contents($root . '/theme/hub/vite.config.js', 'export default {}');
+    file_put_contents($root . '/app.php', '<?php return [];');
+
+    $selector = new PinxFileSelector();
+    $files = $selector->payloadFiles($root, [
+        'gitignore' => true,
+        'exclude' => \Pinoox\Component\Package\Pinx\PinxBuildConfig::defaultAppExcludes(),
+        'include' => \Pinoox\Component\Package\Pinx\PinxBuildConfig::defaultAppIncludes(),
+        'include_themes' => [],
+    ]);
+
+    $paths = array_keys($files);
+
+    expect($paths)
+        ->toContain('app.php')
+        ->toContain('theme/hub/main.twig')
+        ->toContain('theme/hub/dist/assets/app.js')
+        ->not->toContain('theme/hub/src/main.js')
+        ->not->toContain('theme/hub/package.json')
+        ->not->toContain('theme/hub/vite.config.js');
+
+    pinxSelectorDeleteDirectory($root);
+});
+
 function pinxSelectorDeleteDirectory(string $path): void
 {
     if (!is_dir($path)) {

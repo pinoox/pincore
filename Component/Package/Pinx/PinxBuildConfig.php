@@ -31,6 +31,69 @@ class PinxBuildConfig
             'debug-pinx-files.php',
             'boot-test.php',
             'MAMP_php_error_log_MAMP',
+            // Production packages ship built theme assets (dist/), not Vite source.
+            'theme/*/src',
+            'theme/*/src/**',
+            'theme/*/package.json',
+            'theme/*/package-lock.json',
+            'theme/*/yarn.lock',
+            'theme/*/pnpm-lock.yaml',
+            'theme/*/vite.config.js',
+            'theme/*/vite.config.ts',
+            'theme/*/vite.config.mjs',
+            'theme/*/vite.config.cjs',
+            'theme/*/tsconfig.json',
+            'theme/*/jsconfig.json',
+        ];
+    }
+
+    /**
+     * Force-include production theme builds even when dist/ is gitignored.
+     *
+     * @return list<string>
+     */
+    public static function defaultAppIncludes(): array
+    {
+        return [
+            'theme/*/dist',
+            'theme/*/dist/**',
+        ];
+    }
+
+    /**
+     * Paths always excluded from theme-only .pinx builds.
+     *
+     * @return list<string>
+     */
+    public static function defaultThemeExcludes(): array
+    {
+        return [
+            'src',
+            'src/**',
+            'package.json',
+            'package-lock.json',
+            'yarn.lock',
+            'pnpm-lock.yaml',
+            'vite.config.js',
+            'vite.config.ts',
+            'vite.config.mjs',
+            'vite.config.cjs',
+            'tsconfig.json',
+            'jsconfig.json',
+            '.env',
+            '.env.example',
+            '.gitignore',
+        ];
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function defaultThemeIncludes(): array
+    {
+        return [
+            'dist',
+            'dist/**',
         ];
     }
 
@@ -42,6 +105,7 @@ class PinxBuildConfig
      *     minpin: int,
      *     gitignore: bool,
      *     exclude: list<string>,
+     *     include: list<string>,
      *     include_themes: list<string>,
      *     composer: bool,
      *     sign: array{enabled: bool, require_signature: bool, key_path: ?string, key_id: ?string}
@@ -80,7 +144,9 @@ class PinxBuildConfig
             ? $resolvedType
             : PinxManifest::TYPE_APP;
 
-        $defaultExcludes = $type === PinxManifest::TYPE_APP ? self::defaultAppExcludes() : [];
+        $defaultExcludes = $type === PinxManifest::TYPE_APP
+            ? self::defaultAppExcludes()
+            : self::defaultThemeExcludes();
         $customExcludes = self::stringList($build['exclude'] ?? []);
         $exclude = array_values(array_unique(array_merge(
             $defaultExcludes,
@@ -93,6 +159,14 @@ class PinxBuildConfig
             ],
         )));
 
+        $defaultIncludes = $type === PinxManifest::TYPE_APP
+            ? self::defaultAppIncludes()
+            : self::defaultThemeIncludes();
+        $include = array_values(array_unique(array_merge(
+            $defaultIncludes,
+            self::stringList($build['include'] ?? []),
+        )));
+
         return [
             'type' => $type,
             'target_app' => (string) ($pinx['target_app'] ?? $packageName),
@@ -102,7 +176,7 @@ class PinxBuildConfig
                 ? (bool) $build['gitignore']
                 : true,
             'exclude' => $exclude,
-            'include' => self::stringList($build['include'] ?? []),
+            'include' => $include,
             'include_themes' => self::stringList($build['include_themes'] ?? []),
             'composer' => array_key_exists('composer', $build)
                 ? (bool) $build['composer']
