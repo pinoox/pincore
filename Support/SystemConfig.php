@@ -35,6 +35,47 @@ class SystemConfig
         'system_models' => 'platform_models',
     ];
 
+    /**
+     * Built-in defaults when paths.config.php is missing or not yet loadable.
+     * Never fall back to the bare key name — that creates folders like pinker_config/.
+     *
+     * @var array<string, string>
+     */
+    private const PATH_DEFAULTS = [
+        'config' => '~pincore/config',
+        'system' => '~pincore/config',
+        'pinker_config' => '~pinker/platform',
+        'apps' => 'apps',
+        'pinker' => 'pinker',
+        'pinx' => '~/pinx',
+        'storage' => 'storage',
+        'project_config' => '~/platform',
+        'project_registry' => '~/platform/apps.config.php',
+        'project_router' => '~/platform/app-router.config.php',
+        'project_domain' => '~/platform/domain.config.php',
+        'project_pinoox' => '~/platform/pinoox.config.php',
+        'project_pincore' => '~pincore/config/pincore.config.php',
+        'platform_lang' => '~pincore/lang',
+        'platform_database' => '~pincore/database',
+        'platform_migrations' => '~pincore/database/migrations',
+        'platform_seeders' => '~pincore/database/seeders',
+        'platform_factories' => '~pincore/database/factories',
+        'platform_patches' => '~pincore/patches',
+        'platform_models' => '~pincore/Model',
+        'stubs' => '~pincore/stubs',
+        'app_file' => 'app.php',
+        'app_database' => 'database',
+        'app_migrations' => 'database/migrations',
+        'app_seeders' => 'database/seeders',
+        'app_factories' => 'database/factories',
+        'app_patches' => 'patches',
+        'app_lang' => 'lang',
+        'app_config' => 'config',
+        'wizard_tmp' => '~pinker/wizard_tmp',
+        'pinion_uploads' => '~storage/pinion',
+        'package_manual' => '~storage/downloads/packages/manual',
+    ];
+
     public static function get(string $config, ?string $key = null, mixed $default = null): mixed
     {
         $data = self::load($config);
@@ -69,9 +110,14 @@ class SystemConfig
             }
         }
 
-        $value = self::get('paths', $key, $default ?? $key);
+        $value = self::get('paths', $key, $default ?? self::pathDefault($key));
 
         return self::resolvePath((string)$value);
+    }
+
+    private static function pathDefault(string $key): string
+    {
+        return self::PATH_DEFAULTS[$key] ?? $key;
     }
 
     /**
@@ -172,7 +218,7 @@ class SystemConfig
     {
         $key = self::PATH_KEY_ALIASES[$key] ?? $key;
 
-        return (string)self::get('paths', $key, $default ?? $key);
+        return (string)self::get('paths', $key, $default ?? self::pathDefault($key));
     }
 
     public static function rootPath(): string
@@ -200,9 +246,42 @@ class SystemConfig
     {
         $corePath = defined('PINOOX_CORE_PATH')
             ? rtrim(str_replace('\\', '/', \PINOOX_CORE_PATH), '/')
-            : self::resolveBasePath(self::env('PINOOX_CORE_PATH', 'pincore'));
+            : self::resolveCorePathFallback();
 
         return self::join($corePath, $path);
+    }
+
+    /**
+     * When PINOOX_CORE_PATH is not defined yet, prefer vendor install then local pincore/.
+     */
+    private static function resolveCorePathFallback(): string
+    {
+        $fromEnv = self::env('PINOOX_CORE_PATH');
+
+        if (is_string($fromEnv) && $fromEnv !== '') {
+            return self::resolveBasePath($fromEnv);
+        }
+
+        $vendor = self::resolveBasePath('vendor/pinoox/pincore');
+
+        if (self::isValidCorePath($vendor)) {
+            return $vendor;
+        }
+
+        $local = self::resolveBasePath('pincore');
+
+        if (self::isValidCorePath($local)) {
+            return $local;
+        }
+
+        return $vendor;
+    }
+
+    private static function isValidCorePath(string $path): bool
+    {
+        return is_file($path . '/functions/base.php')
+            || is_file($path . '/launcher/bootstrap.php')
+            || is_file($path . '/composer.json');
     }
 
     public static function configPath(string $path = ''): string
@@ -307,7 +386,7 @@ class SystemConfig
 
     public static function pinkerConfigPath(string $path = ''): string
     {
-        return self::join(self::path('pinker_config'), $path);
+        return self::join(self::path('pinker_config', '~pinker/platform'), $path);
     }
 
     public static function pinkerStateConfigPath(string $config): string
@@ -418,6 +497,11 @@ class SystemConfig
 
         $mainFile = self::resolveConfigFile($config);
 
+        if (!is_file($mainFile)) {
+            // Miss: do not cache — PINOOX_CORE_PATH / base path may appear later in bootstrap.
+            return [];
+        }
+
         return self::$cache[$config] = self::loadConfigFromFile($config, $mainFile);
     }
 
@@ -444,6 +528,7 @@ class SystemConfig
     private static function loadConfigFromFile(string $config, string $mainFile): array
     {
         if (!is_file($mainFile)) {
+            // Do not cache a miss — core/base path may become available later in bootstrap.
             return [];
         }
 
