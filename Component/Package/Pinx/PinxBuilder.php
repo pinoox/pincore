@@ -133,6 +133,7 @@ class PinxBuilder
         $buildConfig = [
             'gitignore' => $build['gitignore'],
             'exclude' => $build['exclude'],
+            'include' => $build['include'] ?? [],
             'include_themes' => $build['type'] === PinxManifest::TYPE_APP ? $build['include_themes'] : [],
             'always_include' => $alwaysInclude,
         ];
