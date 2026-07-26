@@ -200,6 +200,10 @@ final class DatabaseConfig
                 'database' => $sqliteDatabase,
                 'prefix' => (string) ($config['prefix'] ?? DatabaseManager::DEFAULT_CORE_TABLE_PREFIX),
                 'foreign_key_constraints' => true,
+                // Concurrent Inspector + CLI (migrate/rollback) need WAL + busy wait on Windows.
+                'busy_timeout' => (int) (SystemConfig::env('DB_BUSY_TIMEOUT', SystemConfig::env('DEVDB_BUSY_TIMEOUT', 10000))),
+                'journal_mode' => (string) (SystemConfig::env('DB_JOURNAL_MODE', SystemConfig::env('DEVDB_JOURNAL_MODE', 'wal'))),
+                'synchronous' => (string) (SystemConfig::env('DB_SYNCHRONOUS', SystemConfig::env('DEVDB_SYNCHRONOUS', 'NORMAL'))),
                 'devdb' => true,
                 'devdb_engine' => 'sqlite',
                 'devdb_path' => $path,

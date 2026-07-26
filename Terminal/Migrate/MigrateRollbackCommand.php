@@ -14,10 +14,8 @@
 
 namespace Pinoox\Terminal\Migrate;
 
-use Pinoox\Component\Migration\MigrationQuery;
-use Pinoox\Component\Migration\MigrationToolkit;
+use Pinoox\Component\Migration\Migrator;
 use Pinoox\Component\Terminal;
-use Pinoox\Portal\Database\DB;
 use Pinoox\Portal\Database\Schema;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -29,91 +27,71 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'migrate:rollback',
-    description: 'Rollback the last batch of migrations',
+    description: 'Rollback migration batches for an app or platform',
     aliases: ['mg:rollback', 'mg:back'],
 )]
-
 class MigrateRollbackCommand extends Terminal
 {
     use SelectsMigrationPackage;
 
-    private string $package;
-
-    private $mig = null;
-
     protected function configure(): void
     {
         $this
-            ->setHelp('Example: php pinoox migrate:rollback com_my_shop')
-            ->addArgument('package', InputArgument::OPTIONAL, 'App package or platform. Leave empty to pick from the list.')
-            ->addOption('ignore-fk', 'f', InputOption::VALUE_NONE, 'Disable foreign key checks during rollback');
+            ->setHelp(
+                <<<'HELP'
+Rollback the last migration batch, or multiple batches with --step.
 
+Examples:
+  php pinoox migrate:rollback com_my_shop
+  php pinoox migrate:rollback com_my_shop --step=2
+  php pinoox migrate:rollback com_my_shop --all
+HELP
+            )
+            ->addArgument('package', InputArgument::OPTIONAL, 'App package or platform. Leave empty to pick from the list.')
+            ->addOption('step', null, InputOption::VALUE_REQUIRED, 'Number of batches to rollback', '1')
+            ->addOption('all', 'a', InputOption::VALUE_NONE, 'Rollback every executed batch')
+            ->addOption('ignore-fk', 'f', InputOption::VALUE_NONE, 'Disable foreign key checks during rollback');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         parent::execute($input, $output);
-        $ignoreFk = $input->getOption('ignore-fk');
+        $io = new SymfonyStyle($input, $output);
+        $package = $this->resolvePackage($input, $output, $io);
+        $ignoreFk = (bool) $input->getOption('ignore-fk');
+        $all = (bool) $input->getOption('all');
+        $steps = $all ? 0 : max(1, (int) $input->getOption('step'));
 
-        $this->package = $this->resolvePackage($input, $output, new SymfonyStyle($input, $output));
+        try {
+            if ($ignoreFk) {
+                Schema::disableForeignKeyConstraints();
+            }
 
-        $this->init();
+            $messages = (new Migrator($package))->rollback($steps);
+            foreach ($messages as $message) {
+                if ($message === 'Nothing to rollback.') {
+                    $io->success($message);
+                    continue;
+                }
 
-        if ($ignoreFk)
-            Schema::disableForeignKeyConstraints();
+                $io->writeln((string) $message);
+            }
 
-        $this->reverse();
+            if ($messages !== ['Nothing to rollback.']) {
+                $io->success($all
+                    ? 'All migration batches were rolled back.'
+                    : sprintf('Rolled back %d batch(es).', $steps));
+            }
 
-        if ($ignoreFk)
-            Schema::enableForeignKeyConstraints();
+            return Command::SUCCESS;
+        } catch (\Throwable $e) {
+            $io->error($e->getMessage());
 
-        return Command::SUCCESS;
-    }
-
-    private function init()
-    {
-        $this->mig = new MigrationToolkit();
-        $this->mig->package($this->package)
-            ->action('rollback')
-            ->load();
-
-        if (!$this->mig->isSuccess()) {
-            $this->error($this->mig->getErrors());
+            return Command::FAILURE;
+        } finally {
+            if ($ignoreFk) {
+                Schema::enableForeignKeyConstraints();
+            }
         }
     }
-
-    private function reverse()
-    {
-        $migrations = $this->mig->getMigrations();
-
-        if (empty($migrations)) {
-            $this->success('Nothing to rollback.');
-            $this->stop();
-        }
-
-        $batch = MigrationQuery::fetchLatestBatch($this->package);
-
-        foreach ($migrations as $m) {
-
-            $start_time = microtime(true);
-            $this->warning('Rolling back: ');
-            $this->info($m['fileName']);
-            $this->newLine();
-
-            $class = require_once $m['migrationFile'];
-            $class->down();
-
-            MigrationQuery::delete($batch, $m['packageName']);
-
-            $end_time = microtime(true);
-            $exec_time = $end_time - $start_time;
-
-            //end migrating
-            $this->success('Rolled back: ');
-            $this->info($m['fileName'] . ' (' . substr($exec_time, 0, 5) . 'ms)');
-            $this->newLine();
-        }
-    }
-
 }
-

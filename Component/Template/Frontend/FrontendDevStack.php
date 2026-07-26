@@ -154,6 +154,14 @@ final class FrontendDevStack
 
         ?string $serveDomain = null,
 
+        bool $share = false,
+
+        ?string $sharePassword = null,
+
+        ?string $shareExpire = null,
+
+        string $shareProvider = 'auto',
+
     ): int {
 
         if ($frontends === [] || $sessions === [] || count($frontends) !== count($sessions)) {
@@ -170,7 +178,7 @@ final class FrontendDevStack
 
 
 
-        $serveProcess = $this->startServeProcess($output, $io, $serveHost, $servePort, $serveDomain);
+        $serveProcess = $this->startServeProcess($output, $io, $serveHost, $servePort, $serveDomain, $share, $sharePassword, $shareExpire, $shareProvider);
 
         $viteProcesses = [];
 
@@ -243,6 +251,14 @@ final class FrontendDevStack
 
         ?string $serveDomain = null,
 
+        bool $share = false,
+
+        ?string $sharePassword = null,
+
+        ?string $shareExpire = null,
+
+        string $shareProvider = 'auto',
+
     ): Process {
 
         $basePath = ProjectCli::root();
@@ -284,6 +300,32 @@ final class FrontendDevStack
         if (is_string($serveDomain) && trim($serveDomain) !== '') {
 
             $command[] = '--domain=' . trim($serveDomain);
+
+        }
+
+
+
+        if ($share) {
+
+            $command[] = '--share';
+
+            $command[] = '--share-provider=' . ($shareProvider !== '' ? $shareProvider : 'auto');
+
+        }
+
+
+
+        if ($sharePassword !== null && $sharePassword !== '') {
+
+            $command[] = '--share-password=' . $sharePassword;
+
+        }
+
+
+
+        if ($shareExpire !== null && trim($shareExpire) !== '') {
+
+            $command[] = '--share-expire=' . trim($shareExpire);
 
         }
 
@@ -678,6 +720,14 @@ final class FrontendDevStack
         if (preg_match('/^Press Ctrl\+C to stop$/i', $line)) {
 
             return false;
+
+        }
+
+
+
+        if (preg_match('/^(Share:|Starting public tunnel|Starting Cloudflare tunnel|Password protected|Tunnel expires)/i', $line)) {
+
+            return true;
 
         }
 

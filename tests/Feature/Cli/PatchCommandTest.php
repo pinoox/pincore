@@ -54,6 +54,9 @@ it('requires interactive package selection for patch commands without package in
         expect($argument->isRequired())->toBeFalse()
             ->and($argument->getDefault())->toBeNull();
     }
+
+    $rollbackPatch = (new PatchRollbackCommand())->getDefinition()->getArgument('patch');
+    expect($rollbackPatch->isRequired())->toBeFalse();
 });
 
 it('lets CLI commands select a package interactively by number', function () {

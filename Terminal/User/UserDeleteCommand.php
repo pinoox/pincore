@@ -42,7 +42,8 @@ HELP
             ->addArgument('user', InputArgument::OPTIONAL, 'User id, username, email, mobile, or personal id')
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Skip confirmation')
-            ->addOption('revoke-sessions', null, InputOption::VALUE_NONE, 'Revoke tokens before delete');
+            ->addOption('revoke-sessions', null, InputOption::VALUE_NONE, 'Revoke tokens before delete')
+            ->addOption('json', null, InputOption::VALUE_NONE, 'Output JSON');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -70,37 +71,54 @@ HELP
                 'Multiple users found — which one?',
             );
         } catch (\RuntimeException $e) {
-            $io->error($e->getMessage());
-
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, $e->getMessage());
         }
 
         if ($user === null) {
-            $io->error('User not found.');
-
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, 'User not found.');
         }
 
         if (!$input->getOption('force') && !$io->confirm(
             sprintf('Delete user #%d (%s)?', $user->user_id, $user->username),
             false,
         )) {
-            $io->warning('Delete canceled.');
+            if ($input->getOption('json')) {
+                $this->writeUserJson($io, [
+                    'ok' => false,
+                    'message' => 'Delete canceled.',
+                    'canceled' => true,
+                ]);
+            } else {
+                $io->warning('Delete canceled.');
+            }
 
             return Command::SUCCESS;
         }
 
+        $userId = (int) $user->user_id;
+        $username = (string) $user->username;
+
         if ($input->getOption('revoke-sessions')) {
-            Auth::revokeSessions((int) $user->user_id);
+            Auth::revokeSessions($userId);
         }
 
-        if (!Auth::remove((int) $user->user_id)) {
-            $io->error('Failed to delete user.');
-
-            return Command::FAILURE;
+        if (!Auth::remove($userId)) {
+            return $this->failUserJson($io, $input, 'Failed to delete user.');
         }
 
-        $io->success('User #' . $user->user_id . ' (' . $user->username . ') deleted.');
+        $message = 'User #' . $userId . ' (' . $username . ') deleted.';
+        if ($input->getOption('json')) {
+            $this->writeUserJson($io, [
+                'ok' => true,
+                'message' => $message,
+                'user_id' => $userId,
+                'username' => $username,
+            ]);
+
+            return Command::SUCCESS;
+        }
+
+        $io->success($message);
 
         return Command::SUCCESS;
     }

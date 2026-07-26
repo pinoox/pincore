@@ -9,6 +9,9 @@ use Pinoox\Component\Server\InspectorRuntime;
 use Pinoox\Component\Server\ServerPort;
 use Pinoox\Component\Server\ServeAppBinding;
 use Pinoox\Component\Server\ServeLocalDomain;
+use Pinoox\Component\Server\Share\ShareGuideRenderer;
+use Pinoox\Component\Server\Share\ShareProviderRegistry;
+use Pinoox\Component\Server\Share\ShareProviderSelector;
 use Pinoox\Component\Terminal;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\App\AppRouter;
@@ -43,6 +46,15 @@ class ServeCommand extends Terminal
                     'serve --open',
                     'serve --domain=pinoox.test',
                     'serve --domain=pinoox.test --open',
+                    'serve --share',
+                    'share',
+                    'share --mode=dev',
+                    'serve --share --share-provider=auto',
+                    'serve --share --share-provider=pinggy',
+                    'serve --share-guide',
+                    'serve --share-guide=pinggy',
+                    'serve --share --share-password=secret',
+                    'serve --share --share-expire=2h',
                 ],
                 <<<'FOOTER'
 Environment (.env):
@@ -70,7 +82,12 @@ FOOTER
             ->addOption('no-reload', null, InputOption::VALUE_NONE, 'Do not restart when .env changes')
             ->addOption('no-inspector', null, InputOption::VALUE_NONE, 'Disable Pinx Inspector on /~inspector')
             ->addOption('open-inspector', null, InputOption::VALUE_NONE, 'Open Pinx Inspector in the browser')
-            ->addOption('open', 'o', InputOption::VALUE_NONE, 'Open the site in your default browser after start');
+            ->addOption('open', 'o', InputOption::VALUE_NONE, 'Open the site in your default browser after start')
+            ->addOption('share', null, InputOption::VALUE_NONE, 'Expose the server via a public tunnel (Cloudflare, Pinggy, ngrok, …)')
+            ->addOption('share-provider', null, InputOption::VALUE_OPTIONAL, 'Tunnel provider: auto, pinggy, bore, cloudflare, serveo, localhostrun, tunnelmole, ngrok, localtunnel')
+            ->addOption('share-guide', null, InputOption::VALUE_OPTIONAL, 'Show connection guide for a provider (or list all) without starting the server')
+            ->addOption('share-password', null, InputOption::VALUE_OPTIONAL, 'Protect the share URL with a password')
+            ->addOption('share-expire', null, InputOption::VALUE_OPTIONAL, 'Auto-stop the tunnel after a duration (e.g. 2h, 30m, 60s)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -78,13 +95,18 @@ FOOTER
         parent::execute($input, $output);
 
         $io = new SymfonyStyle($input, $output);
+        $documentRoot = rtrim(str_replace('\\', '/', (string) PINOOX_BASE_PATH), '/');
+
+        if ($this->wantsShareGuide($input)) {
+            return $this->renderShareGuide($input, $output, $documentRoot, $io);
+        }
+
         $host = $this->resolveServeHost($input);
         $portOption = $input->getOption('port');
         $explicitPort = ($portOption !== null && $portOption !== '')
             ? $this->normalizePort($portOption)
             : null;
         $tries = max(1, (int) $input->getOption('tries'));
-        $documentRoot = rtrim(str_replace('\\', '/', (string) PINOOX_BASE_PATH), '/');
         $router = DevelopmentServer::defaultRouterScript();
         $serveApp = $this->resolveServeAppOption($input);
 
@@ -135,6 +157,27 @@ FOOTER
             $io->note('Network mode: server listens on 0.0.0.0. Allow the port in Windows Firewall if needed.');
         }
 
+        $sharePassword = $input->getOption('share-password');
+        $shareProvider = ShareProviderSelector::AUTO;
+        $shareEnabled = $this->isShareRequested($input);
+
+        if ($shareEnabled) {
+            try {
+                $shareProvider = ShareProviderSelector::resolve(
+                    $input,
+                    $output,
+                    $documentRoot,
+                    is_string($input->getOption('share-provider')) ? $input->getOption('share-provider') : null,
+                    (string) _env('SERVER_SHARE_PROVIDER', ''),
+                    $this->getHelper('question'),
+                );
+            } catch (\InvalidArgumentException $e) {
+                $io->error($e->getMessage());
+
+                return Command::FAILURE;
+            }
+        }
+
         $server = new DevelopmentServer(
             host: $host,
             explicitPort: $resolvedPort,
@@ -145,6 +188,10 @@ FOOTER
             output: $output,
             serveApp: $serveApp,
             domain: $domain,
+            share: $shareEnabled,
+            sharePassword: is_string($sharePassword) && $sharePassword !== '' ? $sharePassword : null,
+            shareExpire: $input->getOption('share-expire') ?: null,
+            shareProvider: $shareProvider,
         );
 
         if (!(bool) $input->getOption('no-inspector') && InspectorRuntime::isAvailable()) {
@@ -178,6 +225,59 @@ FOOTER
         }
 
         return $server->run();
+    }
+
+    private function isShareRequested(InputInterface $input): bool
+    {
+        // --share must not be resolved via Symfony abbreviation (conflicts with --share-guide, --share-provider, …).
+        return $input->hasParameterOption('--share');
+    }
+
+    private function wantsShareGuide(InputInterface $input): bool
+    {
+        return $input->hasParameterOption('--share-guide')
+            || $input->hasParameterOption('--share-guide=');
+    }
+
+    private function renderShareGuide(
+        InputInterface $input,
+        OutputInterface $output,
+        string $documentRoot,
+        SymfonyStyle $io,
+    ): int {
+        $registry = new ShareProviderRegistry($documentRoot, $output);
+        $raw = $input->getOption('share-guide');
+        $providerId = is_string($raw) ? strtolower(trim($raw)) : '';
+
+        $providerId = match ($providerId) {
+            'localhost.run', 'localhost_run' => 'localhostrun',
+            'local-tunnel', 'lt' => 'localtunnel',
+            'tunnel-mole', 'tmole' => 'tunnelmole',
+            'cf' => 'cloudflare',
+            default => $providerId,
+        };
+
+        try {
+            if ($providerId === '') {
+                ShareGuideRenderer::printCatalog($output, $registry);
+
+                return Command::SUCCESS;
+            }
+
+            if ($providerId === ShareProviderSelector::AUTO) {
+                ShareGuideRenderer::printAutoHint($output);
+
+                return Command::SUCCESS;
+            }
+
+            ShareGuideRenderer::print($output, $registry->get($providerId));
+
+            return Command::SUCCESS;
+        } catch (\InvalidArgumentException $e) {
+            $io->error($e->getMessage());
+
+            return Command::FAILURE;
+        }
     }
 
     private function resolveServeDomain(InputInterface $input, SymfonyStyle $io): string|null|false

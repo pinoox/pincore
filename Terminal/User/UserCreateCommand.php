@@ -47,7 +47,8 @@ HELP
             ->addOption('mobile', null, InputOption::VALUE_REQUIRED, 'Mobile number')
             ->addOption('group-key', null, InputOption::VALUE_REQUIRED, 'Group key (e.g. admin)')
             ->addOption('status', 's', InputOption::VALUE_REQUIRED, 'Status: active, inactive, suspend, pending', UserModel::ACTIVE)
-            ->addOption('role', 'r', InputOption::VALUE_REQUIRED, 'Attach an existing role by role_key');
+            ->addOption('role', 'r', InputOption::VALUE_REQUIRED, 'Attach an existing role by role_key')
+            ->addOption('json', null, InputOption::VALUE_NONE, 'Output JSON');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -73,35 +74,25 @@ HELP
         }
 
         if (strlen($username) < 3) {
-            $io->error('Username must be at least 3 characters.');
-
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, 'Username must be at least 3 characters.');
         }
 
         if (strlen($password) < 5) {
-            $io->error('Password must be at least 5 characters.');
-
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, 'Password must be at least 5 characters.');
         }
 
         $status = (string) $input->getOption('status');
         if (!in_array($status, $this->userStatuses(), true)) {
-            $io->error('Invalid status. Use: ' . implode(', ', $this->userStatuses()));
-
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, 'Invalid status. Use: ' . implode(', ', $this->userStatuses()));
         }
 
         if (Auth::findByLogin($username, false) !== null) {
-            $io->error('A user with this username already exists in package: ' . $package);
-
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, 'A user with this username already exists in package: ' . $package);
         }
 
         $email = (string) ($input->getOption('email') ?: '');
         if ($email !== '' && Auth::findByLogin($email, false) !== null) {
-            $io->error('A user with this email already exists in package: ' . $package);
-
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, 'A user with this email already exists in package: ' . $package);
         }
 
         $data = [
@@ -125,25 +116,39 @@ HELP
         try {
             $user = Auth::create($data);
         } catch (\Throwable $e) {
-            $io->error('Failed to create user: ' . $e->getMessage());
-
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, 'Failed to create user: ' . $e->getMessage());
         }
 
         $roleKey = $input->getOption('role');
+        $roleAttached = null;
         if (is_string($roleKey) && $roleKey !== '') {
-            if (!$this->attachRole($user, $roleKey)) {
+            $roleAttached = $this->attachRole($user, $roleKey);
+            if (!$roleAttached && !$input->getOption('json')) {
                 $io->warning('User created but role "' . $roleKey . '" was not found.');
             }
         }
 
-        $io->success(sprintf(
+        $message = sprintf(
             'User #%d created (%s) for app scope %s (context: %s).',
             $user->user_id,
             $user->username,
             $user->app,
             $package,
-        ));
+        );
+
+        if ($input->getOption('json')) {
+            $this->writeUserJson($io, [
+                'ok' => true,
+                'message' => $message,
+                'user' => $this->userRow($user, true),
+                'role' => is_string($roleKey) && $roleKey !== '' ? $roleKey : null,
+                'role_attached' => $roleAttached,
+            ]);
+
+            return Command::SUCCESS;
+        }
+
+        $io->success($message);
 
         return Command::SUCCESS;
     }

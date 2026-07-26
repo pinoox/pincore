@@ -54,7 +54,8 @@ HELP
             ->addOption('mobile', null, InputOption::VALUE_REQUIRED, 'Mobile number')
             ->addOption('group-key', null, InputOption::VALUE_REQUIRED, 'Group key')
             ->addOption('status', 's', InputOption::VALUE_REQUIRED, 'Status: active, inactive, suspend, pending')
-            ->addOption('personal-id', null, InputOption::VALUE_REQUIRED, 'Personal ID');
+            ->addOption('personal-id', null, InputOption::VALUE_REQUIRED, 'Personal ID')
+            ->addOption('json', null, InputOption::VALUE_NONE, 'Output JSON');
     }
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
@@ -74,12 +75,10 @@ HELP
             $this->prepareUserScope($package);
             $user = $this->resolveUserInput($input, $output, $io, 'Select user to update');
         } catch (\RuntimeException $e) {
-            $io->error($e->getMessage());
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, $e->getMessage());
         }
         if ($user === null) {
-            $io->error('User not found.');
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, 'User not found.');
         }
         try {
             $fields = $this->collectUserUpdateFields($input);
@@ -87,19 +86,37 @@ HELP
                 $fields = $this->promptUserFieldUpdates($io, $user);
             }
             if ($fields === []) {
-                $io->warning('Nothing to update. Pass --set, --meta, --metadata, or field options, or run interactively.');
+                if ($input->getOption('json')) {
+                    $this->writeUserJson($io, [
+                        'ok' => true,
+                        'message' => 'Nothing to update.',
+                        'user' => $this->userRow($user),
+                        'updated' => [],
+                    ]);
+                } else {
+                    $io->warning('Nothing to update. Pass --set, --meta, --metadata, or field options, or run interactively.');
+                }
                 return Command::SUCCESS;
             }
             $this->applyUserFieldUpdates($user, $fields);
         } catch (\InvalidArgumentException $e) {
-            $io->error($e->getMessage());
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, $e->getMessage());
         } catch (\Throwable $e) {
-            $io->error('Failed to update user: ' . $e->getMessage());
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, 'Failed to update user: ' . $e->getMessage());
         }
         $user->refresh();
-        $io->success('User #' . $user->user_id . ' updated.');
+        $message = 'User #' . $user->user_id . ' updated.';
+        if ($input->getOption('json')) {
+            $this->writeUserJson($io, [
+                'ok' => true,
+                'message' => $message,
+                'user' => $this->userRow($user),
+                'updated' => $this->describeUserFieldUpdates($fields),
+            ]);
+
+            return Command::SUCCESS;
+        }
+        $io->success($message);
         $io->listing($this->describeUserFieldUpdates($fields));
         return Command::SUCCESS;
     }

@@ -118,13 +118,15 @@ it('derives an app connection from core when only the table prefix is customized
     $connectionName = $manager->connectionNameForPackage('com_test_derived_prefix');
 
     expect($connectionName)->toBe('app_com_test_derived_prefix_default')
+        ->and($manager->app('com_test_derived_prefix')->getName())->toBe('app_com_test_derived_prefix_default')
         ->and($manager->app('com_test_derived_prefix')->getTablePrefix())->toBe('welcome_')
+        ->and($manager->core()->getName())->toBe(DatabaseManager::CORE_CONNECTION)
+        ->and($manager->core()->getTablePrefix())->toBe('pinx_')
         ->and($manager->tableName('category', 'com_test_derived_prefix'))->toBe('category')
         ->and($manager->physicalTableName('category', 'com_test_derived_prefix'))->toBe('welcome_category')
         ->and($manager->tableName('user', 'platform'))->toBe('user')
         ->and($manager->physicalTableName(Table::FILE, 'platform'))->toBe('pinx_file');
 });
-
 it('loads relations between models that belong to different app databases', function () {
     writeTestApp('com_test_relation_core', [
         'database' => testDevDbConnection(''),

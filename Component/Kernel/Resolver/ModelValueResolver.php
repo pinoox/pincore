@@ -33,11 +33,10 @@ final class ModelValueResolver implements ArgumentValueResolverInterface
         }
 
         $type = $argument->getType();
-        if (!is_subclass_of($type, Model::class)) {
-            return false;
-        }
 
-        return true;
+        return \is_string($type)
+            && class_exists($type)
+            && is_subclass_of($type, Model::class);
     }
 
     /**
@@ -46,6 +45,10 @@ final class ModelValueResolver implements ArgumentValueResolverInterface
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
         $type = $argument->getType();
+        if (!\is_string($type) || !class_exists($type) || !is_subclass_of($type, Model::class)) {
+            return;
+        }
+
         yield new $type();
     }
 }

@@ -46,7 +46,8 @@ HELP
             ->addArgument('user', InputArgument::OPTIONAL, 'User id, username, email, mobile, or personal id')
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
             ->addOption('password', 'p', InputOption::VALUE_REQUIRED, 'New plain password')
-            ->addOption('revoke-sessions', null, InputOption::VALUE_NONE, 'Revoke active tokens after reset');
+            ->addOption('revoke-sessions', null, InputOption::VALUE_NONE, 'Revoke active tokens after reset')
+            ->addOption('json', null, InputOption::VALUE_NONE, 'Output JSON');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -76,15 +77,11 @@ HELP
                 'Multiple users found — which one?',
             );
         } catch (\RuntimeException $e) {
-            $io->error($e->getMessage());
-
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, $e->getMessage());
         }
 
         if ($user === null) {
-            $io->error('User not found.');
-
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, 'User not found.');
         }
 
         $password = (string) ($input->getOption('password') ?: '');
@@ -96,19 +93,33 @@ HELP
         }
 
         if (strlen($password) < 5) {
-            $io->error('Password must be at least 5 characters.');
-
-            return Command::FAILURE;
+            return $this->failUserJson($io, $input, 'Password must be at least 5 characters.');
         }
 
         UserModel::updatePassword((int) $user->user_id, $password);
 
+        $revoked = 0;
         if ($input->getOption('revoke-sessions')) {
-            $count = Auth::revokeSessions((int) $user->user_id);
-            $io->note('Revoked ' . $count . ' session token(s).');
+            $revoked = Auth::revokeSessions((int) $user->user_id);
+            if (!$input->getOption('json')) {
+                $io->note('Revoked ' . $revoked . ' session token(s).');
+            }
         }
 
-        $io->success('Password updated for user #' . $user->user_id . ' (' . $user->username . ').');
+        $message = 'Password updated for user #' . $user->user_id . ' (' . $user->username . ').';
+        if ($input->getOption('json')) {
+            $this->writeUserJson($io, [
+                'ok' => true,
+                'message' => $message,
+                'user_id' => $user->user_id,
+                'username' => $user->username,
+                'revoked_sessions' => $revoked,
+            ]);
+
+            return Command::SUCCESS;
+        }
+
+        $io->success($message);
 
         return Command::SUCCESS;
     }

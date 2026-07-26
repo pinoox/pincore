@@ -48,6 +48,28 @@ class DatabaseManager extends Capsule
         $this->addConnection($config, self::CORE_CONNECTION);
     }
 
+    /**
+     * Drop cached package connections so the next resolve reclones from core
+     * (needed after refreshCoreConnection and in isolated tests).
+     */
+    public function flushPackageConnections(): void
+    {
+        foreach ($this->packageConnections as $connections) {
+            foreach ($connections as $connectionName) {
+                if (!is_string($connectionName) || $connectionName === '') {
+                    continue;
+                }
+
+                try {
+                    $this->getDatabaseManager()->purge($connectionName);
+                } catch (\Throwable) {
+                }
+            }
+        }
+
+        $this->packageConnections = [];
+    }
+
     public function currentConnection($connection = null): Connection
     {
         return $this->getConnection($connection ?? $this->currentConnectionName());
@@ -262,6 +284,12 @@ class DatabaseManager extends Capsule
 
         foreach ($connections as $name => $config) {
             $connectionName = $this->buildPackageConnectionName($package, $name);
+            // Cloned platform configs often carry name=platform/default. Illuminate's
+            // Arr::add() keeps that value, so Connection::getName() stays wrong and
+            // Eloquent Model::create() rebinds inserts onto the core pinx_* connection.
+            if (is_array($config)) {
+                unset($config['name']);
+            }
             $this->addConnection($config, $connectionName);
             $this->packageConnections[$package][$name] = $connectionName;
         }
@@ -324,6 +352,11 @@ class DatabaseManager extends Capsule
         try {
             $config = $this->getConnection(self::CORE_CONNECTION)->getConfig();
             $config['prefix'] = $prefix;
+            // Illuminate Arr::add() keeps an existing config name; if we leave
+            // "platform" here, Eloquent Model::create() calls setConnection()
+            // with that name and inserts on the core connection (pinx_*) instead
+            // of the app connection (e.g. app_*).
+            unset($config['name']);
 
             return $config;
         } catch (\Throwable) {

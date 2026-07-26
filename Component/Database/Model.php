@@ -154,6 +154,11 @@ abstract class Model extends EloquentModel
 {
     use HasFactory, Searchable, Sortable,JoinWith;
 
+    /**
+     * Default: package connection for App\* models (app table.prefix, e.g. app_),
+     * platform for Pinoox\Model\*. Set protected $connection = 'platform' (or any
+     * named connection) on a model to opt out of the package default.
+     */
     public function getConnectionName()
     {
         return parent::getConnectionName() ?? DB::connectionNameForModel(static::class);
@@ -186,6 +191,10 @@ abstract class Model extends EloquentModel
         }
 
         $package = DB::packageNameForModel(static::class);
+        $explicitConnection = parent::getConnectionName();
+        if (in_array($explicitConnection, [DatabaseManager::CORE_CONNECTION, 'platform', 'default'], true)) {
+            $package = DatabaseManager::CORE_CONNECTION;
+        }
         $physical = DB::physicalTableName($logical, $package);
 
         if ($table === $logical || ($physical !== '' && $table === $physical)) {
@@ -206,17 +215,21 @@ abstract class Model extends EloquentModel
     }
 
     /**
-     * Get the table associated with the model.
-     *
-     * @return string
+     * Logical table for FROM; connection prefix makes the physical name.
+     * Explicit platform/default connection keeps core naming (pinx_*), not the app prefix.
      */
     public function getTable(): string
     {
-        if (isset($this->table)) {
-            return DB::tableNameForModel($this->table, static::class);
+        $logical = isset($this->table)
+            ? (string) $this->table
+            : strtolower(str_replace('\\', '', class_basename($this)));
+
+        $explicitConnection = parent::getConnectionName();
+        if (in_array($explicitConnection, [DatabaseManager::CORE_CONNECTION, 'platform', 'default'], true)) {
+            return DB::tableName($logical, DatabaseManager::CORE_CONNECTION);
         }
 
-        return DB::tableNameForModel(strtolower(str_replace('\\', '', class_basename($this))), static::class);
+        return DB::tableNameForModel($logical, static::class);
     }
 
     protected function hasRelation($relation): bool

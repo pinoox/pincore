@@ -73,8 +73,8 @@ class MigrationQuery
             'batch' => $batch + 1,
             'app' => $app,
         ];
-        
-        return HistoryModel::create($data);
+
+        return self::retryOnSqliteBusy(static fn () => HistoryModel::create($data));
     }
 
     public static function is_exists($migration, $app)
@@ -93,10 +93,41 @@ class MigrationQuery
         if (!self::tableExists()) {
             return false;
         }
-        return HistoryModel::where('type', self::TYPE_MIGRATION)
-            ->where('migration', $migration)
-            ->where('app', $app)
-            ->delete();
+
+        return self::retryOnSqliteBusy(static function () use ($migration, $app) {
+            return HistoryModel::where('type', self::TYPE_MIGRATION)
+                ->where('migration', $migration)
+                ->where('app', $app)
+                ->delete();
+        });
+    }
+
+    /**
+     * SQLite can briefly return SQLITE_BUSY when Inspector + CLI share one file.
+     *
+     * @template T
+     * @param callable(): T $callback
+     * @return T
+     */
+    private static function retryOnSqliteBusy(callable $callback): mixed
+    {
+        $attempts = 8;
+        for ($i = 1; $i <= $attempts; $i++) {
+            try {
+                return $callback();
+            } catch (\Throwable $e) {
+                $message = strtolower($e->getMessage());
+                $busy = str_contains($message, 'database is locked')
+                    || str_contains($message, 'sqlite_busy')
+                    || str_contains($message, 'general error: 5');
+                if (!$busy || $i === $attempts) {
+                    throw $e;
+                }
+                usleep(100000 * $i);
+            }
+        }
+
+        throw new \RuntimeException('SQLite busy retry exhausted.');
     }
 
     public static function importLegacyMigrationRecords(): int
