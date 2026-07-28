@@ -44,6 +44,11 @@ final class SessionValueResolver implements ArgumentValueResolverInterface
      */
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
+        // Symfony ArgumentResolver always calls resolve(); skip non-Session types.
+        if (!$this->supports($request, $argument)) {
+            return;
+        }
+
         yield $request->getSession();
     }
 }

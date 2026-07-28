@@ -34,6 +34,11 @@ final class DefaultValueResolver implements ArgumentValueResolverInterface
      */
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
+        // Symfony ArgumentResolver always calls resolve(); skip when no default/null applies.
+        if (!$this->supports($request, $argument)) {
+            return;
+        }
+
         yield $argument->hasDefaultValue() ? $argument->getDefaultValue() : null;
     }
 }

@@ -34,6 +34,11 @@ final class VariadicValueResolver implements ArgumentValueResolverInterface
      */
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
+        // Symfony ArgumentResolver always calls resolve(); skip non-variadic args.
+        if (!$this->supports($request, $argument)) {
+            return;
+        }
+
         $values = $request->attributes->get($argument->getName());
 
         if (!\is_array($values)) {
