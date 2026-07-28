@@ -40,10 +40,10 @@ class Collection
 
         $this->controllerBuilder = new ControllerBuilder($controller, $this->prefixController);
         $this->controller = $this->buildController($controller);
-        if (is_string($methods) && !empty($methods)) {
+        if (is_string($methods) && $methods !== '') {
             $methods = Str::multiExplode(['|', ',', '-'], $methods);
         }
-        $this->methods = is_array($methods) ? $methods : [];
+        $this->methods = is_array($methods) ? RouteMethod::normalize($methods) : [];
         $this->routes = new RouteCollection();
     }
 
@@ -63,8 +63,9 @@ class Collection
             $methods = Str::multiExplode(['|', ',', '-'], $methods);
         }
 
-        $methods = is_array($methods) ? array_filter($methods) : [];
-        $methods = !empty($methods) ? $methods : $this->methods;
+        $methods = is_array($methods) ? RouteMethod::normalize($methods) : [];
+        $methods = $methods !== [] ? $methods : RouteMethod::normalize($this->methods);
+
         return $methods;
     }
 

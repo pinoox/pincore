@@ -36,6 +36,11 @@ final class AppValueResolver implements ArgumentValueResolverInterface
      */
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
+        // Symfony ArgumentResolver always calls resolve(); skip non-App types.
+        if (!$this->supports($request, $argument)) {
+            return;
+        }
+
         yield \Pinoox\Portal\App\App::___();
     }
 }

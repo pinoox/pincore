@@ -1,8 +1,12 @@
 <?php
 
 use Pinoox\Component\Http\Request;
+use Pinoox\Component\Kernel\Resolver\AppValueResolver;
+use Pinoox\Component\Kernel\Resolver\DefaultValueResolver;
 use Pinoox\Component\Kernel\Resolver\RequestAttributeValueResolver;
 use Pinoox\Component\Kernel\Resolver\RequestValueResolver;
+use Pinoox\Component\Kernel\Resolver\RouteValueResolver;
+use Pinoox\Component\Package\App;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
 test('RequestValueResolver injects the HTTP request when a colliding route attribute exists', function () {
@@ -45,4 +49,30 @@ test('RequestAttributeValueResolver ignores Request-typed controller arguments',
 
     expect($resolver->supports($httpRequest, $argument))->toBeFalse()
         ->and(iterator_to_array($resolver->resolve($httpRequest, $argument)))->toBe([]);
+});
+
+test('AppValueResolver skips non-App controller arguments so defaults can resolve', function () {
+    $httpRequest = Request::create('/app/com_pinoox_pay');
+    $argument = new ArgumentMetadata('subPath', 'string', false, true, '');
+
+    $appResolver = new AppValueResolver();
+    $defaultResolver = new DefaultValueResolver();
+
+    expect(iterator_to_array($appResolver->resolve($httpRequest, $argument)))->toBe([])
+        ->and(iterator_to_array($defaultResolver->resolve($httpRequest, $argument)))->toBe(['']);
+});
+
+test('AppValueResolver only yields for App-typed controller arguments', function () {
+    $httpRequest = Request::create('/api/example');
+    $argument = new ArgumentMetadata('app', App::class, false, false, null);
+    $resolver = new AppValueResolver();
+
+    expect($resolver->supports($httpRequest, $argument))->toBeTrue();
+});
+
+test('RouteValueResolver skips non-Route controller arguments', function () {
+    $httpRequest = Request::create('/api/example');
+    $argument = new ArgumentMetadata('subPath', 'string', false, true, '');
+
+    expect(iterator_to_array((new RouteValueResolver())->resolve($httpRequest, $argument)))->toBe([]);
 });

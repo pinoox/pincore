@@ -5,6 +5,7 @@ namespace Pinoox\Component\AppEvent;
 use Pinoox\Component\Cache\Store\BootCacheStore;
 use Pinoox\Component\Router\RouteManifest;
 use Pinoox\Component\Router\Router;
+use Pinoox\PinDoc\Api\ApiRouteLoader;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\Event;
@@ -142,6 +143,7 @@ class AppBootstrap
 
         AppRouteRegistry::applyActions($package, $router);
         AppRouteRegistry::applyWeb($package, $router);
+        (new ApiRouteLoader())->load($router, $package);
 
         if (!$dispatchEvents || !self::canDispatch()) {
             return;

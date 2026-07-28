@@ -42,7 +42,7 @@ class RouteEntryBuilder
 
     public function methods(array|string $methods): self
     {
-        $this->methods = is_array($methods) ? $methods : [$methods];
+        $this->methods = RouteMethod::normalize($methods);
 
         return $this;
     }
