@@ -36,6 +36,9 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * @method ResponseInterface|null query(string $url, array $options = [])
  * @method ResponseInterface|null options(string $url, array $options = [])
  * @method ResponseInterface|null head(string $url, array $options = [])
+ * @method ResponseInterface|null purge(string $url, array $options = [])
+ * @method ResponseInterface|null trace(string $url, array $options = [])
+ * @method ResponseInterface|null connect(string $url, array $options = [])
  * @method static ResponseInterface|null get(string $url, array $options = [])
  * @method static ResponseInterface|null post(string $url, array $options = [])
  * @method static ResponseInterface|null put(string $url, array $options = [])
@@ -44,6 +47,9 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * @method static ResponseInterface|null query(string $url, array $options = [])
  * @method static ResponseInterface|null options(string $url, array $options = [])
  * @method static ResponseInterface|null head(string $url, array $options = [])
+ * @method static ResponseInterface|null purge(string $url, array $options = [])
+ * @method static ResponseInterface|null trace(string $url, array $options = [])
+ * @method static ResponseInterface|null connect(string $url, array $options = [])
  * @method static ResponseInterface|null request(string $method, string $url, array $options = [])
  * @method static self withOptions(array $options)
  * @method static HttpClientInterface client()
@@ -66,6 +72,12 @@ class Http
 
     public const OPTIONS = 'OPTIONS';
 
+    public const PURGE = 'PURGE';
+
+    public const TRACE = 'TRACE';
+
+    public const CONNECT = 'CONNECT';
+
     /**
      * @var string[]
      */
@@ -78,6 +90,9 @@ class Http
         self::DELETE,
         self::QUERY,
         self::OPTIONS,
+        self::PURGE,
+        self::TRACE,
+        self::CONNECT,
     ];
 
     /**
