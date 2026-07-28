@@ -47,7 +47,7 @@ class RouteBuilder
 
     public function methods(array|string $methods): self
     {
-        $this->methods = is_array($methods) ? $methods : [$methods];
+        $this->methods = RouteMethod::normalize($methods);
 
         return $this;
     }
@@ -95,6 +95,26 @@ class RouteBuilder
     public function head(): self
     {
         return $this->method('HEAD');
+    }
+
+    public function purge(): self
+    {
+        return $this->method('PURGE');
+    }
+
+    public function trace(): self
+    {
+        return $this->method('TRACE');
+    }
+
+    public function connect(): self
+    {
+        return $this->method('CONNECT');
+    }
+
+    public function any(): self
+    {
+        return $this->methods(RouteMethod::METHODS);
     }
 
     public function defaults(array $defaults): self

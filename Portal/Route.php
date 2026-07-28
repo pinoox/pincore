@@ -71,6 +71,36 @@ class Route extends Portal
         return self::registrar()->query($path, $action);
     }
 
+    public static function options(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return self::registrar()->options($path, $action);
+    }
+
+    public static function head(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return self::registrar()->head($path, $action);
+    }
+
+    public static function purge(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return self::registrar()->purge($path, $action);
+    }
+
+    public static function trace(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return self::registrar()->trace($path, $action);
+    }
+
+    public static function connect(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return self::registrar()->connect($path, $action);
+    }
+
+    public static function any(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return self::registrar()->any($path, $action);
+    }
+
     public static function match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
     {
         return self::registrar()->match($methods, $path, $action);

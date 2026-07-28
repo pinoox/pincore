@@ -278,10 +278,7 @@ class RouteManifest
         }
 
         $methods = $entry['methods'] ?? $entry['method'] ?? 'GET';
-        $methods = array_values(array_unique(array_map(
-            static fn(mixed $method): string => strtoupper((string) $method),
-            is_array($methods) ? $methods : [$methods],
-        )));
+        $methods = RouteMethod::normalize($methods);
 
         $flow = array_values(array_unique(array_merge(
             $globalFlow,

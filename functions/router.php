@@ -90,6 +90,36 @@ function query(string $path, array|string|Closure $action = ''): RouteBuilder|Ro
     return RouteFacade::query($path, $action);
 }
 
+function options(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+{
+    return RouteFacade::options($path, $action);
+}
+
+function head(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+{
+    return RouteFacade::head($path, $action);
+}
+
+function purge(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+{
+    return RouteFacade::purge($path, $action);
+}
+
+function trace(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+{
+    return RouteFacade::trace($path, $action);
+}
+
+function connect(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+{
+    return RouteFacade::connect($path, $action);
+}
+
+function any(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+{
+    return RouteFacade::any($path, $action);
+}
+
 function route_match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
 {
     return RouteFacade::match($methods, $path, $action);

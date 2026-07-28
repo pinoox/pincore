@@ -87,6 +87,36 @@ class RouteRegistrar
         return $this->register()->query($path, $action);
     }
 
+    public function options(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->register()->options($path, $action);
+    }
+
+    public function head(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->register()->head($path, $action);
+    }
+
+    public function purge(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->register()->purge($path, $action);
+    }
+
+    public function trace(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->register()->trace($path, $action);
+    }
+
+    public function connect(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->register()->connect($path, $action);
+    }
+
+    public function any(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->register()->any($path, $action);
+    }
+
     public function match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
     {
         return $this->register()->match($methods, $path, $action);

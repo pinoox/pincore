@@ -63,6 +63,43 @@ class RouteRegister
         return $this->method('QUERY', $path, $action);
     }
 
+    public function options(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->method('OPTIONS', $path, $action);
+    }
+
+    public function head(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->method('HEAD', $path, $action);
+    }
+
+    public function purge(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->method('PURGE', $path, $action);
+    }
+
+    public function trace(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->method('TRACE', $path, $action);
+    }
+
+    public function connect(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->method('CONNECT', $path, $action);
+    }
+
+    public function any(string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        if ($this->router !== null) {
+            return $this->router->route($path, $action)->any();
+        }
+
+        $builder = new RouteEntryBuilder($this, 'GET', $path, $action);
+        $builder->methods(RouteMethod::METHODS);
+
+        return $builder;
+    }
+
     public function match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
     {
         if ($this->router !== null) {
@@ -123,6 +160,11 @@ class RouteRegister
                 'PATCH' => $this->router->route($path, $action)->patch(),
                 'DELETE' => $this->router->route($path, $action)->delete(),
                 'QUERY' => $this->router->route($path, $action)->query(),
+                'OPTIONS' => $this->router->route($path, $action)->options(),
+                'HEAD' => $this->router->route($path, $action)->head(),
+                'PURGE' => $this->router->route($path, $action)->purge(),
+                'TRACE' => $this->router->route($path, $action)->trace(),
+                'CONNECT' => $this->router->route($path, $action)->connect(),
                 default => $this->router->route($path, $action)->get(),
             };
         }
