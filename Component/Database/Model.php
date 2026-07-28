@@ -270,6 +270,21 @@ abstract class Model extends EloquentModel
     }
 
     /**
+     * Column used by route parameter resolution (ModelResolver / ModelValueResolver).
+     *
+     * Override via `protected static string $routeKey = 'uuid';` on the model,
+     * or by overriding this method / Eloquent's getRouteKeyName().
+     */
+    public static function routeKeyName(): string
+    {
+        if (isset(static::$routeKey) && is_string(static::$routeKey) && static::$routeKey !== '') {
+            return static::$routeKey;
+        }
+
+        return (new static())->getRouteKeyName();
+    }
+
+    /**
      * @throws Throwable
      */
     protected function beginTransaction(): void

@@ -13,19 +13,18 @@
 
 namespace Pinoox\Component\Kernel\Resolver;
 
+use Pinoox\Component\Database\Model;
 use Pinoox\Component\Http\Request;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
 
 /**
  * Yields a non-variadic argument's value from the request attributes.
  *
- * @author Iltar van der Berg <kjarli@gmail.com>
+ * Skips Model-typed arguments when the attribute is still a scalar so
+ * {@see ModelValueResolver} can load the record by route key.
  */
 final class RequestAttributeValueResolver implements ArgumentValueResolverInterface
 {
-    /**
-     * {@inheritdoc}
-     */
     public function supports(Request $request, ArgumentMetadata $argument): bool
     {
         if ($argument->isVariadic()) {
@@ -38,12 +37,24 @@ final class RequestAttributeValueResolver implements ArgumentValueResolverInterf
             return false;
         }
 
-        return $request->attributes->has($argument->getName());
+        if (!$request->attributes->has($argument->getName())) {
+            return false;
+        }
+
+        $value = $request->attributes->get($argument->getName());
+
+        if (
+            is_string($type)
+            && class_exists($type)
+            && is_subclass_of($type, Model::class)
+            && (is_scalar($value) || $value === null)
+        ) {
+            return false;
+        }
+
+        return true;
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
         $type = $argument->getType();
@@ -53,8 +64,18 @@ final class RequestAttributeValueResolver implements ArgumentValueResolverInterf
         }
 
         if (!$argument->isVariadic() && $request->attributes->has($argument->getName())) {
-            yield $request->attributes->get($argument->getName());
+            $value = $request->attributes->get($argument->getName());
+
+            if (
+                is_string($type)
+                && class_exists($type)
+                && is_subclass_of($type, Model::class)
+                && (is_scalar($value) || $value === null)
+            ) {
+                return;
+            }
+
+            yield $value;
         }
     }
 }
-

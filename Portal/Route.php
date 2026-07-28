@@ -119,6 +119,20 @@ class Route extends Portal
         return self::registrar()->collect($callback);
     }
 
+    /**
+     * Register a global route parameter resolver.
+     *
+     * Route::resolve('user', User::class);
+     * Route::resolve('tenant', fn ($value) => TenantService::findByDomain($value));
+     * Route::resolve('user', User::class)->missing(fn () => redirect('/'));
+     *
+     * @param class-string|callable|\Pinoox\Component\RouteResolver\ResolverInterface $resolver
+     */
+    public static function resolve(string $parameter, mixed $resolver): \Pinoox\Component\RouteResolver\Binding
+    {
+        return RouteResolver::bind($parameter, $resolver);
+    }
+
     public static function __register(): void
     {
         self::__bind(RouteRegistrar::class);
@@ -131,7 +145,9 @@ class Route extends Portal
 
     public static function __exclude(): array
     {
-        return [];
+        return [
+            'resolve',
+        ];
     }
 
     public static function __callback(): array
