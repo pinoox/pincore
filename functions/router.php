@@ -120,6 +120,19 @@ function any(string $path, array|string|Closure $action = ''): RouteBuilder|Rout
     return RouteFacade::any($path, $action);
 }
 
+/**
+ * @param array|string|Closure|class-string $action
+ */
+function fallback(array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+{
+    return RouteFacade::fallback($action);
+}
+
+function prefix(string $prefix, ?callable $callback = null): ?RouteGroupBuilder
+{
+    return RouteFacade::prefix($prefix, $callback);
+}
+
 function route_match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
 {
     return RouteFacade::match($methods, $path, $action);

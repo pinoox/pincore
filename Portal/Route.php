@@ -101,6 +101,29 @@ class Route extends Portal
         return self::registrar()->any($path, $action);
     }
 
+    /**
+     * Register a catch-all for the current group / collection prefix.
+     *
+     * Route::fallback(fn () => view('404'));
+     * Route::fallback(NotFoundController::class)->flow(['cors:api']);
+     *
+     * @param array|string|Closure|class-string $action
+     */
+    public static function fallback(array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return self::registrar()->fallback($action);
+    }
+
+    /**
+     * Group under a path prefix.
+     *
+     * Route::prefix('/admin', fn () => ...);
+     */
+    public static function prefix(string $prefix, ?callable $callback = null): ?RouteGroupBuilder
+    {
+        return self::registrar()->prefix($prefix, $callback);
+    }
+
     public static function match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
     {
         return self::registrar()->match($methods, $path, $action);

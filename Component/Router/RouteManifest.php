@@ -514,6 +514,14 @@ class RouteManifest
         $prefix = trim($prefix);
         $path = trim($path);
 
+        if ($path === '*') {
+            if ($prefix === '' || $prefix === '/') {
+                return '*';
+            }
+
+            return '/' . trim($prefix, '/') . '/*';
+        }
+
         if ($path === '' || $path === '/') {
             if ($prefix === '' || $prefix === '/') {
                 return '/';

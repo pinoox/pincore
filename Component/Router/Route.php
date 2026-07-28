@@ -97,16 +97,32 @@ class Route
 
         if ($this->path === '/') {
             return $basePath;
-        } else if ($this->path === '*') {
-            $path = '{parameters}';
-            $this->filters['parameters'] = '.*';
-            $count = strlen($this->collection->prefixPath);
-            $this->priority = -99999 + $count;
-            return $basePath . $path;
+        }
+
+        if ($this->path === '*' || $this->path === '/*') {
+            return $this->catchAllPath($basePath, $this->collection->prefixPath);
+        }
+
+        // Flattened group fallbacks: "/api/*"
+        if (str_ends_with($this->path, '/*')) {
+            $prefix = substr($this->path, 0, -2);
+
+            return $this->catchAllPath(
+                Str::lastDelete($prefix, '/'),
+                $prefix,
+            );
         }
 
         $path = Str::lastDelete($this->path, '/');
         return (new PathManager($basePath))->get($path);
+    }
+
+    private function catchAllPath(string $basePath, string $prefixForPriority): string
+    {
+        $this->filters['parameters'] = '.*';
+        $this->priority = -99999 + strlen($prefixForPriority);
+
+        return $basePath . '{parameters}';
     }
 
     /**

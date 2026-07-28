@@ -117,6 +117,25 @@ class RouteRegistrar
         return $this->register()->any($path, $action);
     }
 
+    /**
+     * @param array|string|Closure|class-string $action
+     */
+    public function fallback(array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->register()->fallback($action);
+    }
+
+    /**
+     * Group routes under a path prefix.
+     *
+     * Route::prefix('/admin', fn () => ...);
+     * Route::prefix('/admin')->flow('auth')->routes(fn () => ...);
+     */
+    public function prefix(string $prefix, ?callable $callback = null): ?RouteGroupBuilder
+    {
+        return $this->group(['prefix' => $prefix], $callback);
+    }
+
     public function match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
     {
         return $this->register()->match($methods, $path, $action);

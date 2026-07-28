@@ -100,6 +100,16 @@ class RouteRegister
         return $builder;
     }
 
+    /**
+     * Catch-all for the current collection / group prefix (nearest fallback by priority).
+     *
+     * @param array|string|Closure|class-string $action
+     */
+    public function fallback(array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
+    {
+        return $this->any('*', $action)->data(['fallback' => true]);
+    }
+
     public function match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
     {
         if ($this->router !== null) {
