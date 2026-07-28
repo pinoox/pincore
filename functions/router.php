@@ -133,6 +133,19 @@ function prefix(string $prefix, ?callable $callback = null): ?RouteGroupBuilder
     return RouteFacade::prefix($prefix, $callback);
 }
 
+function pattern(string $name, string $regex): void
+{
+    RouteFacade::pattern($name, $regex);
+}
+
+/**
+ * @param array<string, string> $patterns
+ */
+function patterns(array $patterns): void
+{
+    RouteFacade::patterns($patterns);
+}
+
 function route_match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
 {
     return RouteFacade::match($methods, $path, $action);

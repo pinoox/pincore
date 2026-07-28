@@ -124,6 +124,35 @@ class Route extends Portal
         return self::registrar()->prefix($prefix, $callback);
     }
 
+    /**
+     * Register a reusable parameter pattern.
+     *
+     * Route::pattern('username', '[a-z][a-z0-9_]{2,20}');
+     * // then: /users/{username:username}
+     */
+    public static function pattern(string $name, string $regex): void
+    {
+        \Pinoox\Component\Router\Parameter\ParameterPatterns::pattern($name, $regex);
+    }
+
+    /**
+     * @param array<string, string> $patterns
+     */
+    public static function patterns(array $patterns): void
+    {
+        \Pinoox\Component\Router\Parameter\ParameterPatterns::patterns($patterns);
+    }
+
+    public static function clearPatterns(): void
+    {
+        \Pinoox\Component\Router\Parameter\ParameterPatterns::clear();
+    }
+
+    public static function hasPattern(string $name): bool
+    {
+        return \Pinoox\Component\Router\Parameter\ParameterPatterns::has($name);
+    }
+
     public static function match(array|string $methods, string $path, array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder
     {
         return self::registrar()->match($methods, $path, $action);
@@ -170,6 +199,10 @@ class Route extends Portal
     {
         return [
             'resolve',
+            'pattern',
+            'patterns',
+            'clearPatterns',
+            'hasPattern',
         ];
     }
 

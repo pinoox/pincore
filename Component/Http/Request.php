@@ -72,13 +72,19 @@ class Request extends RequestSymfony
     private ValidationFactory $validation;
 
     /**
-     * get current Route
+     * Current Pinoox route object, or a matched route parameter by name.
      *
-     * @return array|null
+     * $request->route();           // ?Route
+     * $request->route('id');       // mixed parameter
+     * $request->route('id', 0);    // with default
      */
-    public function route(): ?\Pinoox\Component\Router\Route
+    public function route(?string $key = null, mixed $default = null): mixed
     {
-        return @$this->attributes->get('_router');
+        if ($key === null) {
+            return $this->attributes->get('_router');
+        }
+
+        return $this->attributes->get($key, $default);
     }
 
     /**
