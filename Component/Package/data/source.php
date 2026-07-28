@@ -28,6 +28,7 @@ return [
     'alias' => [
         'permission' => \Pinoox\Flow\PermissionFlow::class,
         'throttle' => \Pinoox\Flow\ThrottleFlow::class,
+        'cors' => \Pinoox\Flow\CorsFlow::class,
     ],
     'loader' => [],
     'startup' => null,

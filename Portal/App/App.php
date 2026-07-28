@@ -26,6 +26,7 @@ use Pinoox\Component\Source\Portal;
 use Pinoox\Component\Store\Config\ConfigInterface as ObjectPortal5;
 use Pinoox\Component\Store\Config\Data\DataManager as ObjectPortal10;
 use Pinoox\Component\Translator\Translator as ObjectPortal8;
+use Pinoox\Flow\CorsFlow;
 use Pinoox\Flow\RemoveTrailingSlashFlow;
 use Pinoox\Flow\StartSessionFlow;
 use Pinoox\Flow\ThrottleFlow;
@@ -107,6 +108,7 @@ class App extends Portal
             'transactional' => TransactionalFlow::class,
             'session' => StartSessionFlow::class,
             'throttle' => ThrottleFlow::class,
+            'cors' => CorsFlow::class,
         ];
     }
 
