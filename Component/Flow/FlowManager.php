@@ -38,34 +38,73 @@ class FlowManager
 
     private function handleRow(string|object $flow, Request|RequestSymfony $request, \Closure $next)
     {
+        $parameter = null;
+
+        if (is_string($flow) && str_contains($flow, ':') && !str_contains($flow, '\\')) {
+            [$flow, $parameter] = explode(':', $flow, 2);
+        }
+
+        if ($flow instanceof FlowInterface) {
+            return function ($request) use ($flow, $next) {
+                return $flow->response($request, $next);
+            };
+        }
+
+        if (!is_string($flow)) {
+            return $next;
+        }
+
         $alias = $this->getAliasNestedValue($flow);
-        if (!empty($alias)) {
-            $values = $alias;
-            if ($values instanceof FlowInterface) {
-                $next = function ($request) use ($values, $next) {
-                    return $values->response($request, $next);
+
+        if ($alias !== null && $alias !== '') {
+            if ($alias instanceof FlowInterface) {
+                return function ($request) use ($alias, $next) {
+                    return $alias->response($request, $next);
                 };
-            } elseif (is_array($values)) {
-                foreach ($values as $value) {
+            }
+
+            if (is_array($alias)) {
+                foreach ($alias as $value) {
                     $next = $this->handleRow($value, $request, $next);
                 }
-            } else {
-                $next = $this->handleRow($values, $request, $next);
+
+                return $next;
             }
-        } else {
-            $flow = is_object($flow) ? $flow : new $flow($this->requestEvent);
-            if ($flow instanceof FlowInterface) {
-                $next = function ($request) use ($flow, $next) {
-                    return $flow->response($request, $next);
-                };
+
+            if (is_string($alias)) {
+                $instance = $this->makeFlow($alias, $parameter);
+                if ($instance instanceof FlowInterface) {
+                    return function ($request) use ($instance, $next) {
+                        return $instance->response($request, $next);
+                    };
+                }
             }
+
+            return $next;
+        }
+
+        $instance = $this->makeFlow($flow, $parameter);
+        if ($instance instanceof FlowInterface) {
+            return function ($request) use ($instance, $next) {
+                return $instance->response($request, $next);
+            };
         }
 
         return $next;
     }
 
-    public
-    function handle(Request|RequestSymfony $request, \Closure $next)
+    private function makeFlow(string $class, ?string $parameter = null): object
+    {
+        $event = $this->requestEvent ?? null;
+
+        if ($parameter !== null) {
+            return new $class($parameter, $event);
+        }
+
+        return new $class($event);
+    }
+
+    public function handle(Request|RequestSymfony $request, \Closure $next)
     {
         foreach ($this->getFlows() as $flow) {
             $next = $this->handleRow($flow, $request, $next);
@@ -83,14 +122,17 @@ class FlowManager
         $filteredFlows = [];
 
         foreach ($this->flows as $flow) {
-            if (Str::firstHas($flow, '!')) {
+            if (is_string($flow) && Str::firstHas($flow, '!')) {
                 $filters[] = Str::firstDelete($flow, '!');
             } else {
                 $filteredFlows[] = $flow;
             }
         }
 
-        return array_values(array_diff($filteredFlows, $filters));
+        return array_values(array_filter(
+            $filteredFlows,
+            static fn ($flow) => !is_string($flow) || !in_array($flow, $filters, true),
+        ));
     }
 
     /**
@@ -101,14 +143,12 @@ class FlowManager
         $this->flows = $flows;
     }
 
-    public
-    function addFlow(string|FlowInterface $flow): void
+    public function addFlow(string|FlowInterface $flow): void
     {
         $this->flows[] = $flow;
     }
 
-    public
-    function addFlows(array $flows): void
+    public function addFlows(array $flows): void
     {
         $this->flows = array_unique(array_merge($flows, $this->flows));
     }
@@ -116,8 +156,7 @@ class FlowManager
     /**
      * @return RequestEvent
      */
-    public
-    function getRequestEvent(): RequestEvent
+    public function getRequestEvent(): RequestEvent
     {
         return $this->requestEvent;
     }
@@ -125,8 +164,7 @@ class FlowManager
     /**
      * @param RequestEvent $requestEvent
      */
-    public
-    function setRequestEvent(RequestEvent $requestEvent): void
+    public function setRequestEvent(RequestEvent $requestEvent): void
     {
         $this->requestEvent = $requestEvent;
     }
@@ -134,8 +172,7 @@ class FlowManager
     /**
      * @return array
      */
-    public
-    function getAlias(): array
+    public function getAlias(): array
     {
         return $this->alias;
     }
@@ -143,14 +180,12 @@ class FlowManager
     /**
      * @param array $alias
      */
-    public
-    function setAlias(array $alias): void
+    public function setAlias(array $alias): void
     {
         $this->alias = $alias;
     }
 
-    public
-    function addAliases(array $aliases): void
+    public function addAliases(array $aliases): void
     {
         $this->alias = array_merge($this->alias, $aliases);
     }

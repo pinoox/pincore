@@ -27,6 +27,7 @@ return [
     'flow' => [],
     'alias' => [
         'permission' => \Pinoox\Flow\PermissionFlow::class,
+        'throttle' => \Pinoox\Flow\ThrottleFlow::class,
     ],
     'loader' => [],
     'startup' => null,
