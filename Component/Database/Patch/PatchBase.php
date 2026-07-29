@@ -3,6 +3,7 @@
 namespace Pinoox\Component\Database\Patch;
 
 use Illuminate\Database\Schema\Builder;
+use Pinoox\Component\Database\Seeder\SeederRunner;
 use Pinoox\Portal\Database\DB;
 use Pinoox\Support\PackageContext;
 
@@ -75,5 +76,23 @@ abstract class PatchBase
     protected function getSchema(): Builder
     {
         return $this->schema;
+    }
+
+    /**
+     * Run seeders by file basename (current package when $package is null).
+     *
+     * @param string|array<int, string> $name
+     */
+    protected function seed(string|array $name, ?string $package = null): void
+    {
+        (new SeederRunner())->run($name, $package);
+    }
+
+    /**
+     * Run all seeders for a package (current package when $package is null).
+     */
+    protected function seedAll(?string $package = null): void
+    {
+        (new SeederRunner())->runAll($package);
     }
 }

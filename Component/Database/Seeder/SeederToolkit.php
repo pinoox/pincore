@@ -93,6 +93,7 @@ class SeederToolkit
                 if ($seederClass instanceof SeederBase) {
                     $this->seeders[] = [
                         'file' => $path,
+                        'name' => pathinfo($path, PATHINFO_FILENAME),
                         'class' => get_class($seederClass),
                         'instance' => $seederClass,
                     ];

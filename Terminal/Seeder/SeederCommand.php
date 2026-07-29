@@ -2,7 +2,7 @@
 
 namespace Pinoox\Terminal\Seeder;
 
-use Pinoox\Component\Database\Seeder\SeederToolkit;
+use Pinoox\Component\Database\Seeder\SeederRunner;
 use Pinoox\Component\Terminal;
 use Pinoox\Terminal\Concerns\SelectsPackage;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -41,7 +41,7 @@ Examples:
 HELP
             )
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp())
-            ->addOption('class', 'c', InputOption::VALUE_OPTIONAL, 'Run only one seeder class (short or full name)')
+            ->addOption('class', 'c', InputOption::VALUE_OPTIONAL, 'Run only one seeder (file basename, e.g. DemoSeeder)')
             ->addOption('force', null, InputOption::VALUE_NONE, 'Continue running even if a seeder fails');
     }
 
@@ -56,16 +56,9 @@ HELP
         $class = $input->getOption('class');
 
         try {
-            $toolkit = new SeederToolkit();
-            $toolkit->package($package)->load();
+            $runner = new SeederRunner();
+            $seeders = $runner->resolve($class ?: null, $package);
 
-            if (!$toolkit->isSuccess()) {
-                $this->error($toolkit->getErrors());
-
-                return Command::FAILURE;
-            }
-
-            $seeders = $toolkit->getSeeders();
             if (empty($seeders)) {
                 $this->warning('No seeders found in package: ' . $package);
                 $this->info('Create one with: php pinoox seeder:create DemoSeeder ' . $package);
@@ -82,20 +75,16 @@ HELP
             $failCount = 0;
 
             foreach ($seeders as $seeder) {
-                if ($class && $seeder['class'] !== $class) {
-                    continue;
-                }
+                $seederName = $seeder['name'] ?? basename((string) $seeder['file'], '.php');
 
                 try {
-                    $seederName = basename(str_replace('\\', '/', $seeder['class']));
-
                     $this->info('  Running: ' . $seederName . '...');
                     $seeder['instance']->run();
                     $this->success('  ✓ ' . $seederName . ' completed successfully');
                     $this->newLine();
                     $successCount++;
                 } catch (\Exception $e) {
-                    $this->error('  ✗ ' . ($seederName ?? 'seeder') . ' failed: ' . $e->getMessage());
+                    $this->error('  ✗ ' . $seederName . ' failed: ' . $e->getMessage());
                     $this->newLine();
                     $failCount++;
                     if (!$input->getOption('force')) {
@@ -121,4 +110,3 @@ HELP
         }
     }
 }
-

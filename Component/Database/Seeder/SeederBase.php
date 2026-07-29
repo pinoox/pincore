@@ -39,13 +39,22 @@ abstract class SeederBase
     abstract public function run(): void;
 
     /**
-     * Call other seeders.
+     * Call other seeders by class name or file basename.
+     *
+     * @param array<int, class-string|string> $seeders
      */
     protected function call(array $seeders): void
     {
+        $runner = new SeederRunner();
+
         foreach ($seeders as $seeder) {
-            $instance = new $seeder($this->package);
-            $instance->run();
+            if (is_string($seeder) && class_exists($seeder) && is_subclass_of($seeder, self::class)) {
+                $instance = new $seeder($this->package);
+                $instance->run();
+                continue;
+            }
+
+            $runner->run($seeder, $this->package);
         }
     }
 
