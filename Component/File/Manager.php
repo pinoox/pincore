@@ -57,6 +57,7 @@ class Manager
             'file_path' => $record->file_path,
             'file_size' => $record->file_size,
             'file_access' => $record->file_access,
+            'file_disk' => $record->file_disk,
             'file_metadata' => $record->file_metadata ?? [],
             'url' => $record->file_link,
             'thumb' => $record->thumb_link,

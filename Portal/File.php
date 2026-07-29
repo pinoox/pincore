@@ -54,6 +54,7 @@ class File extends Portal
             'file_path' => $uploader->getDestination(),
             'file_size' => $uploader->getSize(),
             'file_access' => $uploader->getAccess(),
+            'file_disk' => $uploader->getDiskName(),
             'hash_id' => $uploader->getHashId(),
             'file_metadata' => $uploader->getMetaData(),
             'file_group' => $uploader->getGroup(),

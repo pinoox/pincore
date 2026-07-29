@@ -29,6 +29,7 @@ Update file table fields (does not rename storage files).
 
 Examples:
   php pinoox file:update 12 --group=avatar --access=public
+  php pinoox file:update 12 --disk=public
   php pinoox file:update 12 --name="profile.jpg"
   php pinoox file:update 12 --meta disk=local --metadata='{"tag":"avatar"}'
 HELP
@@ -37,6 +38,7 @@ HELP
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
             ->addOption('group', 'g', InputOption::VALUE_REQUIRED, 'file_group')
             ->addOption('access', 'a', InputOption::VALUE_REQUIRED, 'file_access: public or private')
+            ->addOption('disk', 'd', InputOption::VALUE_REQUIRED, 'file_disk (Flysystem disk name)')
             ->addOption('name', null, InputOption::VALUE_REQUIRED, 'file_realname')
             ->addOption('meta', null, InputOption::VALUE_REQUIRED | InputOption::VALUE_IS_ARRAY, 'Set metadata key=value (repeatable, merged)')
             ->addOption('metadata', 'm', InputOption::VALUE_REQUIRED, 'Metadata as JSON object (merged)');
@@ -77,6 +79,15 @@ HELP
                 $changes[] = 'access';
             }
 
+            $disk = $input->getOption('disk');
+            if (is_string($disk) && $disk !== '') {
+                $file->file_disk = $disk;
+                $metadata = is_array($file->file_metadata) ? $file->file_metadata : [];
+                $metadata['disk'] = $disk;
+                $file->file_metadata = $metadata;
+                $changes[] = 'disk';
+            }
+
             $name = $input->getOption('name');
             if (is_string($name) && $name !== '') {
                 $file->file_realname = $name;
@@ -111,6 +122,9 @@ HELP
 
             if ($metaChanged) {
                 $file->file_metadata = $this->mergeFileMetadata(is_array($file->file_metadata) ? $file->file_metadata : [], $metadata);
+                if (isset($file->file_metadata['disk']) && is_string($file->file_metadata['disk']) && $file->file_metadata['disk'] !== '') {
+                    $file->file_disk = $file->file_metadata['disk'];
+                }
                 $changes[] = 'metadata';
             }
         } catch (\InvalidArgumentException $e) {
@@ -131,6 +145,7 @@ HELP
         $io->definitionList(
             ['Group' => (string) ($file->file_group ?: '—')],
             ['Access' => (string) ($file->file_access ?: '—')],
+            ['Disk' => (string) ($file->file_disk ?: '—')],
             ['Real name' => (string) ($file->file_realname ?: '—')],
         );
 

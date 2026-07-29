@@ -50,6 +50,7 @@ class FileModel extends Model
         'file_path',
         'file_size',
         'file_access',
+        'file_disk',
         'file_metadata',
     ];
 
