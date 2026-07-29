@@ -50,37 +50,44 @@ class Cors extends Portal
 {
     public static function __register(): void
     {
-        self::__bind(CorsManager::class)->setFactory(static function () {
-            $manager = new CorsManager();
+        // Symfony DI setFactory() rejects Closures — use a callable reference.
+        self::__bind(CorsManager::class)->setFactory([self::class, 'createManager']);
+    }
 
-            $defaultName = 'default';
+    /**
+     * Container factory for {@see CorsManager} (must be a public static callable).
+     */
+    public static function createManager(): CorsManager
+    {
+        $manager = new CorsManager();
 
-            try {
-                $config = Config::name('~cors')->get() ?? [];
-                if (is_array($config) && !empty($config['default'])) {
-                    $defaultName = (string) $config['default'];
-                }
-            } catch (\Throwable) {
+        $defaultName = 'default';
+
+        try {
+            $config = Config::name('~cors')->get() ?? [];
+            if (is_array($config) && !empty($config['default'])) {
+                $defaultName = (string) $config['default'];
             }
+        } catch (\Throwable) {
+        }
 
-            // Sensible built-in default when apps have not registered policies yet.
-            if (!$manager->has(CorsManager::DEFAULT_NAME)) {
-                $manager->define(CorsManager::DEFAULT_NAME, static function () {
-                    return CorsPolicy::make()
-                        ->allowOrigins('*')
-                        ->allowMethods('*')
-                        ->allowHeaders('*');
-                });
-            }
+        // Sensible built-in default when apps have not registered policies yet.
+        if (!$manager->has(CorsManager::DEFAULT_NAME)) {
+            $manager->define(CorsManager::DEFAULT_NAME, static function () {
+                return CorsPolicy::make()
+                    ->allowOrigins('*')
+                    ->allowMethods('*')
+                    ->allowHeaders('*');
+            });
+        }
 
-            if ($manager->has($defaultName)) {
-                $manager->default($defaultName);
-            } else {
-                $manager->default(CorsManager::DEFAULT_NAME);
-            }
+        if ($manager->has($defaultName)) {
+            $manager->default($defaultName);
+        } else {
+            $manager->default(CorsManager::DEFAULT_NAME);
+        }
 
-            return $manager;
-        });
+        return $manager;
     }
 
     /**
