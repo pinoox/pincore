@@ -47,7 +47,7 @@ class MigrationBase extends Migration
     }
 
     /**
-     * Run seeders by file basename (current package when $package is null).
+     * Run seeders by file basename or SeederBase class (current package when $package is null).
      *
      * @param string|array<int, string> $name
      */

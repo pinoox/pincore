@@ -22,7 +22,7 @@ use Pinoox\Component\Source\Portal;
  *
  * Seeders are never auto-run on app install — call them explicitly.
  *
- * @method static int run(string|array $name, ?string $package = null)
+ * @method static int run(string|array $name, ?string $package = null) Run by basename or SeederBase::class
  * @method static int runAll(?string $package = null)
  * @method static array resolve(?string $name = null, ?string $package = null)
  * @method static bool matchesName(array $seeder, string $name)

@@ -48,12 +48,6 @@ abstract class SeederBase
         $runner = new SeederRunner();
 
         foreach ($seeders as $seeder) {
-            if (is_string($seeder) && class_exists($seeder) && is_subclass_of($seeder, self::class)) {
-                $instance = new $seeder($this->package);
-                $instance->run();
-                continue;
-            }
-
             $runner->run($seeder, $this->package);
         }
     }

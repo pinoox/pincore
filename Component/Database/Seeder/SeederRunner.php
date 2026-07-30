@@ -21,7 +21,9 @@ class SeederRunner
     /**
      * Run seeders for a package (current PackageContext when $package is null).
      *
-     * @param string|array<int, string> $name File basename(s)
+     * Accepts file basename(s), or a named class extending SeederBase (FQCN / ::class).
+     *
+     * @param string|array<int, string> $name
      * @return int Number of seeders executed
      */
     public function run(string|array $name, ?string $package = null): int
@@ -35,6 +37,19 @@ class SeederRunner
             }
 
             return $count;
+        }
+
+        if ($this->isSeederClass($name)) {
+            SeederBase::usePackage($package);
+            try {
+                /** @var SeederBase $instance */
+                $instance = new $name($package);
+                $instance->run();
+            } finally {
+                SeederBase::usePackage(null);
+            }
+
+            return 1;
         }
 
         $seeders = $this->resolve($name, $package);
@@ -138,5 +153,15 @@ class SeederRunner
         }
 
         return $name;
+    }
+
+    /**
+     * @param class-string|string $name
+     */
+    private function isSeederClass(string $name): bool
+    {
+        return class_exists($name)
+            && is_subclass_of($name, SeederBase::class)
+            && !(new \ReflectionClass($name))->isAbstract();
     }
 }
