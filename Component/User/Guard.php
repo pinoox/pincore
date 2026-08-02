@@ -137,6 +137,17 @@ class Guard
 
     public function id(): ?int
     {
+        $this->boot();
+
+        // Prefer token payload — does not depend on UserModel hydration and
+        // never triggers logout side effects from AuthSession::get().
+        foreach (['user_id', 'id'] as $field) {
+            $fromToken = AuthSession::getTokenData($field);
+            if ($fromToken !== null && (int) $fromToken > 0) {
+                return (int) $fromToken;
+            }
+        }
+
         $id = AuthSession::get('user_id');
 
         return $id !== null ? (int) $id : null;

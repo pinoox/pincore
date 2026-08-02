@@ -5,6 +5,7 @@ namespace Pinoox\Component\Kernel;
 use Pinoox\Component\Flow\FlowManager;
 use Pinoox\Component\Http\Response;
 use Pinoox\Component\Router\Route;
+use Pinoox\Component\User\AuthSession;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Response as ResponseSymfony;
@@ -35,6 +36,10 @@ class Kernel extends HttpKernel
      */
     public function handle(Request $request, int $type = HttpKernelInterface::MAIN_REQUEST, bool $catch = true): ResponseSymfony
     {
+        if ($type === HttpKernelInterface::MAIN_REQUEST) {
+            AuthSession::syncFromHttpRequest($request);
+        }
+
         try {
             $event = new RequestEvent($this, $request, $type);
             $this->dispatcher->dispatch($event, self::HANDLE_BEFORE);

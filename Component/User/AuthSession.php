@@ -142,6 +142,31 @@ class AuthSession
     }
 
     /**
+     * Mirror Authorization from the HTTP request into $_SERVER so JWT auth
+     * works on PHP built-in / CGI setups that omit HTTP_AUTHORIZATION.
+     * Called automatically by the kernel — apps should not reimplement this.
+     */
+    public static function syncFromHttpRequest(object $request): void
+    {
+        if (!method_exists($request, 'headers')) {
+            return;
+        }
+
+        $headers = $request->headers;
+        if (!is_object($headers) || !method_exists($headers, 'get')) {
+            return;
+        }
+
+        $header = $headers->get('Authorization') ?: $headers->get('authorization');
+        if (!is_string($header) || $header === '') {
+            return;
+        }
+
+        $_SERVER['HTTP_AUTHORIZATION'] = $header;
+        $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] = $header;
+    }
+
+    /**
      * Force the current request user from PINOOX_LOGIN (no client jwt/cookie).
      */
     public static function setForcedUser(?UserModel $user): void
@@ -372,21 +397,33 @@ class AuthSession
         $user_id = $tokenData['user_id'] ?? null;
 
         if ($user_id && empty(self::$user)) {
-            $user = UserModel::where('user_id', $user_id)->first();
+            // Bypass app scope: a valid token already identifies the user.
+            // Re-applying transport/app scope can miss platform/shared rows and
+            // must never destroy a still-valid JWT (logout).
+            $user = UserModel::withoutGlobalScope('app')
+                ->where('user_id', $user_id)
+                ->first();
+
             if ($user && $user->status == UserModel::ACTIVE) {
                 $user->makeHidden('password');
                 self::$user = $user->toArray();
-                if (self::$updateTokenKey) {
+                if (self::$updateTokenKey && is_array($token) && !empty($token['token_key'])) {
                     $token_key = Token::changeKey($token['token_key'], true, false);
                     self::setClientToken($token_key);
                 }
-            } else {
+            } elseif ($user) {
+                // Row exists but account is inactive — revoke the session.
                 self::logout();
             }
+            // Missing row: keep the token; identity still comes from token_data.
         }
 
         if ($field !== null && $field !== '') {
-            return self::$user[$field] ?? null;
+            if (is_array(self::$user) && array_key_exists($field, self::$user)) {
+                return self::$user[$field];
+            }
+
+            return is_array($tokenData) ? ($tokenData[$field] ?? null) : null;
         }
 
         return self::$user;
@@ -492,15 +529,32 @@ class AuthSession
 
     private static function authorizationHeader(): ?string
     {
-        if (function_exists('apache_request_headers')) {
-            $headers = apache_request_headers();
-            $token = $headers['Authorization'] ?? $headers['authorization'] ?? null;
-            if (!empty($token)) {
+        $candidates = [];
+
+        foreach (['apache_request_headers', 'getallheaders'] as $fn) {
+            if (!function_exists($fn)) {
+                continue;
+            }
+
+            $headers = $fn();
+            if (!is_array($headers)) {
+                continue;
+            }
+
+            $candidates[] = $headers['Authorization'] ?? $headers['authorization'] ?? null;
+        }
+
+        $candidates[] = $_SERVER['HTTP_AUTHORIZATION'] ?? null;
+        $candidates[] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? null;
+        $candidates[] = $_SERVER['Authorization'] ?? null;
+
+        foreach ($candidates as $token) {
+            if (is_string($token) && $token !== '') {
                 return $token;
             }
         }
 
-        return $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['Authorization'] ?? null;
+        return null;
     }
 
     private static function normalizeBearerToken(string $token): string
