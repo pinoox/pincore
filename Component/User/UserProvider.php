@@ -36,11 +36,7 @@ class UserProvider
 
     public function retrieveById(int $userId): ?UserModel
     {
-        // Absolute id lookup (loginUsingId / Guard::user) must ignore app scope
-        // so shared/platform users resolve under any guest package.
-        return UserModel::withoutGlobalScope('app')
-            ->where('user_id', $userId)
-            ->first();
+        return UserModel::where('user_id', $userId)->first();
     }
 
     public function retrieveByLogin(string $identifier, bool $activeOnly = false): ?UserModel

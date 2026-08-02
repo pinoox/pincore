@@ -142,31 +142,6 @@ class AuthSession
     }
 
     /**
-     * Mirror Authorization from the HTTP request into $_SERVER so JWT auth
-     * works on PHP built-in / CGI setups that omit HTTP_AUTHORIZATION.
-     * Called automatically by the kernel — apps should not reimplement this.
-     */
-    public static function syncFromHttpRequest(object $request): void
-    {
-        if (!method_exists($request, 'headers')) {
-            return;
-        }
-
-        $headers = $request->headers;
-        if (!is_object($headers) || !method_exists($headers, 'get')) {
-            return;
-        }
-
-        $header = $headers->get('Authorization') ?: $headers->get('authorization');
-        if (!is_string($header) || $header === '') {
-            return;
-        }
-
-        $_SERVER['HTTP_AUTHORIZATION'] = $header;
-        $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] = $header;
-    }
-
-    /**
      * Force the current request user from PINOOX_LOGIN (no client jwt/cookie).
      */
     public static function setForcedUser(?UserModel $user): void
@@ -287,9 +262,18 @@ class AuthSession
             }
         }
 
-        $claim = self::jwtClaimForSessionKey(self::normalizeBearerToken($token));
+        $token = self::normalizeBearerToken($token);
 
-        return $claim !== null ? $claim : false;
+        try {
+            $payload = JWT::decode($token, new Key(self::$secret_key, 'HS256'));
+            $payloadArray = (array) $payload;
+            $key = key($payloadArray);
+
+            return (string) $payloadArray[$key];
+        } catch (\Exception) {
+        }
+
+        return false;
     }
 
     public static function setUserSessionKey(string $key): void
@@ -388,33 +372,21 @@ class AuthSession
         $user_id = $tokenData['user_id'] ?? null;
 
         if ($user_id && empty(self::$user)) {
-            // Bypass app scope: a valid token already identifies the user.
-            // Re-applying transport/app scope can miss platform/shared rows and
-            // must never destroy a still-valid JWT (logout).
-            $user = UserModel::withoutGlobalScope('app')
-                ->where('user_id', $user_id)
-                ->first();
-
+            $user = UserModel::where('user_id', $user_id)->first();
             if ($user && $user->status == UserModel::ACTIVE) {
                 $user->makeHidden('password');
                 self::$user = $user->toArray();
-                if (self::$updateTokenKey && is_array($token) && !empty($token['token_key'])) {
+                if (self::$updateTokenKey) {
                     $token_key = Token::changeKey($token['token_key'], true, false);
                     self::setClientToken($token_key);
                 }
-            } elseif ($user) {
-                // Row exists but account is inactive — revoke the session.
+            } else {
                 self::logout();
             }
-            // Missing row: keep the token; identity still comes from token_data.
         }
 
         if ($field !== null && $field !== '') {
-            if (is_array(self::$user) && array_key_exists($field, self::$user)) {
-                return self::$user[$field];
-            }
-
-            return is_array($tokenData) ? ($tokenData[$field] ?? null) : null;
+            return self::$user[$field] ?? null;
         }
 
         return self::$user;
@@ -501,85 +473,34 @@ class AuthSession
     {
         $header = self::authorizationHeader();
         if (!empty($header)) {
-            $normalized = self::normalizeBearerToken($header);
-            // Ignore JWTs minted for another app (e.g. manager_pinoox while
-            // this app expects taskban_pinoox) so the matching cookie can win.
-            if (self::jwtClaimForSessionKey($normalized) !== null) {
-                return $normalized;
-            }
+            return $header;
         }
 
         if (!empty(self::$requestToken)) {
-            $normalized = self::normalizeBearerToken(self::$requestToken);
-            if (self::jwtClaimForSessionKey($normalized) !== null) {
-                return $normalized;
-            }
+            return self::$requestToken;
         }
 
         if (self::$type === self::JWT) {
             $cookie = Cookie::get(self::$user_session_key);
             if (!empty($cookie)) {
-                return self::normalizeBearerToken($cookie);
+                return $cookie;
             }
         }
 
         return null;
-    }
-
-    /**
-     * Decode a JWT and return the claim for the current auth key only.
-     * Other apps' tokens (same secret, different claim) must not authenticate here.
-     */
-    private static function jwtClaimForSessionKey(string $jwt): ?string
-    {
-        if ($jwt === '' || self::$user_session_key === '') {
-            return null;
-        }
-
-        try {
-            $payload = JWT::decode($jwt, new Key(self::$secret_key, 'HS256'));
-            $payloadArray = (array) $payload;
-
-            if (!array_key_exists(self::$user_session_key, $payloadArray)) {
-                return null;
-            }
-
-            $value = $payloadArray[self::$user_session_key];
-
-            return ($value !== null && $value !== '') ? (string) $value : null;
-        } catch (\Exception) {
-            return null;
-        }
     }
 
     private static function authorizationHeader(): ?string
     {
-        $candidates = [];
-
-        foreach (['apache_request_headers', 'getallheaders'] as $fn) {
-            if (!function_exists($fn)) {
-                continue;
-            }
-
-            $headers = $fn();
-            if (!is_array($headers)) {
-                continue;
-            }
-
-            $candidates[] = $headers['Authorization'] ?? $headers['authorization'] ?? null;
-        }
-
-        $candidates[] = $_SERVER['HTTP_AUTHORIZATION'] ?? null;
-        $candidates[] = $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? null;
-        $candidates[] = $_SERVER['Authorization'] ?? null;
-
-        foreach ($candidates as $token) {
-            if (is_string($token) && $token !== '') {
+        if (function_exists('apache_request_headers')) {
+            $headers = apache_request_headers();
+            $token = $headers['Authorization'] ?? $headers['authorization'] ?? null;
+            if (!empty($token)) {
                 return $token;
             }
         }
 
-        return null;
+        return $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['Authorization'] ?? null;
     }
 
     private static function normalizeBearerToken(string $token): string
