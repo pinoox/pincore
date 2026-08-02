@@ -16,11 +16,11 @@ namespace Pinoox\Component\Database\Query\Grammars\Concerns;
 use Illuminate\Database\Query\Builder;
 
 /**
- * Prefix table names but keep SQL aliases short (p, t, u) in FROM/JOIN/UPDATE/DELETE.
+ * Prefix table names but keep SQL aliases short (p, t, u) in FROM/JOIN/UPDATE.
  *
  * Auto-aliases let Eloquent qualify columns with the logical table name
- * (`packages.status`). MySQL rejects aliases only on INSERT/TRUNCATE, so those
- * compilers wrap tables without aliases.
+ * (`packages.status`). MySQL rejects aliases on INSERT/TRUNCATE/DELETE
+ * (single-table DELETE), so those compilers wrap tables without aliases.
  */
 trait KeepsShortTableAliases
 {
@@ -154,5 +154,14 @@ trait KeepsShortTableAliases
     public function compileTruncate(Builder $query)
     {
         return $this->withoutTableAliases(fn () => parent::compileTruncate($query));
+    }
+
+    /**
+     * MySQL single-table DELETE rejects `DELETE FROM tbl AS alias` on many
+     * versions (and MariaDB). Compile without short aliases, same as INSERT.
+     */
+    public function compileDelete(Builder $query)
+    {
+        return $this->withoutTableAliases(fn () => parent::compileDelete($query));
     }
 }
