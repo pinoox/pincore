@@ -287,18 +287,9 @@ class AuthSession
             }
         }
 
-        $token = self::normalizeBearerToken($token);
+        $claim = self::jwtClaimForSessionKey(self::normalizeBearerToken($token));
 
-        try {
-            $payload = JWT::decode($token, new Key(self::$secret_key, 'HS256'));
-            $payloadArray = (array) $payload;
-            $key = key($payloadArray);
-
-            return (string) $payloadArray[$key];
-        } catch (\Exception) {
-        }
-
-        return false;
+        return $claim !== null ? $claim : false;
     }
 
     public static function setUserSessionKey(string $key): void
@@ -510,21 +501,55 @@ class AuthSession
     {
         $header = self::authorizationHeader();
         if (!empty($header)) {
-            return $header;
+            $normalized = self::normalizeBearerToken($header);
+            // Ignore JWTs minted for another app (e.g. manager_pinoox while
+            // this app expects taskban_pinoox) so the matching cookie can win.
+            if (self::jwtClaimForSessionKey($normalized) !== null) {
+                return $normalized;
+            }
         }
 
         if (!empty(self::$requestToken)) {
-            return self::$requestToken;
+            $normalized = self::normalizeBearerToken(self::$requestToken);
+            if (self::jwtClaimForSessionKey($normalized) !== null) {
+                return $normalized;
+            }
         }
 
         if (self::$type === self::JWT) {
             $cookie = Cookie::get(self::$user_session_key);
             if (!empty($cookie)) {
-                return $cookie;
+                return self::normalizeBearerToken($cookie);
             }
         }
 
         return null;
+    }
+
+    /**
+     * Decode a JWT and return the claim for the current auth key only.
+     * Other apps' tokens (same secret, different claim) must not authenticate here.
+     */
+    private static function jwtClaimForSessionKey(string $jwt): ?string
+    {
+        if ($jwt === '' || self::$user_session_key === '') {
+            return null;
+        }
+
+        try {
+            $payload = JWT::decode($jwt, new Key(self::$secret_key, 'HS256'));
+            $payloadArray = (array) $payload;
+
+            if (!array_key_exists(self::$user_session_key, $payloadArray)) {
+                return null;
+            }
+
+            $value = $payloadArray[self::$user_session_key];
+
+            return ($value !== null && $value !== '') ? (string) $value : null;
+        } catch (\Exception) {
+            return null;
+        }
     }
 
     private static function authorizationHeader(): ?string
