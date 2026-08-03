@@ -14,10 +14,10 @@
 namespace Pinoox\Component\Router;
 
 use Closure;
-use PhpParser\Node\Stmt\Else_;
 use Pinoox\Component\Helpers\Str;
 use Pinoox\Component\Package\App;
 use Pinoox\Component\Path\Manager\PathManager;
+use Pinoox\Component\Router\Parameter\PathCompiler;
 
 class Route
 {
@@ -38,9 +38,11 @@ class Route
     )
     {
         $this->filters = array_merge($this->collection->filters, $filters);
+        // Defaults must exist before path compilation so optional / catch-all
+        // parameter defaults from PathCompiler are not overwritten.
+        $this->defaults = array_merge($this->collection->defaults, $defaults);
         $this->path = $this->getPath();
         $this->name = $this->buildName($name);
-        $this->defaults = array_merge($this->collection->defaults, $defaults);
         $this->data = array_merge($this->collection->data, $this->data);
         $this->flows = array_unique(array_merge($this->collection->flows, $flows));
         $this->tags = array_unique(array_merge($this->collection->tags, $tags));
@@ -97,16 +99,51 @@ class Route
 
         if ($this->path === '/') {
             return $basePath;
-        } else if ($this->path === '*') {
-            $path = '{parameters}';
-            $this->filters['parameters'] = '.*';
-            $count = strlen($this->collection->prefixPath);
-            $this->priority = -99999 + $count;
-            return $basePath . $path;
+        }
+
+        if ($this->path === '*' || $this->path === '/*') {
+            return $this->catchAllPath($basePath, $this->collection->prefixPath);
+        }
+
+        // Flattened group fallbacks: "/api/*"
+        if (str_ends_with($this->path, '/*')) {
+            $prefix = substr($this->path, 0, -2);
+
+            return $this->catchAllPath(
+                Str::lastDelete($prefix, '/'),
+                $prefix,
+            );
         }
 
         $path = Str::lastDelete($this->path, '/');
-        return (new PathManager($basePath))->get($path);
+        $joined = (new PathManager($basePath))->get($path);
+
+        return $this->compilePath($joined);
+    }
+
+    private function compilePath(string $path): string
+    {
+        // Exact (no placeholders) — highest class of specificity.
+        if (!str_contains($path, '{')) {
+            $this->priority += 2000;
+
+            return $path;
+        }
+
+        $compiled = PathCompiler::compile($path, $this->filters, $this->defaults);
+        $this->filters = $compiled['filters'];
+        $this->defaults = $compiled['defaults'];
+        $this->priority += $compiled['score'];
+
+        return $compiled['path'];
+    }
+
+    private function catchAllPath(string $basePath, string $prefixForPriority): string
+    {
+        $this->filters['parameters'] = '.*';
+        $this->priority = -99999 + strlen($prefixForPriority);
+
+        return $basePath . '{parameters}';
     }
 
     /**

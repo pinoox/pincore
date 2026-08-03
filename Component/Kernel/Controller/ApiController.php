@@ -2,8 +2,10 @@
 
 namespace Pinoox\Component\Kernel\Controller;
 
+use Illuminate\Pagination\AbstractPaginator;
 use Pinoox\Component\Http\Api\ApiResource;
 use Pinoox\Component\Http\Api\ApiResponse;
+use Pinoox\Component\Http\Api\ResourceCollection;
 use Pinoox\Component\Http\JsonResponse;
 use Pinoox\Component\Http\Request;
 
@@ -36,9 +38,59 @@ abstract class ApiController extends Controller
         return ApiResponse::error($code, $message, $details, $status, $translate);
     }
 
-    protected function resource(ApiResource $resource, ?string $message = null, array $meta = [], int $status = 200): JsonResponse
+    /**
+     * Respond with a resource (single item or collection).
+     *
+     * Accepts: ApiResource, ResourceCollection, or ResourceCollection from paginator().
+     */
+    protected function resource(ApiResource|ResourceCollection $resource, ?string $message = null, array $meta = [], int $status = 200): JsonResponse
     {
-        return $this->ok($resource, $message, $meta, $status);
+        if ($resource instanceof ResourceCollection && !empty($meta)) {
+            $content = $resource->toArray();
+            if (is_array($content) && isset($content['meta'])) {
+                $mergedMeta = array_merge($content['meta'], $meta);
+                return ApiResponse::success(
+                    ['data' => $content['data'] ?? [], 'meta' => $mergedMeta],
+                    $message,
+                    [],
+                    $status
+                );
+            }
+        }
+
+        return ApiResponse::success($resource, $message, $meta, $status);
+    }
+
+    /**
+     * Respond with a paginated resource collection.
+     *
+     * Usage:
+     *   $tasks = Task::paginate($perPage);
+     *   return $this->paginator($tasks, TaskResource::class);
+     */
+    protected function paginator(AbstractPaginator $paginator, string $resourceClass, ?string $message = null, int $status = 200): JsonResponse
+    {
+        $result = ApiResource::paginator($paginator, $resourceClass);
+
+        return ApiResponse::success(
+            ['data' => $result['data'], 'meta' => $result['meta']],
+            $message,
+            [],
+            $status
+        );
+    }
+
+    /**
+     * Respond with a collection of resources.
+     *
+     * Usage:
+     *   return $this->collection($tasks, TaskResource::class);
+     */
+    protected function collection(iterable $items, string $resourceClass, ?string $message = null, int $status = 200): JsonResponse
+    {
+        $data = ApiResource::collection($items, $resourceClass);
+
+        return ApiResponse::success(['data' => $data], $message, [], $status);
     }
 
     protected function message(mixed $messageOrData = null, mixed $data = null): JsonResponse

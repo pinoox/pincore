@@ -43,7 +43,7 @@ it('returns a standard error envelope', function () {
 it('wraps arbitrary arrays with payload resource', function () {
     $resource = new PayloadResource(['items' => ['rewrite' => ['state' => 'pass']]]);
 
-    expect($resource->toArray())->toBe(['items' => ['rewrite' => ['state' => 'pass']]]);
+    expect($resource->resolve())->toBe(['items' => ['rewrite' => ['state' => 'pass']]]);
 });
 
 it('defaults success message to OK when omitted', function () {
