@@ -16,6 +16,7 @@ namespace Pinoox\Component\Migration;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Builder;
 use Illuminate\Contracts\Database\Query\Expression;
+use Pinoox\Component\Database\Seeder\SeederRunner;
 use Pinoox\Portal\Database\DB;
 use Pinoox\Support\PackageContext;
 
@@ -43,6 +44,24 @@ class MigrationBase extends Migration
     protected function foreignTable(string $name, ?string $package = null): Expression
     {
         return DB::raw(DB::physicalTableName($name, $package ?? PackageContext::resolve()));
+    }
+
+    /**
+     * Run seeders by file basename or SeederBase class (current package when $package is null).
+     *
+     * @param string|array<int, string> $name
+     */
+    protected function seed(string|array $name, ?string $package = null): void
+    {
+        (new SeederRunner())->run($name, $package);
+    }
+
+    /**
+     * Run all seeders for a package (current package when $package is null).
+     */
+    protected function seedAll(?string $package = null): void
+    {
+        (new SeederRunner())->runAll($package);
     }
 
 }

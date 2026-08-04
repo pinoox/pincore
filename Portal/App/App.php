@@ -26,8 +26,11 @@ use Pinoox\Component\Source\Portal;
 use Pinoox\Component\Store\Config\ConfigInterface as ObjectPortal5;
 use Pinoox\Component\Store\Config\Data\DataManager as ObjectPortal10;
 use Pinoox\Component\Translator\Translator as ObjectPortal8;
+use Pinoox\Flow\CorsFlow;
 use Pinoox\Flow\RemoveTrailingSlashFlow;
+use Pinoox\Flow\ResolveFlow;
 use Pinoox\Flow\StartSessionFlow;
+use Pinoox\Flow\ThrottleFlow;
 use Pinoox\Flow\TransactionalFlow;
 use Pinoox\Portal\Lang;
 use Symfony\Component\HttpFoundation\Session\SessionInterface as ObjectPortal9;
@@ -105,6 +108,9 @@ class App extends Portal
             'slash_remover' => RemoveTrailingSlashFlow::class,
             'transactional' => TransactionalFlow::class,
             'session' => StartSessionFlow::class,
+            'throttle' => ThrottleFlow::class,
+            'cors' => CorsFlow::class,
+            'resolve' => ResolveFlow::class,
         ];
     }
 

@@ -248,6 +248,7 @@ trait ManagesCliFiles
             'file_size' => $file->file_size,
             'file_size_label' => $this->formatFileSize($file->file_size),
             'file_access' => $file->file_access,
+            'file_disk' => $file->file_disk,
             'file_metadata' => $file->file_metadata,
             'file_link' => $file->file_link,
             'thumb_link' => $file->thumb_link,

@@ -36,6 +36,11 @@ class FileStorage
 
     public static function resolveDisk(FileModel $file): ?string
     {
+        $column = isset($file->file_disk) ? trim((string) $file->file_disk) : '';
+        if ($column !== '') {
+            return $column;
+        }
+
         $metadata = $file->file_metadata ?? [];
 
         return is_array($metadata) && !empty($metadata['disk'])

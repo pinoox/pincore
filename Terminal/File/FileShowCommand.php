@@ -72,6 +72,7 @@ HELP
             ['Path' => (string) ($file->file_path ?: '—')],
             ['Size' => (string) $row['file_size_label']],
             ['Access' => (string) ($file->file_access ?: '—')],
+            ['Disk' => (string) ($file->file_disk ?: '—')],
             ['User id' => (string) ($file->user_id ?: '—')],
             ['App scope' => (string) ($file->app ?: '—')],
             ['Storage' => (string) $row['storage']],

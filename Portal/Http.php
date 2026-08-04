@@ -25,7 +25,9 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * Http::get($url);
  * Http::post($url, ['json' => [...]]);
  * Http::query($url, ['json' => ['filters' => [...]]]);
- * Http::request('QUERY', $url, $options);
+ * Http::options($url);
+ * Http::purge($url);
+ * Http::request('TRACE', $url, $options);
  * Http::withOptions(['timeout' => 15])->get($url);
  *
  * @method static ResponseInterface|null get(string $url, array $options = [])
@@ -36,6 +38,9 @@ use Symfony\Contracts\HttpClient\ResponseInterface;
  * @method static ResponseInterface|null query(string $url, array $options = [])
  * @method static ResponseInterface|null options(string $url, array $options = [])
  * @method static ResponseInterface|null head(string $url, array $options = [])
+ * @method static ResponseInterface|null purge(string $url, array $options = [])
+ * @method static ResponseInterface|null trace(string $url, array $options = [])
+ * @method static ResponseInterface|null connect(string $url, array $options = [])
  * @method static ResponseInterface|null request(string $method, string $url, array $options = [])
  * @method static HttpClient withOptions(array $options)
  * @method static HttpClientInterface client()

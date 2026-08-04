@@ -17,15 +17,13 @@ use Pinoox\Component\Database\Model;
 use Pinoox\Component\Http\Request;
 use Pinoox\Portal\Database\DB;
 use Symfony\Component\HttpKernel\ControllerMetadata\ArgumentMetadata;
+use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
- * Yields the Session.
+ * Inject Eloquent models from route attributes (by route key).
  */
 final class ModelValueResolver implements ArgumentValueResolverInterface
 {
-    /**
-     * {@inheritdoc}
-     */
     public function supports(Request $request, ArgumentMetadata $argument): bool
     {
         if (!DB::hasConnection()) {
@@ -39,9 +37,6 @@ final class ModelValueResolver implements ArgumentValueResolverInterface
             && is_subclass_of($type, Model::class);
     }
 
-    /**
-     * {@inheritdoc}
-     */
     public function resolve(Request $request, ArgumentMetadata $argument): iterable
     {
         $type = $argument->getType();
@@ -49,6 +44,48 @@ final class ModelValueResolver implements ArgumentValueResolverInterface
             return;
         }
 
-        yield new $type();
+        if (!DB::hasConnection()) {
+            return;
+        }
+
+        $name = $argument->getName();
+        $value = $request->attributes->get($name);
+
+        if ($value instanceof $type) {
+            yield $value;
+
+            return;
+        }
+
+        if ($value === null || $value === '') {
+            if ($argument->isNullable()) {
+                yield null;
+            }
+
+            return;
+        }
+
+        if (!is_scalar($value)) {
+            return;
+        }
+
+        /** @var class-string<Model> $type */
+        $model = $type::query()->where($type::routeKeyName(), $value)->first();
+
+        if ($model === null) {
+            if ($argument->isNullable()) {
+                yield null;
+
+                return;
+            }
+
+            throw new NotFoundHttpException(sprintf(
+                'No query results for model [%s] with route key [%s].',
+                $type,
+                $value,
+            ));
+        }
+
+        yield $model;
     }
 }
