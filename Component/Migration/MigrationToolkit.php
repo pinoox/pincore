@@ -413,26 +413,18 @@ class MigrationToolkit
         // Try each pattern until we find a match
         foreach (self::TABLE_NAME_PATTERNS as $patternName => $pattern) {
             if (preg_match($pattern, $cleanFileName, $matches)) {
-                return $matches[1];
+                $name = $matches[1];
+                // add_*_to_foo_table captures "foo_table"; normalize to logical "foo"
+                if (str_ends_with($name, '_table')) {
+                    $name = substr($name, 0, -6);
+                }
+
+                return $name !== '' ? $name : null;
             }
         }
 
-        // Fallback: use the last meaningful part
-        return $this->extractTableNameFallback($cleanFileName);
-    }
-
-    /**
-     * Fallback method to extract table name when no pattern matches
-     */
-    private function extractTableNameFallback(string $fileName): ?string
-    {
-        $parts = explode('_', $fileName);
-
-        if (count($parts) >= 2) {
-            // Return the last part as potential table name
-            return end($parts);
-        }
-
+        // Unknown naming (e.g. unique_label_name_per_project) — null means
+        // Migrator treats the target as present when history already recorded.
         return null;
     }
 
