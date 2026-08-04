@@ -18,6 +18,7 @@ use Illuminate\Database\Capsule\Manager as Capsule;
 use Illuminate\Database\Connection;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\App\AppEngine;
+use Pinoox\Support\PackageContext;
 use Pinoox\Support\Platform;
 use Pinoox\Support\SystemApp;
 
@@ -166,6 +167,12 @@ class DatabaseManager extends Capsule
 
     public function connectionTablePrefix(?string $package = null): string
     {
+        $package = $this->resolvePackageName($package);
+
+        if ($package === null) {
+            return $this->connectionPrefix(self::DEFAULT_CONNECTION);
+        }
+
         if ($package === self::CORE_CONNECTION || $package === 'platform') {
             return $this->connectionPrefix(self::CORE_CONNECTION);
         }
@@ -195,7 +202,10 @@ class DatabaseManager extends Capsule
 
     public function tablePrefixForPackage(?string $package = null): string
     {
-        if (empty($package) || $package === '~') {
+        $package = $this->resolvePackageName($package);
+
+        // '~' means: no app logical prefix — bare default connection.
+        if ($package === null) {
             return '';
         }
 
@@ -207,6 +217,7 @@ class DatabaseManager extends Capsule
             return $this->shortPackagePrefix($package);
         }
 
+        // Prefer explicit table/database.prefix from the package app.php.
         $config = AppEngine::config($package);
         $database = $config->get('database');
         $explicitPrefix = $this->explicitTablePrefix($database, $config->get('table'));
@@ -235,7 +246,9 @@ class DatabaseManager extends Capsule
 
     public function connectionNameForPackage(?string $package = null, string $name = 'default'): string
     {
-        if (empty($package) || $package === '~') {
+        $package = $this->resolvePackageName($package);
+
+        if ($package === null) {
             return self::DEFAULT_CONNECTION;
         }
 
@@ -248,6 +261,25 @@ class DatabaseManager extends Capsule
         return $this->packageConnections[$package][$name]
             ?? $this->packageConnections[$package]['default']
             ?? self::DEFAULT_CONNECTION;
+    }
+
+    /**
+     * Resolve package for table/connection helpers from app.php context.
+     *
+     * Priority: explicit arg → PackageContext (CLI migrate package / runtime) → App::package().
+     * Pass '~' to opt out and use the bare default connection with no app prefix.
+     */
+    private function resolvePackageName(?string $package): ?string
+    {
+        if ($package === '~') {
+            return null;
+        }
+
+        if (is_string($package) && $package !== '') {
+            return $package;
+        }
+
+        return PackageContext::resolve();
     }
 
     public function registerPackageConnections(string $package): bool
