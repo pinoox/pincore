@@ -64,6 +64,22 @@ final class PlatformComposer
             ComposerVendorGuard::pruneInstalledMetadata($stagingVendor, $excludedDevPackages);
         }
 
+        // Rebuild autoload so stripped require-dev files (e.g. myclabs/deep-copy)
+        // are not still referenced from autoload_files.php on the host.
+        if ($stripRequireDev) {
+            try {
+                ComposerVendorGuard::regenerateProductionAutoload(
+                    self::stagingRoot($projectRoot),
+                    $distributionComposer,
+                    $projectRoot,
+                );
+            } catch (\Throwable $e) {
+                self::cleanup($projectRoot);
+
+                throw $e;
+            }
+        }
+
         return [
             'prepared' => true,
             'reason' => null,
