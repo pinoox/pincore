@@ -12,6 +12,6 @@ return [
     |
     */
 
-    'version_code' => 202,
-    'version_name' => '3.8.12',
+    'version_code' => 203,
+    'version_name' => '3.8.13',
 ];
