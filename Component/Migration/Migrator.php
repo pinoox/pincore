@@ -571,10 +571,11 @@ class Migrator
                 try {
                     $this->log("Executing migration: {$migrationName}");
                     
-                    // Execute the migration
+                    // Keep package context for the full up() — $this->table() resolves
+                    // via PackageContext::runtime(); clearing before up() falls back to
+                    // App::package() (often installer) and corrupts logical table names.
                     MigrationBase::usePackage($this->package);
                     $migrationInstance = require $migration['migrationFile'];
-                    MigrationBase::usePackage(null);
                     $migrationInstance->up();
                     
                     // Record that this migration has been run
@@ -584,8 +585,6 @@ class Migrator
                     $this->log("Successfully executed migration: {$migrationName}");
                     
                 } catch (Exception $e) {
-                    MigrationBase::usePackage(null);
-
                     if ($e instanceof QueryException && $this->isTableAlreadyExistsError($e)) {
                         $this->log("Table already exists, adopting migration: {$migrationName}", 'warning');
                         $this->adoptExistingMigration($migrationName);
@@ -596,6 +595,8 @@ class Migrator
 
                     $this->log("Failed to execute migration {$migrationName}: " . $e->getMessage(), 'error');
                     throw new Exception("Migration {$migrationName} failed: " . $e->getMessage());
+                } finally {
+                    MigrationBase::usePackage(null);
                 }
             }
             
@@ -630,11 +631,21 @@ class Migrator
             return true;
         }
 
-        if (!$recorded && $tableExists) {
+        // Only auto-adopt create_* migrations when the table already exists.
+        // Alter/add/unique migrations must still run — the base table existing
+        // does not mean the migration's changes were applied.
+        if (!$recorded && $tableExists && $this->isCreateMigration($migrationName)) {
             return $this->adoptExistingMigration($migrationName);
         }
 
         return false;
+    }
+
+    private function isCreateMigration(string $migrationName): bool
+    {
+        $clean = preg_replace('/^\d{4}_\d{2}_\d{2}_\d{6}_/', '', $migrationName) ?? $migrationName;
+
+        return str_starts_with($clean, 'create_');
     }
 
     private function adoptExistingMigration(string $migrationName): bool
@@ -819,10 +830,9 @@ class Migrator
             // Set execution timeout
             set_time_limit($this->timeout);
 
-            // Include the migration file and get the class instance
+            // Keep package context through up() so $this->table() resolves correctly.
             MigrationBase::usePackage($this->package);
             $migrationClass = require_once $migration['migrationFile'];
-            MigrationBase::usePackage(null);
 
             if (!is_object($migrationClass) || !method_exists($migrationClass, 'up')) {
                 throw new Exception("Migration {$migration['fileName']} does not have a valid 'up' method");
@@ -838,8 +848,9 @@ class Migrator
             $this->log("Executed {$migration['fileName']} in " . round($executionTime, 2) . "s");
 
         } catch (Exception $e) {
-            MigrationBase::usePackage(null);
             throw $e;
+        } finally {
+            MigrationBase::usePackage(null);
         }
     }
 
@@ -860,10 +871,9 @@ class Migrator
                 throw new Exception("Migration file not found for: {$migration['migration']}");
             }
 
-            // Include the migration file and get the class instance
+            // Keep package context through down() so $this->table() resolves correctly.
             MigrationBase::usePackage($this->package);
             $migrationClass = include $migrationFile;
-            MigrationBase::usePackage(null);
 
             if (!is_object($migrationClass)) {
                 throw new Exception("Migration {$migration['migration']} does not return a valid class instance");
@@ -882,11 +892,12 @@ class Migrator
             }
 
         } catch (Exception $e) {
-            MigrationBase::usePackage(null);
             if ($useTransactions) {
                 DB::rollback();
             }
             throw $e;
+        } finally {
+            MigrationBase::usePackage(null);
         }
     }
 
