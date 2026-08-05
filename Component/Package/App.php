@@ -328,7 +328,14 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
 
     private function registerConfiguredPackageAutoloaders(): void
     {
-        foreach ($this->appEngine->registeredPackages() as $packageName => $dir) {
+        // Prefer packagePaths() so Finder-discovered apps (e.g. pinx installs)
+        // get App\{package}\ PSR-4 even when Composer classmap is stale/authoritative.
+        $packages = $this->appEngine->packagePaths();
+        if ($packages === []) {
+            $packages = $this->appEngine->registeredPackages();
+        }
+
+        foreach ($packages as $packageName => $dir) {
             $this->autoloader($packageName, $dir);
         }
     }
