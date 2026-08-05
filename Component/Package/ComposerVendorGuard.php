@@ -618,12 +618,14 @@ final class ComposerVendorGuard
     {
         $composer = AppComposerVendor::resolveComposerBinary($projectRoot);
 
+        // Do not use --classmap-authoritative: platform vendor packs ship without apps/,
+        // and App\ is PSR-4 to {root}/apps. Authoritative classmaps break host apps
+        // (e.g. App\com_pinoox_hub\Router\Actions) after pinroll:vendor --push.
         if (str_contains($composer, ' ') && str_ends_with($composer, '.phar')) {
             return array_merge(explode(' ', $composer, 2), [
                 'dump-autoload',
                 '--no-dev',
                 '--optimize',
-                '--classmap-authoritative',
                 '--no-interaction',
                 '--no-ansi',
             ]);
@@ -634,7 +636,6 @@ final class ComposerVendorGuard
             'dump-autoload',
             '--no-dev',
             '--optimize',
-            '--classmap-authoritative',
             '--no-interaction',
             '--no-ansi',
         ];
