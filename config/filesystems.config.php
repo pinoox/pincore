@@ -22,7 +22,7 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => env('FILESYSTEM_PUBLIC_ROOT', '~storage/public'),
-            'url' => env('FILESYSTEM_PUBLIC_URL', rtrim((string) env('APP_URL', ''), '/') . '/storage'),
+            'url' => env('FILESYSTEM_PUBLIC_URL', rtrim((string) env('APP_URL', ''), '/') . '/storage/public'),
             'protect' => 'unlock',
             'visibility' => 'public',
             'throw' => env('FILESYSTEM_THROW', false),

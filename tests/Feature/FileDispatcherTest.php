@@ -94,7 +94,7 @@ it('scopes public disk packages under storage/public', function () {
             'public' => [
                 'driver' => 'local',
                 'root' => testFixturesProjectRelative('storage_public_apps'),
-                'url' => 'http://example.test/storage',
+                'url' => 'http://example.test/storage/public',
                 'visibility' => 'public',
                 'protect' => 'unlock',
                 'throw' => true,
@@ -114,7 +114,7 @@ it('scopes public disk packages under storage/public', function () {
     $disk->put('avatars/a.txt', 'ok');
 
     expect(is_file($root . '/com_demo/avatars/a.txt'))->toBeTrue()
-        ->and($disk->url('avatars/a.txt'))->toContain('/storage/com_demo/avatars/a.txt');
+        ->and($disk->url('avatars/a.txt'))->toContain('/storage/public/com_demo/avatars/a.txt');
 
     fileDispatcherDeleteDir($root);
 });
