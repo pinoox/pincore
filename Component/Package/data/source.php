@@ -67,7 +67,8 @@ return [
     ],
     'filesystem' => [
         'disk' => null,
-        'default_access' => 'public',
+        'hash_length' => 8,
+        'file_policy' => 'owner',
         'thumb_width' => 512,
         'thumb_height' => 512,
     ],

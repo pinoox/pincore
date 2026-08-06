@@ -56,7 +56,7 @@ it('matches git check-ignore for negation rules inside a repository', function (
 it('matches git check-ignore for storage skeleton negation rules', function () {
     $root = sys_get_temp_dir() . '/gitignore_storage_' . uniqid('', true);
     mkdir($root . '/storage/logs', 0777, true);
-    mkdir($root . '/storage/apps/com_demo', 0777, true);
+    mkdir($root . '/storage/local/com_demo', 0777, true);
     file_put_contents($root . '/.gitignore', <<<'GITIGNORE'
 /storage/*
 !/storage/.gitkeep
@@ -66,7 +66,7 @@ GITIGNORE);
     file_put_contents($root . '/storage/.htaccess', 'deny');
     file_put_contents($root . '/storage/.gitkeep', '');
     file_put_contents($root . '/storage/logs/app.log', 'log');
-    file_put_contents($root . '/storage/apps/com_demo/.gitkeep', '');
+    file_put_contents($root . '/storage/local/com_demo/.gitkeep', '');
 
     (new Process(['git', 'init'], $root))->mustRun();
 
@@ -74,7 +74,7 @@ GITIGNORE);
     $paths = [
         $root . '/storage/.htaccess',
         $root . '/storage/.gitkeep',
-        $root . '/storage/apps/com_demo/.gitkeep',
+        $root . '/storage/local/com_demo/.gitkeep',
         $root . '/storage/logs/app.log',
     ];
 

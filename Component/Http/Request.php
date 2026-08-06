@@ -428,9 +428,15 @@ class Request extends RequestSymfony
         return $default;
     }
 
-    public function store(string $key, $destination, $access = 'public', mixed $default = null): ?UploadBuilder
+    /**
+     * Store an uploaded request file (Laravel-style disk argument).
+     *
+     * @param string $destination Destination folder under the disk
+     * @param string|null $disk Disk name (`public`, `local`, `s3`) or shortcuts `private`
+     */
+    public function store(string $key, $destination, ?string $disk = null, mixed $default = null): ?UploadBuilder
     {
-        return $this->file($key, $default)?->store($destination, $access);
+        return $this->file($key, $default)?->store($destination, $disk);
     }
 
     public function getContext(): RequestContext

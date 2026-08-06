@@ -29,6 +29,7 @@ final class StorageContext
         }
 
         if (!isset($merged['access'])) {
+            // Derived from disk when omitted (public disk ⇒ public, else private).
             $merged['access'] = FileConfig::resolve()['default_access'];
         }
 

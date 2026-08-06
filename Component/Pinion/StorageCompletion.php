@@ -31,9 +31,9 @@ final class StorageCompletion
 
         $builder = (new UploadBuilder($uploadedFile))
             ->to($destination)
-            ->access((string) ($meta['access'] ?? 'public'))
-            ->disk(isset($meta['disk']) ? (string) $meta['disk'] : null)
             ->package(isset($meta['package']) ? (string) $meta['package'] : null);
+
+        $this->applyDiskAndAccess($builder, $meta);
 
         if (!empty($session->extensions)) {
             $builder->extensions($session->extensions);
@@ -56,6 +56,34 @@ final class StorageCompletion
         @unlink($assembledPath);
 
         return $this->formatResult($result, $meta);
+    }
+
+    /**
+     * Prefer disk / public() / private(); access() only for edge overrides.
+     *
+     * @param array<string, mixed> $meta
+     */
+    private function applyDiskAndAccess(UploadBuilder $builder, array $meta): void
+    {
+        $disk = isset($meta['disk']) ? trim((string) $meta['disk']) : '';
+        $access = strtolower(trim((string) ($meta['access'] ?? '')));
+
+        if ($disk !== '') {
+            $builder->disk($disk);
+        } elseif ($access === 'public') {
+            $builder->public();
+        } elseif ($access === 'private') {
+            $builder->private();
+        }
+
+        // Edge case: shared link on a private disk (or the reverse).
+        if ($access !== '' && $disk !== '') {
+            $diskImpliesPublic = $disk === 'public';
+            $accessIsPublic = $access === 'public';
+            if ($diskImpliesPublic !== $accessIsPublic) {
+                $builder->access($access);
+            }
+        }
     }
 
     /**

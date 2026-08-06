@@ -247,6 +247,7 @@ class Manager
         $result = File::upload($file)
             ->to('uploads/avatar')
             ->group('avatar')
+            ->public()
             ->thumb()
             ->save();
 

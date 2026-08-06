@@ -35,5 +35,5 @@ it('exposes supported connection names from config', function () {
 
 it('provides database_path helper for sqlite files', function () {
     expect(function_exists('database_path'))->toBeTrue()
-        ->and(database_path('database.sqlite'))->toEndWith('storage/app/database/database.sqlite');
+        ->and(database_path('database.sqlite'))->toEndWith('storage/database/database.sqlite');
 });
