@@ -171,6 +171,13 @@ class FileUploader
         return $this;
     }
 
+    public function setAllowedExtensions(array $extensions): static
+    {
+        $this->allowedExtensions = $extensions;
+
+        return $this;
+    }
+
     public function setMaxFileSize(int $maxFileSize): static
     {
         $this->maxFileSize = $maxFileSize;

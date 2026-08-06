@@ -48,18 +48,38 @@ class FileStorage
             : null;
     }
 
+    public static function dispatcherUrl(FileModel $file, bool $thumb = false): ?string
+    {
+        $hash = trim((string) ($file->hash_id ?? ''));
+        if ($hash === '') {
+            return null;
+        }
+
+        $path = '/file/' . $hash . ($thumb ? '/thumb' : '');
+
+        return Url::link($path, Url::SCOPE_SITE);
+    }
+
     public static function url(FileModel $file): ?string
     {
         if (empty($file->file_name) || empty($file->file_path)) {
             return null;
         }
 
-        $disk = self::disk($file->app, self::resolveDisk($file));
-        $key = self::key($file->file_path, $file->file_name);
-        $url = self::tryDiskUrl($disk, $key);
+        $diskName = self::resolveDisk($file);
 
-        if ($url !== null) {
-            return $url;
+        // Model B: public disk → direct /storage URL.
+        if ($diskName === 'public') {
+            $key = self::key($file->file_path, $file->file_name);
+            $url = self::publicUrl($file->app, $key);
+            if ($url !== null) {
+                return $url;
+            }
+        }
+
+        $dispatcher = self::dispatcherUrl($file);
+        if ($dispatcher !== null) {
+            return $dispatcher;
         }
 
         if (self::legacyExists($file)) {
@@ -79,12 +99,19 @@ class FileStorage
             return null;
         }
 
-        $disk = self::disk($file->app, self::resolveDisk($file));
-        $key = self::thumbKey($file->file_path, $file->file_name);
-        $url = self::tryDiskUrl($disk, $key);
+        $diskName = self::resolveDisk($file);
 
-        if ($url !== null) {
-            return $url;
+        if ($diskName === 'public') {
+            $key = self::thumbKey($file->file_path, $file->file_name);
+            $url = self::publicUrl($file->app, $key);
+            if ($url !== null) {
+                return $url;
+            }
+        }
+
+        $dispatcher = self::dispatcherUrl($file, true);
+        if ($dispatcher !== null) {
+            return $dispatcher;
         }
 
         if (self::legacyThumbExists($file)) {
@@ -111,13 +138,13 @@ class FileStorage
         self::deleteLegacy($file);
     }
 
-    private static function tryDiskUrl(FilesystemAdapter $disk, string $key): ?string
+    /**
+     * Build a public-disk URL without probing disk existence (list/API hot path).
+     */
+    private static function publicUrl(?string $package, string $key): ?string
     {
-        if (!$disk->exists($key)) {
-            return null;
-        }
-
         try {
+            $disk = self::disk($package, 'public');
             $url = $disk->url($key);
 
             return is_string($url) && $url !== '' ? $url : null;
@@ -155,4 +182,3 @@ class FileStorage
         }
     }
 }
-

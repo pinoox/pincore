@@ -82,6 +82,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse as ObjectPortal2;
  * @method static ObjectPortal5 app(?string $package = NULL, ?string $disk = NULL)
  * @method static ObjectPortal5 package(?string $package = NULL, ?string $disk = NULL)
  * @method static string appPath(?string $package = NULL, string $path = '')
+ * @method static string publicPath(?string $package = NULL, string $path = '')
  * @method static ObjectPortal5 createLocalDriver(array $config)
  * @method static ObjectPortal5 createFtpDriver(array $config)
  * @method static ObjectPortal5 createSftpDriver(array $config)

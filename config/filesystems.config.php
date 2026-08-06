@@ -4,34 +4,34 @@ return [
     'default' => env('FILESYSTEM_DISK', 'local'),
     'cloud' => env('FILESYSTEM_CLOUD', 's3'),
     'app_disk' => env('FILESYSTEM_APP_DISK', env('FILESYSTEM_DISK', 'local')),
-    'app_root' => env('FILESYSTEM_APPS_ROOT', '~storage/apps'),
-    'app_prefix' => env('FILESYSTEM_APPS_PREFIX', 'apps'),
+    // Private package files live under the local disk root: storage/local/{package}
+    'app_root' => env('FILESYSTEM_APPS_ROOT', env('FILESYSTEM_LOCAL_ROOT', '~storage/local')),
+    'app_prefix' => env('FILESYSTEM_APPS_PREFIX', ''),
+    'public_root' => env('FILESYSTEM_PUBLIC_ROOT', '~storage/public'),
+    'hash_length' => (int) env('FILE_HASH_LENGTH', 8),
 
     'disks' => [
         'local' => [
             'driver' => 'local',
-            'root' => env('FILESYSTEM_LOCAL_ROOT', '~storage/app'),
+            'root' => env('FILESYSTEM_LOCAL_ROOT', '~storage/local'),
+            'protect' => 'lock',
+            'visibility' => 'private',
             'throw' => env('FILESYSTEM_THROW', false),
         ],
 
         'public' => [
             'driver' => 'local',
-            'root' => env('FILESYSTEM_PUBLIC_ROOT', '~storage/app/public'),
-            'url' => env('FILESYSTEM_PUBLIC_URL', rtrim((string) env('APP_URL', ''), '/') . '/storage'),
+            'root' => env('FILESYSTEM_PUBLIC_ROOT', '~storage/public'),
+            'url' => env('FILESYSTEM_PUBLIC_URL', rtrim((string) env('APP_URL', ''), '/') . '/storage/public'),
+            'protect' => 'unlock',
             'visibility' => 'public',
-            'throw' => env('FILESYSTEM_THROW', false),
-        ],
-
-        'apps' => [
-            'driver' => 'local',
-            'root' => env('FILESYSTEM_APPS_ROOT', '~storage/apps'),
-            'visibility' => 'private',
             'throw' => env('FILESYSTEM_THROW', false),
         ],
 
         'temp' => [
             'driver' => 'local',
             'root' => env('FILESYSTEM_TEMP_ROOT', '~storage/tmp'),
+            'protect' => 'lock',
             'visibility' => 'private',
             'throw' => env('FILESYSTEM_THROW', false),
         ],
@@ -50,6 +50,6 @@ return [
     ],
 
     'links' => [
-        env('FILESYSTEM_PUBLIC_LINK', 'storage') => env('FILESYSTEM_PUBLIC_ROOT', '~storage/app/public'),
+        env('FILESYSTEM_PUBLIC_LINK', 'public/storage') => env('FILESYSTEM_PUBLIC_ROOT', '~storage/public'),
     ],
 ];

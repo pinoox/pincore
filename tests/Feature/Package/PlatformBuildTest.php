@@ -137,7 +137,7 @@ it('respects nested gitignore rules in platform payload selection', function () 
 it('includes storage skeleton files according to gitignore rules', function () {
     $root = sys_get_temp_dir() . '/platform_storage_gitignore_' . uniqid('', true);
     mkdir($root . '/storage/logs', 0777, true);
-    mkdir($root . '/storage/apps/com_demo', 0777, true);
+    mkdir($root . '/storage/local/com_demo', 0777, true);
 
     file_put_contents($root . '/.gitignore', <<<'GITIGNORE'
 /storage/*
@@ -148,7 +148,7 @@ GITIGNORE);
     file_put_contents($root . '/storage/.htaccess', 'deny');
     file_put_contents($root . '/storage/.gitkeep', '');
     file_put_contents($root . '/storage/logs/app.log', 'log');
-    file_put_contents($root . '/storage/apps/com_demo/.gitkeep', '');
+    file_put_contents($root . '/storage/local/com_demo/.gitkeep', '');
     file_put_contents($root . '/index.php', '<?php');
 
     $selector = new PlatformFileSelector();
@@ -162,7 +162,7 @@ GITIGNORE);
     expect(array_keys($files))
         ->toContain('storage/.htaccess')
         ->toContain('storage/.gitkeep')
-        ->toContain('storage/apps/com_demo/.gitkeep')
+        ->toContain('storage/local/com_demo/.gitkeep')
         ->not->toContain('storage/logs/app.log');
 });
 

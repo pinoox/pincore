@@ -8,9 +8,28 @@ use Symfony\Component\HttpFoundation\File\UploadedFile as UploadedFileSymfony;
 
 class UploadedFile extends UploadedFileSymfony
 {
-    public function store(string $destination, string $access = 'public'): UploadBuilder
+    /**
+     * Laravel-style store helper.
+     *
+     * Second argument is a disk name (`public`, `local`, `s3`, …).
+     * Shortcuts: `private` → private disk via UploadBuilder::private().
+     * Omit disk to use the app `filesystem.disk` default.
+     */
+    public function store(string $destination, ?string $disk = null): UploadBuilder
     {
-        return File::upload($this)->to($destination)->access($access);
+        $builder = File::upload($this)->to($destination);
+
+        if ($disk === null || $disk === '') {
+            return $builder;
+        }
+
+        $disk = strtolower(trim($disk));
+
+        return match ($disk) {
+            'public' => $builder->public(),
+            'private' => $builder->private(),
+            default => $builder->disk($disk),
+        };
     }
 
     public static function createFromBase($file, $test = false)
@@ -28,4 +47,3 @@ class UploadedFile extends UploadedFileSymfony
         );
     }
 }
-

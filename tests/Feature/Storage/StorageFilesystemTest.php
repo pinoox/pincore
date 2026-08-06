@@ -1,18 +1,19 @@
 <?php
 
 use Pinoox\Component\File;
+use Pinoox\Component\Storage\StorageSetup;
 use Pinoox\Component\Store\Config\ConfigInterface;
 use Pinoox\Component\Store\FileSystem\FilesystemManager;
 use Pinoox\Support\SystemConfig;
 
 beforeEach(function () {
     SystemConfig::clearCache();
-    deleteStorageFilesystemTestDirectory(str_replace('\\', '/', testFixtures('storage_apps')));
+    deleteStorageFilesystemTestDirectory(str_replace('\\', '/', testFixtures('storage_local')));
 });
 
 afterEach(function () {
     SystemConfig::clearCache();
-    deleteStorageFilesystemTestDirectory(str_replace('\\', '/', testFixtures('storage_apps')));
+    deleteStorageFilesystemTestDirectory(str_replace('\\', '/', testFixtures('storage_local')));
 });
 
 it('writes multi-server deny rules when the storage root is first created', function () {
@@ -34,17 +35,18 @@ it('writes multi-server deny rules when the storage root is first created', func
     deleteStorageFilesystemTestDirectory($root);
 });
 
-it('creates app scoped filesystems for pinoox packages', function () {
-    $root = str_replace('\\', '/', testFixtures('storage_apps'));
+it('creates app scoped filesystems under the local disk root', function () {
+    $root = str_replace('\\', '/', testFixtures('storage_local'));
 
     $manager = new FilesystemManager(new ArrayConfig([
         'default' => 'local',
         'app_disk' => 'local',
-        'app_root' => testFixturesProjectRelative('storage_apps'),
+        'app_root' => testFixturesProjectRelative('storage_local'),
         'disks' => [
             'local' => [
                 'driver' => 'local',
-                'root' => '~storage/app',
+                'root' => testFixturesProjectRelative('storage_local'),
+                'protect' => 'lock',
                 'throw' => true,
             ],
         ],
@@ -59,6 +61,18 @@ it('creates app scoped filesystems for pinoox packages', function () {
         ->and(file_get_contents($root . '/com_pinoox_manager/notes/readme.txt'))->toBe('hello pinoox');
 
     deleteStorageFilesystemTestDirectory($root);
+});
+
+it('normalizes protect lock/unlock aliases', function () {
+    expect(StorageSetup::normalizeProtect(null))->toBe('lock')
+        ->and(StorageSetup::normalizeProtect(''))->toBe('lock')
+        ->and(StorageSetup::normalizeProtect('lock'))->toBe('lock')
+        ->and(StorageSetup::normalizeProtect('deny'))->toBe('lock')
+        ->and(StorageSetup::normalizeProtect('private'))->toBe('lock')
+        ->and(StorageSetup::normalizeProtect('unlock'))->toBe('unlock')
+        ->and(StorageSetup::normalizeProtect('allow'))->toBe('unlock')
+        ->and(StorageSetup::normalizeProtect(true))->toBe('lock')
+        ->and(StorageSetup::normalizeProtect(false))->toBe('unlock');
 });
 
 class ArrayConfig implements ConfigInterface

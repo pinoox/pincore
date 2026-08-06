@@ -2,6 +2,8 @@
 
 namespace Pinoox\Component\Kernel\Listener;
 
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -13,6 +15,10 @@ class ContentLengthListener implements EventSubscriberInterface
         $response = $event->getResponse();
         $headers = $response->headers;
 
+        if ($response instanceof BinaryFileResponse || $response instanceof StreamedResponse) {
+            return;
+        }
+
         if (!$headers->has('Content-Length') && !$headers->has('Transfer-Encoding')) {
             $headers->set('Content-Length', strlen($response->getContent()));
         }
@@ -23,4 +29,3 @@ class ContentLengthListener implements EventSubscriberInterface
         return [KernelEvents::RESPONSE => ['onResponse', -255]];
     }
 }
-

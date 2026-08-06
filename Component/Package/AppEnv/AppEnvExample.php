@@ -52,7 +52,7 @@ final class AppEnvExample
 
 # DB_DRIVER=sqlite
 
-# DB_DATABASE=storage/apps/{package}/database.sqlite
+# DB_DATABASE=storage/local/{package}/database.sqlite
 
 
 

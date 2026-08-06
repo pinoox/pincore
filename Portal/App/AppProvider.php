@@ -38,10 +38,10 @@ use Pinoox\Support\SystemConfig;
  * @method static ObjectPortal1 getApp()
  * @method static AppProvider run(string $package = '', string $path = '/')
  * @method static meetingHandle(string $package, string $path, ?\Pinoox\Component\Http\Request $request = NULL, array $attributes = [])
- * @method static ObjectPortal2 handle(?\Pinoox\Component\Http\Request $request = NULL, int $type = 1)
+ * @method static \Symfony\Component\HttpFoundation\Response handle(?\Pinoox\Component\Http\Request $request = NULL, int $type = 1)
  * @method static handleByRoute(string $package, ?\Pinoox\Component\Http\Request $request = NULL)
  * @method static ObjectPortal3 getKernel()
- * @method static AppProvider terminate(\Pinoox\Component\Http\Request $request, \Pinoox\Component\Http\Response $response)
+ * @method static AppProvider terminate(\Pinoox\Component\Http\Request $request, \Symfony\Component\HttpFoundation\Response $response)
  * @method static AppProvider boot()
  * @method static \Pinoox\Component\Package\AppProvider ___()
  *

@@ -19,10 +19,20 @@ it('exposes upload builder and result types', function () {
 it('resolves default filesystem config keys', function () {
     $config = FileConfig::resolve();
 
-    expect($config)->toHaveKeys(['package', 'disk', 'default_access', 'thumb_width', 'thumb_height'])
-        ->and($config['default_access'])->toBe('public')
+    expect($config)->toHaveKeys(['package', 'disk', 'default_access', 'file_policy', 'groups', 'hash_length', 'thumb_width', 'thumb_height'])
+        ->and($config['default_access'])->toBeIn(['public', 'private'])
+        ->and($config['hash_length'])->toBe(8)
+        ->and($config['file_policy'])->toBe('owner')
+        ->and($config['groups'])->toBeArray()
         ->and($config['thumb_width'])->toBe(512)
         ->and($config['thumb_height'])->toBe(512);
+});
+
+it('derives default_access from disk only', function () {
+    expect(FileConfig::isPublicDisk('public'))->toBeTrue()
+        ->and(FileConfig::isPublicDisk('local'))->toBeFalse()
+        ->and(FileConfig::privateDiskName(['disk' => 'public']))->toBe('local')
+        ->and(FileConfig::privateDiskName(['disk' => 's3']))->toBe('s3');
 });
 
 it('builds upload result objects', function () {

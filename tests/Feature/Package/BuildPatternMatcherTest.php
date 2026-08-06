@@ -33,9 +33,9 @@ it('applies include patterns as gitignore negation rules', function () {
 
 it('discovers force-included files from include patterns', function () {
     $root = sys_get_temp_dir() . '/build_include_' . uniqid('', true);
-    mkdir($root . '/storage/apps/com_demo', 0777, true);
+    mkdir($root . '/storage/local/com_demo', 0777, true);
     mkdir($root . '/storage/logs', 0777, true);
-    file_put_contents($root . '/storage/apps/com_demo/.gitkeep', '');
+    file_put_contents($root . '/storage/local/com_demo/.gitkeep', '');
     file_put_contents($root . '/storage/logs/app.log', 'log');
     file_put_contents($root . '/index.php', '<?php');
 
@@ -43,7 +43,7 @@ it('discovers force-included files from include patterns', function () {
     $discovered = $matcher->discoverForcedIncludes();
 
     expect(array_keys($discovered))
-        ->toContain('storage/apps/com_demo/.gitkeep')
+        ->toContain('storage/local/com_demo/.gitkeep')
         ->not->toContain('storage/logs/app.log');
 
     buildPatternDeleteDirectory($root);

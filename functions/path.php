@@ -138,7 +138,7 @@ if (!function_exists('database_path')) {
      */
     function database_path(string $path = ''): string
     {
-        $base = path('~storage/app/database');
+        $base = path('~storage/database');
 
         if ($path === '') {
             return $base;

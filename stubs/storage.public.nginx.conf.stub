@@ -1,0 +1,12 @@
+# Pinoox storage/public — allow static files (Nginx)
+#
+# Include inside your `server { }` block. Pair with a rewrite so
+# /storage/* maps to the storage/public folder on disk.
+
+location ^~ /storage/ {
+    alias REPLACE_STORAGE_PUBLIC_PATH/;
+    try_files $uri =404;
+    access_log off;
+    expires 7d;
+    add_header Cache-Control "public";
+}
