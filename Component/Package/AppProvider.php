@@ -11,8 +11,11 @@ use Pinoox\Component\Kernel\Boot\BootContext;
 use Pinoox\Component\Kernel\Boot\BootPipeline;
 use Pinoox\Component\Kernel\Kernel;
 use Pinoox\Component\Kernel\Terminal;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\ParameterBag;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\HttpFoundation\Session\SessionInterface;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
 
 class AppProvider
@@ -125,11 +128,20 @@ class AppProvider
     /**
      * @throws Exception
      */
-    public function handle(?Request $request = null, int $type = HttpKernelInterface::MAIN_REQUEST): Response
+    public function handle(?Request $request = null, int $type = HttpKernelInterface::MAIN_REQUEST): SymfonyResponse
     {
         $this->prerequisite();
         $request = !empty($request) ? $request : $this->getRequest();
         $response = $this->getKernel()->handle($request, $type);
+
+        if ($response instanceof BinaryFileResponse || $response instanceof StreamedResponse) {
+            return $response;
+        }
+
+        if ($response instanceof Response) {
+            return $response;
+        }
+
         return new Response($response->getContent(), $response->getStatusCode(), $response->headers->all());
     }
     /**
@@ -151,7 +163,7 @@ class AppProvider
         return $this->httpKernel;
     }
 
-    public function terminate(Request $request, \Pinoox\Component\Http\Response $response): void
+    public function terminate(Request $request, SymfonyResponse $response): void
     {
         $this->getKernel()->terminate($request, $response);
     }

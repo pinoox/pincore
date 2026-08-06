@@ -29,6 +29,9 @@ class UploadBuilder
     private string $modelMethod = 'update';
     private bool $deleteOld = false;
     private ?string $disk = null;
+    private bool $diskExplicit = false;
+    /** When true, access() was set for an edge-case and must not be overwritten by disk(). */
+    private bool $accessOverride = false;
     private ?string $package = null;
 
     public function __construct(
@@ -36,9 +39,17 @@ class UploadBuilder
         ?array $config = null,
     ) {
         $config ??= FileConfig::resolve();
-        $this->access = $config['default_access'];
         $this->thumbWidth = $config['thumb_width'];
         $this->thumbHeight = $config['thumb_height'];
+
+        // Disk alone decides the default mode (no separate filesystem.default).
+        if (FileConfig::isPublicDisk($config['disk'])) {
+            $this->disk = 'public';
+            $this->access = 'public';
+        } else {
+            $this->disk = FileConfig::privateDiskName($config);
+            $this->access = 'private';
+        }
     }
 
     public function to(string $directory): self
@@ -48,9 +59,34 @@ class UploadBuilder
         return $this;
     }
 
+    /**
+     * Laravel-style: store on the public disk (direct /storage URL).
+     */
+    public function public(): self
+    {
+        return $this->disk('public');
+    }
+
+    /**
+     * Laravel-style: store on the private/local disk (/file/{hash} + policy).
+     */
+    public function private(): self
+    {
+        return $this->disk(FileConfig::privateDiskName());
+    }
+
+    /**
+     * Internal / edge-case visibility (e.g. shared link on a private disk).
+     * Prefer public()/private() for normal uploads.
+     */
     public function access(string $access): self
     {
         $this->access = $access;
+        $this->accessOverride = true;
+
+        if (!$this->diskExplicit) {
+            $this->disk = strtolower($access) === 'public' ? 'public' : FileConfig::privateDiskName();
+        }
 
         return $this;
     }
@@ -131,6 +167,12 @@ class UploadBuilder
     public function disk(?string $disk): self
     {
         $this->disk = $disk;
+        $this->diskExplicit = $disk !== null;
+
+        // Model B: disk drives internal file_access unless access() overrode it.
+        if ($disk !== null && !$this->accessOverride) {
+            $this->access = $disk === 'public' ? 'public' : 'private';
+        }
 
         return $this;
     }
@@ -161,6 +203,11 @@ class UploadBuilder
             'disk' => $this->disk,
             'package' => $this->package,
         ]);
+
+        $resolvedDisk = $this->disk ?? FileConfig::resolve()['disk'];
+        if ($resolvedDisk === 'public') {
+            \Pinoox\Component\Storage\StorageSetup::ensure();
+        }
 
         $uploader = (new FileUploaderFactory())->store(
             trim($this->directory, '/') . '/',

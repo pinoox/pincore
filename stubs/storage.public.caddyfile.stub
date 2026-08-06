@@ -1,0 +1,9 @@
+# Pinoox storage/public — allow static files (Caddy)
+#
+# Example site snippet; adjust root/alias to your storage/public path.
+
+handle_path /storage/* {
+	root * REPLACE_STORAGE_PUBLIC_PATH
+	file_server
+	header Cache-Control "public, max-age=604800"
+}

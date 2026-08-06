@@ -105,10 +105,11 @@ HELP
         $io->title('Files — ' . $package);
 
         $table = new Table($output);
-        $table->setHeaders(['ID', 'Name', 'Group', 'Ext', 'Size', 'Access', 'User', 'Storage']);
+        $table->setHeaders(['ID', 'Hash', 'Name', 'Group', 'Ext', 'Size', 'Access', 'User', 'Storage']);
         foreach ($files as $file) {
             $table->addRow([
                 $file->file_id,
+                $file->hash_id ? substr((string) $file->hash_id, 0, 8) . '…' : '—',
                 $file->file_realname ?: $file->file_name,
                 $file->file_group ?: '—',
                 $file->file_ext ?: '—',

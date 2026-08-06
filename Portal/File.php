@@ -15,11 +15,12 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * File upload and storage management (`pinx_file`).
  *
  * @method static UploadBuilder upload(UploadedFile|string $source)
- * @method static FileModel|null find(int $fileId)
- * @method static bool remove(int $fileId)
- * @method static string|null url(int|FileModel|null $file)
- * @method static string|null thumb(int|FileModel|null $file)
- * @method static array info(int|FileModel|null $file)
+ * @method static FileModel|null find(int|string $fileId)
+ * @method static bool remove(int|string $fileId)
+ * @method static string|null url(int|string|FileModel|null $file)
+ * @method static string|null thumb(int|string|FileModel|null $file)
+ * @method static string|null temporaryUrl(int|string|FileModel|null $file, \DateTimeInterface|\DateInterval|int $expiration, bool $thumb = false)
+ * @method static array info(int|string|FileModel|null $file)
  * @method static list<FileModel> listByGroup(string $group)
  * @method static bool attach(int $fileId, object $model, string $column)
  * @method static void setPackage(string $package)

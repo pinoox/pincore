@@ -14,3 +14,9 @@ location ^~ /storage/ {
 #     deny all;
 #     return 403;
 # }
+
+# Allow public disk (map /storage/ to storage/public on disk):
+# location ^~ /storage/ {
+#     alias /path/to/project/storage/public/;
+#     try_files $uri =404;
+# }

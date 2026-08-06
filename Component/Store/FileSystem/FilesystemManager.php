@@ -132,16 +132,33 @@ class FilesystemManager implements FactoryContract
         $baseConfig = $this->getConfig($disk);
 
         if (($baseConfig['driver'] ?? null) === 'local') {
+            if ($disk === 'public') {
+                $baseUrl = rtrim((string) ($baseConfig['url'] ?? ''), '/');
+                $url = $baseUrl !== '' ? $baseUrl . '/' . $package : null;
+
+                return $this->disks[$cacheKey] = $this->build(array_filter([
+                    'driver' => 'local',
+                    'root' => $this->publicPath($package),
+                    'url' => $url,
+                    'visibility' => $baseConfig['visibility'] ?? 'public',
+                    'protect' => $baseConfig['protect'] ?? 'lock',
+                    'throw' => $baseConfig['throw'] ?? $this->config->get('throw', false),
+                ], static fn ($value) => $value !== null && $value !== ''));
+            }
+
             return $this->disks[$cacheKey] = $this->build([
                 'driver' => 'local',
-                'root' => $this->appPath($package),
+                'root' => $this->packagePath($disk, $package),
                 'visibility' => $baseConfig['visibility'] ?? 'private',
+                'protect' => $baseConfig['protect'] ?? 'lock',
                 'throw' => $baseConfig['throw'] ?? $this->config->get('throw', false),
             ]);
         }
 
-        $prefix = trim((string) $this->config->get('app_prefix', 'apps'), '/');
-        $prefix = trim($prefix . '/' . $package, '/');
+        $prefix = trim((string) $this->config->get('app_prefix', ''), '/');
+        $prefix = $prefix !== ''
+            ? trim($prefix . '/' . $package, '/')
+            : $package;
 
         return $this->disks[$cacheKey] = $this->build([
             'driver' => 'scoped',
@@ -153,8 +170,39 @@ class FilesystemManager implements FactoryContract
 
     public function appPath(?string $package = null, string $path = ''): string
     {
+        // Private package storage helper — always under the local (locked) disk root.
+        return $this->packagePath('local', $package, $path);
+    }
+
+    /**
+     * Absolute path for a package folder under a local disk root (e.g. storage/local/{package}).
+     */
+    public function packagePath(string $disk, ?string $package = null, string $path = ''): string
+    {
         $package = $this->normalizePackageName($package ?: $this->currentPackageName());
-        $root = SystemConfig::resolvePath((string) $this->config->get('app_root', '~storage/apps'));
+        $baseConfig = $this->getConfig($disk);
+
+        if ($disk === 'public') {
+            return $this->publicPath($package, $path);
+        }
+
+        $root = SystemConfig::resolvePath((string) (
+            $baseConfig['root']
+            ?? $this->config->get('app_root')
+            ?? '~storage/local'
+        ));
+
+        return $this->joinPath($root, $package, $path);
+    }
+
+    public function publicPath(?string $package = null, string $path = ''): string
+    {
+        $package = $this->normalizePackageName($package ?: $this->currentPackageName());
+        $root = SystemConfig::resolvePath((string) (
+            $this->config->get('disks.public.root')
+            ?? $this->config->get('public_root')
+            ?? '~storage/public'
+        ));
 
         return $this->joinPath($root, $package, $path);
     }
@@ -239,6 +287,11 @@ class FilesystemManager implements FactoryContract
         $links = ($config['links'] ?? null) === 'skip'
             ? LocalAdapter::SKIP_LINKS
             : LocalAdapter::DISALLOW_LINKS;
+
+        $root = (string) ($config['root'] ?? '');
+        if ($root !== '' && isset($config['protect'])) {
+            \Pinoox\Component\Storage\StorageSetup::applyProtect($root, $config['protect']);
+        }
 
         $adapter = new LocalAdapter(
             $config['root'], $visibility, $config['lock'] ?? LOCK_EX, $links

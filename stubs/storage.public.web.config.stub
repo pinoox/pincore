@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+  <system.webServer>
+    <directoryBrowse enabled="false" />
+    <handlers>
+      <clear />
+      <add name="StaticFile" path="*" verb="*" modules="StaticFileModule" resourceType="Either" requireAccess="Read" />
+    </handlers>
+    <security>
+      <requestFiltering>
+        <hiddenSegments>
+          <clear />
+        </hiddenSegments>
+        <fileExtensions>
+          <remove fileExtension=".php" />
+          <add fileExtension=".php" allowed="false" />
+        </fileExtensions>
+      </requestFiltering>
+    </security>
+  </system.webServer>
+</configuration>

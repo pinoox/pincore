@@ -152,6 +152,7 @@ class AppEngine implements EngineInterface
         $packageName = $this->resolvePackageKey($packageName);
         $path = $this->buildPath($path);
         $routes = $this->webRouteFiles($this->config($packageName)->get('router.routes'));
+        $routes = $this->withCoreFileRoutes($routes);
         if (empty($this->router[$packageName][$path])) {
             $this->router[$packageName][$path] = \Pinoox\Portal\Router::build($path, $routes);
             AppBootstrap::applyRoutes($packageName, $this->router[$packageName][$path], false);
@@ -174,6 +175,30 @@ class AppEngine implements EngineInterface
             $routes,
             static fn (mixed $route): bool => !is_string($route) || !preg_match('~(?:^|[/\\\\])api(?:\.php|-v\d+\.php)$~i', $route),
         ));
+    }
+
+    /**
+     * Prepend core /file/{hash} routes so every app can serve locked storage files.
+     *
+     * @param list<string|array|callable> $routes
+     * @return list<string|array|callable>
+     */
+    private function withCoreFileRoutes(array $routes): array
+    {
+        $core = dirname(__DIR__, 3) . '/routes/file.php';
+        if (!is_file($core)) {
+            return $routes;
+        }
+
+        foreach ($routes as $route) {
+            if (is_string($route) && str_replace('\\', '/', $route) === str_replace('\\', '/', $core)) {
+                return $routes;
+            }
+        }
+
+        array_unshift($routes, $core);
+
+        return $routes;
     }
 
     private static function warmRouteCache(string $package): void
