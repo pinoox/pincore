@@ -19,8 +19,9 @@ use Illuminate\Database\Query\Builder;
  * Prefix table names but keep SQL aliases short (p, t, u) in FROM/JOIN/UPDATE/DELETE.
  *
  * Auto-aliases let Eloquent qualify columns with the logical table name
- * (`packages.status`). MySQL rejects aliases only on INSERT/TRUNCATE, so those
- * compilers wrap tables without aliases.
+ * (`packages.status`). MySQL rejects `DELETE FROM tbl AS alias` on many
+ * versions, so DELETE is compiled as `DELETE alias FROM tbl AS alias`.
+ * INSERT/TRUNCATE still wrap tables without aliases.
  */
 trait KeepsShortTableAliases
 {
@@ -154,5 +155,31 @@ trait KeepsShortTableAliases
     public function compileTruncate(Builder $query)
     {
         return $this->withoutTableAliases(fn () => parent::compileTruncate($query));
+    }
+
+    /**
+     * Keep short aliases (so Eloquent WHERE qualifiers match) but use the
+     * multi-table DELETE form MySQL accepts: `DELETE alias FROM tbl AS alias`.
+     */
+    public function compileDelete(Builder $query)
+    {
+        $table = $this->wrapTable($query->from);
+        $where = $this->compileWheres($query);
+
+        if (!isset($query->joins) && preg_match('/\s+as\s+((?:`[^`]+`)|(?:\S+))$/i', $table, $m)) {
+            $sql = trim("delete {$m[1]} from {$table} {$where}");
+
+            if (!empty($query->orders)) {
+                $sql .= ' ' . $this->compileOrders($query, $query->orders);
+            }
+
+            if (isset($query->limit)) {
+                $sql .= ' ' . $this->compileLimit($query, $query->limit);
+            }
+
+            return $sql;
+        }
+
+        return parent::compileDelete($query);
     }
 }

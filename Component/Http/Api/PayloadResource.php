@@ -2,12 +2,14 @@
 
 namespace Pinoox\Component\Http\Api;
 
+use Pinoox\Component\Http\Request;
+
 /**
  * Wraps array/object payloads for API responses.
  */
 final class PayloadResource extends ApiResource
 {
-    public function toArray(): array
+    public function toArray(Request $request): array
     {
         if (is_array($this->resource)) {
             return $this->resource;

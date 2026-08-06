@@ -91,6 +91,12 @@ return [
 
     | Independent of APP_DEBUG — defaults to true in all modes.
 
+    | true  → detailed Pinoox Exception page (dev)
+
+    | false → friendly "something went wrong" page / generic JSON (production)
+
+    | The handler is always registered so PHP never dumps raw stack traces.
+
     |
 
     */

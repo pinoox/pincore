@@ -6,6 +6,7 @@ use Pinoox\Portal\Date;
 use Pinoox\Model\FileModel;
 use Pinoox\Model\TokenModel;
 use Pinoox\Model\UserModel;
+use Pinoox\Portal\Access;
 use Pinoox\Portal\Database\DB;
 use Pinoox\Portal\File;
 use Pinoox\Portal\Hash;
@@ -213,6 +214,66 @@ class Manager
             'status' => $user->status,
             'group_key' => $user->group_key,
             'metadata' => $user->metadata ?? [],
+        ];
+    }
+
+    /**
+     * SPA / @pinooxhq/auth user envelope (login + me).
+     *
+     * Stable shape for themes — avoids each app rebuilding id/name/abilities.
+     *
+     * @return array{
+     *     id: int,
+     *     user_id: int,
+     *     name: string|null,
+     *     username: mixed,
+     *     email: mixed,
+     *     fname: mixed,
+     *     lname: mixed,
+     *     mobile: mixed,
+     *     group_key: mixed,
+     *     status: mixed,
+     *     abilities: list<string>,
+     *     avatar: mixed,
+     *     avatar_url: mixed
+     * }|null
+     */
+    public function clientUser(?UserModel $user = null): ?array
+    {
+        $user ??= $this->user();
+        if (!$user instanceof UserModel) {
+            return null;
+        }
+
+        $userId = (int) $user->user_id;
+        $fullName = trim((string) ($user->full_name ?? ''));
+        if ($fullName === '') {
+            $fullName = trim(trim((string) ($user->fname ?? '')) . ' ' . trim((string) ($user->lname ?? '')));
+        }
+
+        $abilities = [];
+        try {
+            $abilities = Access::abilitiesFor($user);
+        } catch (\Throwable) {
+            $abilities = [];
+        }
+
+        $avatar = $this->avatar($user);
+
+        return [
+            'id' => $userId,
+            'user_id' => $userId,
+            'name' => $fullName !== '' ? $fullName : ($user->username ?? null),
+            'username' => $user->username,
+            'email' => $user->email,
+            'fname' => $user->fname,
+            'lname' => $user->lname,
+            'mobile' => $user->mobile,
+            'group_key' => $user->group_key,
+            'status' => $user->status,
+            'abilities' => $abilities,
+            'avatar' => $avatar['thumb_link'] ?? $avatar['file_link'] ?? null,
+            'avatar_url' => $avatar['file_link'] ?? null,
         ];
     }
 

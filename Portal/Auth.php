@@ -37,6 +37,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * @method static array lock()
  * @method static bool|string unlock(string $password)
  * @method static array profile()
+ * @method static array|null clientUser(?UserModel $user = null)
  * @method static bool updateProfile(int $userId, array $data)
  * @method static bool|string changePassword(int $userId, string $oldPassword, string $newPassword)
  * @method static array|false changeAvatar(int $userId, UploadedFile $file)

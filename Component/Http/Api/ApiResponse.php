@@ -40,8 +40,12 @@ final class ApiResponse
 
     private static function serializeData(mixed $data): mixed
     {
-        if ($data instanceof ApiResource) {
+        if ($data instanceof ResourceCollection) {
             return $data->toArray();
+        }
+
+        if ($data instanceof ApiResource) {
+            return $data->jsonSerialize();
         }
 
         if (!is_array($data)) {
@@ -49,7 +53,9 @@ final class ApiResponse
         }
 
         return array_map(
-            static fn (mixed $item): mixed => $item instanceof ApiResource ? $item->toArray() : $item,
+            static fn (mixed $item): mixed => $item instanceof ApiResource || $item instanceof ResourceCollection
+                ? $item->jsonSerialize()
+                : $item,
             $data,
         );
     }

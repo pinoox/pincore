@@ -74,8 +74,10 @@ class AppProvider extends Portal
         SystemConfig::clearCache();
         ConfigStore::reloadEnvSensitive();
 
-        if (RuntimeMode::bootDebugEnabled() && !PinooxDebug::isEnabled()) {
-            PinooxDebug::enable();
+        // Always register the handler so production gets a friendly page (not PHP display_errors).
+        // PINOOX_EXCEPTION controls rich vs generic rendering inside the handler.
+        if (!PinooxDebug::isEnabled()) {
+            PinooxDebug::enable(RuntimeMode::bootDebugEnabled());
         }
 
         if (PHP_SAPI !== 'cli') {

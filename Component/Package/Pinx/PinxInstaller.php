@@ -10,6 +10,7 @@ use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Package\Engine\AppEngine;
 use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Template\Theme\ThemeManifest;
+use Pinoox\Portal\App\App;
 use Pinoox\Portal\App\AppEngine as AppEnginePortal;
 use Pinoox\Portal\FileSystem;
 use Pinoox\Support\AppRegistry;
@@ -167,6 +168,12 @@ class PinxInstaller
             }
 
             AppEnginePortal::__rebuild();
+
+            // Register App\{package}\ PSR-4 immediately so migrate/patch/runtime
+            // can resolve app classes in the same install request.
+            if ($manifest->isApp()) {
+                App::addPackage($manifest->package(), $destination);
+            }
 
             if ($manifest->isApp()) {
                 $reconcile = $pinkerReconciler->reconcile($manifest->package(), $resetOverrides);
