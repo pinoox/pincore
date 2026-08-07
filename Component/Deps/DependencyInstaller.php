@@ -151,6 +151,8 @@ final class DependencyInstaller
 
         $process = new Process($command, $cwd, null, null, $timeout);
         $process->run(function ($type, $buffer) use ($onOutput, &$lines) {
+            \Pinoox\Component\Helpers\ConsoleApplication::ensureUtf8();
+
             foreach ($this->splitBufferLines($buffer) as $line) {
                 $lines[] = $line;
                 if ($onOutput !== null) {
@@ -158,6 +160,8 @@ final class DependencyInstaller
                 }
             }
         });
+
+        \Pinoox\Component\Helpers\ConsoleApplication::ensureUtf8();
 
         $duration = microtime(true) - $startedAt;
 
