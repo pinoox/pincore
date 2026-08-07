@@ -5,7 +5,7 @@ namespace Pinoox\Support;
 use Pinoox\Portal\App\App;
 
 /**
- * Resolves the active app package for migrations, seeders, and patches.
+ * Resolves the active app package for migrations, seeders, factories, and patches.
  *
  * Priority: explicit argument → CLI/runtime (usePackage) → file path → App::package() → platform
  */

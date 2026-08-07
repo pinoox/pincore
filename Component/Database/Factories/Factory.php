@@ -52,11 +52,21 @@ abstract class Factory
             }
         }
 
+        $fromFile = self::factoryFromPackageFile($modelClass);
+        if ($fromFile !== null) {
+            return $fromFile;
+        }
+
         throw new \RuntimeException(sprintf(
             'No factory found for model [%s]. Create one with: php pinoox factory:create %s {package}',
             $modelClass,
             self::modelBasename($modelClass) . 'Factory',
         ));
+    }
+
+    public function modelClass(): ?string
+    {
+        return $this->model;
     }
 
     /**
@@ -233,6 +243,63 @@ abstract class Factory
         foreach ($this->afterCreating as $callback) {
             $callback($model, $index);
         }
+    }
+
+    private static function factoryFromPackageFile(string $modelClass): ?self
+    {
+        $package = self::packageFromModel($modelClass);
+        if ($package === null) {
+            return null;
+        }
+
+        $toolkit = (new FactoryToolkit())->package($package)->load();
+        if (!$toolkit->isSuccess()) {
+            return null;
+        }
+
+        $modelBase = self::modelBasename($modelClass);
+        $modelShort = self::classBasename($modelClass);
+
+        foreach ($toolkit->getFactories() as $entry) {
+            /** @var self $instance */
+            $instance = $entry['instance'];
+            $target = $instance->modelClass();
+
+            if ($target === $modelClass) {
+                return self::cloneForModel($instance, $modelClass);
+            }
+
+            $fileBase = (string) ($entry['name'] ?? '');
+            if ($fileBase !== '' && str_ends_with($fileBase, 'Factory')) {
+                $fromFile = substr($fileBase, 0, -7);
+                if ($fromFile === $modelBase || $fromFile === $modelShort) {
+                    return self::cloneForModel($instance, $modelClass);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static function cloneForModel(self $instance, string $modelClass): self
+    {
+        $factory = clone $instance;
+        $factory->model = $modelClass;
+
+        return $factory;
+    }
+
+    private static function packageFromModel(string $modelClass): ?string
+    {
+        if (preg_match('/^App\\\\([^\\\\]+)\\\\/', $modelClass, $matches) === 1) {
+            return $matches[1];
+        }
+
+        if (str_starts_with($modelClass, 'Pinoox\\Model\\')) {
+            return 'platform';
+        }
+
+        return null;
     }
 
     /**

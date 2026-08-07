@@ -440,7 +440,29 @@ class MigrationToolkit
 
     private function migrationSearchPaths(): array
     {
-        return is_dir($this->migrationPath) ? [$this->migrationPath] : [];
+        $paths = [];
+        $normalized = str_replace('\\', '/', $this->migrationPath);
+
+        if (is_dir($normalized)) {
+            $paths[] = $normalized;
+        }
+
+        // Case-sensitive checkouts may still carry a legacy Database/ sibling;
+        // include it for loading only — new files always use database/.
+        if ($this->package === 'platform'
+            && preg_match('#/database/migrations$#i', $normalized) === 1
+        ) {
+            $legacy = preg_replace('#/database/migrations$#i', '/Database/migrations', $normalized);
+            if (is_string($legacy) && is_dir($legacy)) {
+                $mainReal = realpath($normalized) ?: $normalized;
+                $legacyReal = realpath($legacy) ?: $legacy;
+                if ($mainReal !== $legacyReal) {
+                    $paths[] = $legacy;
+                }
+            }
+        }
+
+        return $paths;
     }
 
     /**

@@ -31,14 +31,26 @@ function frontendDevSyncEnvRestore(array $snapshot): void
 
 function frontendDevSyncThemeDir(): string
 {
-    $path = sys_get_temp_dir() . '/pinoox-fe-sync-' . uniqid('', true);
-    mkdir($path, 0777, true);
+    // Mirror real apps/{pkg}/theme/{name} so dirname(dirname($theme)) is the app root.
+    $appPath = sys_get_temp_dir() . '/pinoox-fe-sync-' . uniqid('', true);
+    $themePath = $appPath . '/theme/default';
+    mkdir($themePath, 0777, true);
 
-    return $path;
+    return $themePath;
 }
 
 function frontendDevSyncRemoveThemeDir(string $path): void
 {
+    if (!is_dir($path)) {
+        return;
+    }
+
+    // Prefer removing the app root when the helper created …/theme/default.
+    $normalized = rtrim(str_replace('\\', '/', $path), '/');
+    if (str_ends_with($normalized, '/theme/default')) {
+        $path = dirname($path, 2);
+    }
+
     if (!is_dir($path)) {
         return;
     }
