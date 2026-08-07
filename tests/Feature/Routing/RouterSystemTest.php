@@ -29,7 +29,8 @@ it('registers fluent builder routes with methods, flow, data, tags, defaults, an
         ->and($pinooxRoute->flows)->toBe(['auth', 'verified'])
         ->and($pinooxRoute->tags)->toBe(['posts', 'write'])
         ->and($pinooxRoute->getData())->toBe(['section' => 'blog'])
-        ->and($pinooxRoute->getPriority())->toBe(5);
+        // Exact/user priority plus PathCompiler specificity score for /posts/{id}.
+        ->and($pinooxRoute->getPriority())->toBe(1120);
 });
 
 it('registers QUERY method routes via fluent builder and helper', function () {

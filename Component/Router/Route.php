@@ -21,6 +21,8 @@ use Pinoox\Component\Router\Parameter\PathCompiler;
 
 class Route
 {
+    private bool $pathCompiled = false;
+
     public function __construct(
         private Collection           $collection,
         private string|array         $path,
@@ -95,19 +97,30 @@ class Route
      */
     public function getPath(): string
     {
+        // PathCompiler mutates priority; compile at most once so later reads
+        // (trackWebServerFixRoute, getAllPath, …) do not re-score the route.
+        if ($this->pathCompiled) {
+            return is_string($this->path) ? $this->path : '';
+        }
+
         $basePath = Str::lastDelete($this->collection->prefixPath, '/');
 
         if ($this->path === '/') {
+            $this->pathCompiled = true;
+
             return $basePath;
         }
 
         if ($this->path === '*' || $this->path === '/*') {
+            $this->pathCompiled = true;
+
             return $this->catchAllPath($basePath, $this->collection->prefixPath);
         }
 
         // Flattened group fallbacks: "/api/*"
-        if (str_ends_with($this->path, '/*')) {
+        if (is_string($this->path) && str_ends_with($this->path, '/*')) {
             $prefix = substr($this->path, 0, -2);
+            $this->pathCompiled = true;
 
             return $this->catchAllPath(
                 Str::lastDelete($prefix, '/'),
@@ -115,8 +128,9 @@ class Route
             );
         }
 
-        $path = Str::lastDelete($this->path, '/');
+        $path = Str::lastDelete(is_string($this->path) ? $this->path : '', '/');
         $joined = (new PathManager($basePath))->get($path);
+        $this->pathCompiled = true;
 
         return $this->compilePath($joined);
     }

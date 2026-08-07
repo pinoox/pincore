@@ -143,8 +143,9 @@ it('loads api routes with filters and priority into the router', function () {
 
     expect($groupsRoute->getRequirements())->toBe([])
         ->and($showRoute->getRequirements())->toBe(['id' => '\d+'])
-        ->and($groupsRoute->getDefault('_router')->getPriority())->toBe(100)
-        ->and($showRoute->getDefault('_router')->getPriority())->toBe(1)
+        // Declared priority plus PathCompiler specificity (exact +2000 / param score).
+        ->and($groupsRoute->getDefault('_router')->getPriority())->toBe(2100)
+        ->and($showRoute->getDefault('_router')->getPriority())->toBe(1316)
         ->and($router->match('/api/v1/items/groups')['_route'])->toBe('api.v1.com_blog.items.groups')
         ->and($router->match('/api/v1/items/15')['_route'])->toBe('api.v1.com_blog.items.show');
 });

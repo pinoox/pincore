@@ -198,14 +198,12 @@ test('FrontendDevSession npmEnvironment adds backend refresh globs for Flow rout
     $appPath = dirname(dirname($themePath));
 
     file_put_contents($themePath . '/frontend.config.php', "<?php\n\nreturn ['stack' => 'vue'];\n");
-    mkdir($appPath . '/Flow', 0777, true);
-    mkdir($appPath . '/routes', 0777, true);
-    mkdir($appPath . '/router', 0777, true);
-    mkdir($appPath . '/Controller', 0777, true);
-    mkdir($appPath . '/Component', 0777, true);
-    mkdir($appPath . '/Portal', 0777, true);
-    mkdir($appPath . '/config', 0777, true);
-    mkdir($appPath . '/lang', 0777, true);
+    foreach (['Flow', 'routes', 'router', 'Controller', 'Component', 'Portal', 'config', 'lang'] as $dir) {
+        $target = $appPath . '/' . $dir;
+        if (!is_dir($target)) {
+            mkdir($target, 0777, true);
+        }
+    }
     file_put_contents($appPath . '/Flow/AuthFlow.php', "<?php\n");
     file_put_contents($appPath . '/routes/web.php', "<?php\n");
     file_put_contents($appPath . '/Controller/HomeController.php', "<?php\n");

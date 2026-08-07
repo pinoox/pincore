@@ -226,13 +226,56 @@ final class TestRuntime
     {
         $registryFile = self::root() . '/project-apps.registry.php';
         $packages = self::registryPackages($platformRoot);
+        $contents = "<?php\n\nreturn " . var_export(['packages' => $packages], true) . ";\n";
 
-        file_put_contents(
-            $registryFile,
-            "<?php\n\nreturn " . var_export(['packages' => $packages], true) . ";\n",
-        );
-
+        self::writeFileReliable($registryFile, $contents);
         self::setEnv(self::ENV_PROJECT_REGISTRY, self::projectRelative($registryFile));
+    }
+
+    /**
+     * Write a file with temp+rename and short retries — Windows often locks shared
+     * registry files while another process still has them open (EAGAIN / unavailable).
+     */
+    private static function writeFileReliable(string $file, string $contents): void
+    {
+        $dir = dirname($file);
+        if (!is_dir($dir)) {
+            mkdir($dir, 0777, true);
+        }
+
+        $tmp = $file . '.' . getmypid() . '.' . bin2hex(random_bytes(4)) . '.tmp';
+        file_put_contents($tmp, $contents);
+
+        $lastError = null;
+        for ($attempt = 0; $attempt < 12; $attempt++) {
+            if (@rename($tmp, $file)) {
+                return;
+            }
+
+            // Windows cannot always rename over an existing locked target.
+            if (is_file($file)) {
+                if (@unlink($file) && @rename($tmp, $file)) {
+                    return;
+                }
+            }
+
+            $lastError = error_get_last()['message'] ?? 'rename failed';
+            usleep(25_000 * ($attempt + 1));
+        }
+
+        @unlink($tmp);
+
+        for ($attempt = 0; $attempt < 8; $attempt++) {
+            if (@file_put_contents($file, $contents, LOCK_EX) !== false) {
+                return;
+            }
+            usleep(25_000 * ($attempt + 1));
+        }
+
+        throw new \RuntimeException(
+            'Unable to write test registry file: ' . $file
+            . ($lastError !== null ? ' (' . $lastError . ')' : ''),
+        );
     }
 
     /**
