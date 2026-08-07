@@ -55,7 +55,12 @@ class FileStorage
             return null;
         }
 
-        $path = '/file/' . $hash . ($thumb ? '/thumb' : '');
+        $package = is_string($file->app ?? null) ? $file->app : null;
+        $path = FileConfig::buildDispatcherPath(
+            FileConfig::dispatcherPath($package),
+            $hash,
+            $thumb,
+        );
 
         return Url::link($path, Url::SCOPE_SITE);
     }
