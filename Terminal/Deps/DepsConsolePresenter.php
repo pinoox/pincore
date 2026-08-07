@@ -146,7 +146,7 @@ final class DepsConsolePresenter
                 (string) ($index + 1),
                 strtoupper($target->type),
                 $this->shortLabel($target),
-                $result->succeeded() ? '<fg=green>done</>' : '<fg=red>failed</>',
+                $this->resultStatusLabel($result),
                 sprintf('%.1fs', $result->durationSeconds),
                 $result->commandLine,
             ];
@@ -169,6 +169,8 @@ final class DepsConsolePresenter
             ['Succeeded' => sprintf('%d / %d', $passed, count($results))],
             ['Total time' => sprintf('%.1fs', $totalSeconds)],
         );
+
+        $this->renderWarningsSummary($results);
 
         if ($failed !== []) {
             $this->io->error(sprintf('%d target(s) failed.', count($failed)));
@@ -293,6 +295,11 @@ final class DepsConsolePresenter
             return;
         }
 
+        if ($this->looksLikeWarningLine($line)) {
+            $this->io->writeln($prefix . '<fg=yellow>' . $this->escapeOutput($line) . '</>');
+            return;
+        }
+
         $this->io->writeln($prefix . '<fg=gray>' . $this->escapeOutput($line) . '</>');
     }
 
@@ -300,12 +307,13 @@ final class DepsConsolePresenter
     {
         if ($this->isPlain()) {
             if ($result->succeeded()) {
-                $this->io->success(sprintf(
-                    'Step %d/%d completed in %.1fs',
-                    $step,
-                    $total,
-                    $result->durationSeconds,
-                ));
+                $label = $result->hasWarnings()
+                    ? sprintf('Step %d/%d completed with warnings in %.1fs (fallback)', $step, $total, $result->durationSeconds)
+                    : sprintf('Step %d/%d completed in %.1fs', $step, $total, $result->durationSeconds);
+                $this->io->success($label);
+                foreach ($result->warnings as $warning) {
+                    $this->io->writeln('  <fg=yellow>' . $this->escapeOutput($warning) . '</>');
+                }
             } else {
                 $this->io->error(sprintf(
                     'Step %d/%d failed in %.1fs',
@@ -320,12 +328,24 @@ final class DepsConsolePresenter
 
         if ($result->succeeded()) {
             $this->io->writeln('  <fg=cyan>└─</> <fg=green;options=bold>✔ completed</> <fg=gray>in</> <info>' . sprintf('%.1fs', $result->durationSeconds) . '</info> <fg=gray>·</> <comment>' . $this->escapeOutput($result->commandLine) . '</comment>');
-            $this->io->writeln(sprintf(
-                '  <fg=green>▸</> <fg=gray>[%d/%d]</> <fg=green>done</> <comment>%s</comment>',
-                $step,
-                $total,
-                $this->shortLabel($result->target),
-            ));
+            if ($result->hasWarnings()) {
+                $this->io->writeln(sprintf(
+                    '  <fg=yellow>▸</> <fg=gray>[%d/%d]</> <fg=yellow>done (fallback)</> <comment>%s</comment>',
+                    $step,
+                    $total,
+                    $this->shortLabel($result->target),
+                ));
+                foreach ($result->warnings as $warning) {
+                    $this->io->writeln('  <fg=yellow>│</>  <fg=yellow>' . $this->escapeOutput($warning) . '</>');
+                }
+            } else {
+                $this->io->writeln(sprintf(
+                    '  <fg=green>▸</> <fg=gray>[%d/%d]</> <fg=green>done</> <comment>%s</comment>',
+                    $step,
+                    $total,
+                    $this->shortLabel($result->target),
+                ));
+            }
             return;
         }
 
@@ -344,6 +364,50 @@ final class DepsConsolePresenter
                 $this->io->writeln('  <fg=red>│</>  <fg=red>' . $this->escapeOutput($line) . '</>');
             }
         }
+    }
+
+    /**
+     * @param list<DependencyRunResult> $results
+     */
+    private function renderWarningsSummary(array $results): void
+    {
+        $warned = array_values(array_filter(
+            $results,
+            static fn (DependencyRunResult $result): bool => $result->hasWarnings(),
+        ));
+
+        if ($warned === []) {
+            return;
+        }
+
+        $this->io->newLine();
+        $this->io->section('Notes / Warnings');
+
+        foreach ($warned as $result) {
+            $this->io->writeln(sprintf(
+                '  <fg=yellow>•</> <comment>%s</comment>',
+                $this->escapeOutput($this->shortLabel($result->target)),
+            ));
+            foreach ($result->warnings as $warning) {
+                $this->io->writeln('    <fg=yellow>' . $this->escapeOutput($warning) . '</>');
+            }
+        }
+
+        $this->io->newLine();
+        $this->io->note('npm ci fell back to npm install for one or more targets. Commit updated package-lock.json files so the next install can use a clean npm ci.');
+    }
+
+    private function resultStatusLabel(DependencyRunResult $result): string
+    {
+        if (!$result->succeeded()) {
+            return '<fg=red>failed</>';
+        }
+
+        if ($result->hasWarnings()) {
+            return '<fg=yellow>done (fallback)</>';
+        }
+
+        return '<fg=green>done</>';
     }
 
     /**
@@ -424,6 +488,10 @@ final class DepsConsolePresenter
     {
         $lower = strtolower($line);
 
+        if ($this->looksLikeWarningLine($line)) {
+            return false;
+        }
+
         foreach (['error', 'failed', 'fatal', 'npm err'] as $needle) {
             if (str_contains($lower, $needle)) {
                 return true;
@@ -431,6 +499,16 @@ final class DepsConsolePresenter
         }
 
         return false;
+    }
+
+    private function looksLikeWarningLine(string $line): bool
+    {
+        $lower = strtolower(trim($line));
+
+        return str_starts_with($lower, 'warning:')
+            || str_starts_with($lower, 'npm warn')
+            || str_contains($lower, 'falling back to npm install')
+            || str_contains($lower, 'out of sync');
     }
 
     private function escapeOutput(string $line): string

@@ -75,6 +75,8 @@ final class DependencyOutputFilter
             'run `npm audit`',
             'up to date',
             'found 0 vulnerabilities',
+            'falling back to npm install',
+            'out of sync',
         ] as $needle) {
             if (str_contains($lower, $needle)) {
                 return true;

@@ -2,6 +2,7 @@
 
 namespace Pinoox\Component\Template\Frontend;
 
+use Pinoox\Component\Deps\NpmLockSyncHint;
 use Pinoox\Component\Package\AppManifest;
 use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Template\Theme\ThemeContextRegistry;
@@ -771,6 +772,8 @@ class ThemeFrontend
 
     /**
      * @param list<string> $command
+     * @param list<string>|null $fallback
+     * @param array<string, string> $extraEnv
      */
     private function runNpm(
         array $command,
@@ -786,11 +789,25 @@ class ThemeFrontend
             return $this->runLongNpmProcess($process);
         }
 
-        $process->run(function ($type, $buffer) {
+        $lines = [];
+        $process->run(function ($type, $buffer) use (&$lines) {
             $this->emit($buffer);
+            foreach ($this->splitNpmBufferLines($buffer) as $line) {
+                $lines[] = $line;
+            }
         });
 
         if (!$process->isSuccessful() && $fallback !== null) {
+            if ($command === ['ci'] && $fallback === ['install']) {
+                $warnings = NpmLockSyncHint::warningsForCiFailure(
+                    $lines,
+                    NpmLockSyncHint::relativeLockPath($this->themePath),
+                );
+                foreach ($warnings as $warning) {
+                    $this->emit($warning . PHP_EOL);
+                }
+            }
+
             $process = new Process(array_merge([$binary], $fallback), $this->themePath, $env, null, null);
             $process->run(function ($type, $buffer) {
                 $this->emit($buffer);
@@ -798,6 +815,26 @@ class ThemeFrontend
         }
 
         return (int) $process->getExitCode();
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function splitNpmBufferLines(string $buffer): array
+    {
+        $buffer = str_replace(["\r\n", "\r"], "\n", $buffer);
+        $parts = explode("\n", $buffer);
+        $lines = [];
+
+        foreach ($parts as $part) {
+            if ($part === '') {
+                continue;
+            }
+
+            $lines[] = rtrim($part, "\r");
+        }
+
+        return $lines;
     }
 
     private function runLongNpmProcess(Process $process): int
