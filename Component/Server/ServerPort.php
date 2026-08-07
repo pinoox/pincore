@@ -208,7 +208,9 @@ final class ServerPort
      */
     public static function isWindowsExcluded(int $port, ?array $ranges = null): bool
     {
-        if (PHP_OS_FAMILY !== 'Windows') {
+        // Explicit ranges are honored on every OS (injected exclusions / unit tests).
+        // Auto-detected Hyper-V exclusions only apply on Windows.
+        if ($ranges === null && PHP_OS_FAMILY !== 'Windows') {
             return false;
         }
 

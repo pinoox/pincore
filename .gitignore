@@ -5,12 +5,11 @@
 # Baker cache & build output (~pinker)
 pinker/
 
-# Writable storage (logs, cache, sessions)
-storage/
-
+# Writable storage (logs, cache, sessions) — root only (not Component/Storage, Terminal/Storage)
+/storage/
 
 # App packages created at runtime (standalone dev / tests)
-apps/
+/apps/
 
 # Environment & local credentials
 .env
