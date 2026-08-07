@@ -321,10 +321,19 @@ final class PlatformBuilder
             'kernel_version_code' => PinxVersion::kernel()['code'],
         ];
 
-        file_put_contents(
-            $archiveRoot . '/BUILD.json',
+        $manifestPath = $archiveRoot . '/storage/BUILD.json';
+        $manifestDirectory = dirname($manifestPath);
+
+        if (!is_dir($manifestDirectory) && !mkdir($manifestDirectory, 0777, true) && !is_dir($manifestDirectory)) {
+            throw new Exception('Failed to create platform manifest directory: ' . $manifestDirectory);
+        }
+
+        if (file_put_contents(
+            $manifestPath,
             json_encode($manifest, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . "\n",
-        );
+        ) === false) {
+            throw new Exception('Failed to write platform build manifest: ' . $manifestPath);
+        }
     }
 
     private function createZipArchive(string $sourceRoot, string $outputPath): void
