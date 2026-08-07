@@ -171,12 +171,23 @@ class PinooxCliErrorRenderer
     private function scriptName(array $argv): string
     {
         $script = str_replace('\\', '/', (string) ($argv[0] ?? ProjectCli::invoke()));
+        $basename = basename($script);
+
+        // Prefer stable display names from argv so usage tips stay `php pinoox …`
+        // even when the project resolves a launcher bootstrap path.
+        if ($basename === ProjectCli::DISPLAY_NAME) {
+            return 'php ' . ProjectCli::DISPLAY_NAME;
+        }
+
+        if ($basename === ProjectCli::PINX_DISPLAY) {
+            return ProjectCli::pinxInvoke();
+        }
 
         if (ProjectCli::isCliScript($script)) {
             return ProjectCli::invoke();
         }
 
-        return basename($script) ?: ProjectCli::invoke();
+        return $basename !== '' ? $basename : ProjectCli::invoke();
     }
 
     private function consoleUsageSuggestions(string $message, string $script, ?string $command, ?string $extra): array

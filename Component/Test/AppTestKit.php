@@ -45,6 +45,20 @@ class AppTestKit
             $request->server->set('HTTP_HOST', 'pinoox.test');
         }
 
+        // Pest/PHPUnit set SCRIPT_NAME to vendor/bin/pest — that pollutes Url::origin().
+        $scriptName = str_replace('\\', '/', (string) $request->server->get('SCRIPT_NAME', ''));
+        $scriptBase = basename($scriptName);
+        if (
+            $scriptName === ''
+            || str_contains($scriptName, '/vendor/bin/')
+            || in_array($scriptBase, ['pest', 'phpunit', 'phpunit.phar'], true)
+        ) {
+            $request->server->set('SCRIPT_NAME', '/index.php');
+            $request->server->set('SCRIPT_FILENAME', '');
+            $_SERVER['SCRIPT_NAME'] = '/index.php';
+            $_SERVER['SCRIPT_FILENAME'] = '';
+        }
+
         self::$booted = true;
     }
 

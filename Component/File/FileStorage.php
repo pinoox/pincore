@@ -62,7 +62,7 @@ class FileStorage
             $thumb,
         );
 
-        return Url::link($path, Url::SCOPE_SITE);
+        return Url::link($path, Url::SCOPE_SITE, Url::MODE_CLEAN);
     }
 
     public static function url(FileModel $file): ?string

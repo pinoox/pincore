@@ -322,7 +322,26 @@ final class PinxPaths
 
     private static function join(string ...$parts): string
     {
+        if ($parts === []) {
+            return '';
+        }
+
+        $first = str_replace('\\', '/', array_shift($parts));
+        $absolutePrefix = '';
+
+        if (str_starts_with($first, '/')) {
+            $absolutePrefix = '/';
+            $first = ltrim($first, '/');
+        } elseif (preg_match('/^[A-Za-z]:\//', $first) === 1) {
+            $absolutePrefix = substr($first, 0, 3);
+            $first = substr($first, 3);
+        }
+
         $normalized = [];
+        $first = rtrim($first, '/');
+        if ($first !== '') {
+            $normalized[] = $first;
+        }
 
         foreach ($parts as $part) {
             $part = trim(str_replace('\\', '/', $part), '/');
@@ -331,6 +350,6 @@ final class PinxPaths
             }
         }
 
-        return implode('/', $normalized);
+        return $absolutePrefix . implode('/', $normalized);
     }
 }
