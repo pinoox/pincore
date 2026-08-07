@@ -103,6 +103,11 @@ class ExceptionContext
     {
         $version = \Pinoox\Component\Package\Pinx\PinxVersion::platform();
 
+        // Standalone pincore / missing platform manifest → show kernel version in debug UI.
+        if ($version['name'] === '' && $version['code'] === null) {
+            $version = \Pinoox\Component\Package\Pinx\PinxVersion::kernel();
+        }
+
         return self::versionPayload($version['name'], $version['code']);
     }
 

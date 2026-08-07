@@ -14,7 +14,9 @@ return [
 
     |
 
-    | Merged with {project}/config/pinoox.config.php (platform manifest/version).
+    | Runtime defaults for standalone pincore (config/pinoox.config.php).
+
+    | Platform projects override via {project}/platform/pinoox.config.php.
 
     | Kernel version: pincore/config/pincore.config.php
 
@@ -23,6 +25,10 @@ return [
     |
 
     */
+
+    'version_code' => 0,
+
+    'version_name' => 'dev',
 
     'name' => env('APP_NAME', 'Pinoox'),
 

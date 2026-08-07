@@ -8,10 +8,11 @@ return [
     |--------------------------------------------------------------------------
     |
     | Framework package version — updates when pincore is upgraded.
-    | Platform/distribution version: {project}/config/pinoox.config.php
+    | Platform distribution: {project}/platform/pinoox.config.php
+    | Standalone pincore defaults: config/pinoox.config.php (version_name=dev)
     |
     */
 
-    'version_code' => 212,
-    'version_name' => '3.9.3',
+    'version_code' => 213,
+    'version_name' => '3.9.4',
 ];
