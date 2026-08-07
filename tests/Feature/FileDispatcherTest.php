@@ -196,6 +196,20 @@ it('builds dispatcher urls from hash_id', function () {
         ->and($thumb)->toContain('/file/' . $file->hash_id . '/thumb');
 });
 
+it('normalizes custom dispatcher path prefixes', function () {
+    expect(FileConfig::normalizeDispatcherPath('direct'))->toBe('direct')
+        ->and(FileConfig::normalizeDispatcherPath('/link/to/'))->toBe('link/to')
+        ->and(FileConfig::normalizeDispatcherPath('link//to'))->toBe('link/to')
+        ->and(FileConfig::normalizeDispatcherPath(''))->toBe('file')
+        ->and(FileConfig::normalizeDispatcherPath('../evil'))->toBe('file')
+        ->and(FileConfig::buildDispatcherPath('direct', 'abc123'))->toBe('/direct/abc123')
+        ->and(FileConfig::buildDispatcherPath('link/to', 'abc123', true))->toBe('/link/to/abc123/thumb');
+});
+
+it('builds dispatcher urls with an explicit path prefix helper', function () {
+    expect(FileConfig::buildDispatcherPath('file', 'xyz'))->toBe('/file/xyz');
+});
+
 it('maps public()/private() to disks and syncs internal access', function () {
     $public = File::upload('avatar')->public();
     $private = File::upload('doc')->private();

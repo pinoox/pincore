@@ -18,6 +18,8 @@ use Pinoox\Component\AppEvent\AppBootstrap;
 use Pinoox\Component\Cache\AppCacheConfig;
 use Pinoox\Component\Date\AppDateConfig;
 use Pinoox\Component\Cache\Store\RouteCacheStore;
+use Pinoox\Component\File\FileConfig;
+use Pinoox\Component\File\FileDispatcher;
 use Pinoox\Component\Router\Action\ActionRegistry;
 use Pinoox\Component\Package\AppManager;
 use Pinoox\Component\Package\Loader\ArrayLoader;
@@ -152,7 +154,7 @@ class AppEngine implements EngineInterface
         $packageName = $this->resolvePackageKey($packageName);
         $path = $this->buildPath($path);
         $routes = $this->webRouteFiles($this->config($packageName)->get('router.routes'));
-        $routes = $this->withCoreFileRoutes($routes);
+        $routes = $this->withCoreFileRoutes($routes, $packageName);
         if (empty($this->router[$packageName][$path])) {
             $this->router[$packageName][$path] = \Pinoox\Portal\Router::build($path, $routes);
             AppBootstrap::applyRoutes($packageName, $this->router[$packageName][$path], false);
@@ -178,25 +180,31 @@ class AppEngine implements EngineInterface
     }
 
     /**
-     * Prepend core /file/{hash} routes so every app can serve locked storage files.
+     * Prepend core dispatcher routes (`/{prefix}/{hash}`) so every app can serve locked storage files.
+     * Prefix comes from the app's `filesystem.dispatcher` (default: `file`).
      *
      * @param list<string|array|callable> $routes
      * @return list<string|array|callable>
      */
-    private function withCoreFileRoutes(array $routes): array
+    private function withCoreFileRoutes(array $routes, string $packageName): array
     {
         $core = dirname(__DIR__, 3) . '/routes/file.php';
-        if (!is_file($core)) {
-            return $routes;
-        }
+        $coreNorm = str_replace('\\', '/', $core);
+        $prefix = FileConfig::dispatcherPath($packageName);
 
         foreach ($routes as $route) {
-            if (is_string($route) && str_replace('\\', '/', $route) === str_replace('\\', '/', $core)) {
-                return $routes;
+            if (is_string($route) && str_replace('\\', '/', $route) === $coreNorm) {
+                // App already includes the default file routes file.
+                if ($prefix === FileConfig::DISPATCHER_DEFAULT) {
+                    return $routes;
+                }
+                break;
             }
         }
 
-        array_unshift($routes, $core);
+        array_unshift($routes, static function () use ($prefix): void {
+            FileDispatcher::registerRoutes($prefix);
+        });
 
         return $routes;
     }

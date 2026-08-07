@@ -9,6 +9,7 @@ use Pinoox\Portal\Auth;
 use Pinoox\Portal\Cache;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+use function Pinoox\Router\get;
 
 class FileDispatcher
 {
@@ -16,6 +17,26 @@ class FileDispatcher
     private static array $authCallbacks = [];
 
     private static ?Closure $defaultAuth = null;
+
+    /**
+     * Register dispatcher routes for a URL prefix (e.g. `file`, `direct`, `link/to`).
+     * Must run inside a Router load context (route file or AppEngine core routes).
+     */
+    public static function registerRoutes(?string $prefix = null): void
+    {
+        $prefix = FileConfig::normalizeDispatcherPath($prefix ?? FileConfig::DISPATCHER_DEFAULT);
+        $base = '/' . $prefix;
+
+        get(
+            path: $base . '/{hash}',
+            action: [self::class, 'show'],
+        );
+
+        get(
+            path: $base . '/{hash}/thumb',
+            action: [self::class, 'thumb'],
+        );
+    }
 
     public static function auth(Closure $callback): void
     {

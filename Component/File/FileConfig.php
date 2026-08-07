@@ -20,6 +20,9 @@ class FileConfig
     public const HASH_LENGTH_MIN = 4;
     public const HASH_LENGTH_MAX = 50;
 
+    /** Default private-download URL prefix: `/file/{hash}`. */
+    public const DISPATCHER_DEFAULT = 'file';
+
     /**
      * @return array{
      *   package: string,
@@ -28,6 +31,7 @@ class FileConfig
      *   file_policy: string,
      *   groups: array<string, string>,
      *   hash_length: int,
+     *   dispatcher: string,
      *   thumb_width: int,
      *   thumb_height: int
      * }
@@ -49,9 +53,80 @@ class FileConfig
             'file_policy' => self::normalizePolicy(App::get('filesystem.file_policy')),
             'groups' => self::normalizeGroups(App::get('filesystem.groups')),
             'hash_length' => self::hashLength(null),
+            'dispatcher' => self::dispatcherPath(null),
             'thumb_width' => (int) (App::get('filesystem.thumb_width') ?? 512),
             'thumb_height' => (int) (App::get('filesystem.thumb_height') ?? 512),
         ];
+    }
+
+    /**
+     * URL path prefix for the private file dispatcher (no leading/trailing slash).
+     * App `filesystem.dispatcher` (alias: `dispatcher_path`), then global filesystems, then `file`.
+     *
+     * Examples: `file` → `/file/{hash}`, `direct` → `/direct/{hash}`, `link/to` → `/link/to/{hash}`.
+     */
+    public static function dispatcherPath(?string $package = null): string
+    {
+        if (is_string($package) && $package !== '' && AppEngine::exists($package)) {
+            try {
+                $cfg = AppEngine::config($package);
+                $fromPackage = $cfg->get('filesystem.dispatcher') ?? $cfg->get('filesystem.dispatcher_path');
+                if ($fromPackage !== null && $fromPackage !== '') {
+                    return self::normalizeDispatcherPath($fromPackage);
+                }
+            } catch (\Throwable) {
+                // fall through
+            }
+        }
+
+        try {
+            $fromApp = App::get('filesystem.dispatcher') ?? App::get('filesystem.dispatcher_path');
+            if ($fromApp !== null && $fromApp !== '') {
+                return self::normalizeDispatcherPath($fromApp);
+            }
+        } catch (\Throwable) {
+            // fall through
+        }
+
+        try {
+            $fromGlobal = \Pinoox\Portal\Config::name('~filesystems')->get('dispatcher');
+            if ($fromGlobal !== null && $fromGlobal !== '') {
+                return self::normalizeDispatcherPath($fromGlobal);
+            }
+        } catch (\Throwable) {
+            // fall through
+        }
+
+        return self::DISPATCHER_DEFAULT;
+    }
+
+    /**
+     * Build a site-scoped dispatcher path: `/{prefix}/{hash}` or `/{prefix}/{hash}/thumb`.
+     */
+    public static function buildDispatcherPath(string $prefix, string $hash, bool $thumb = false): string
+    {
+        $prefix = self::normalizeDispatcherPath($prefix);
+        $hash = trim($hash);
+
+        return '/' . $prefix . '/' . $hash . ($thumb ? '/thumb' : '');
+    }
+
+    public static function normalizeDispatcherPath(mixed $value): string
+    {
+        $path = trim((string) ($value ?? ''));
+        $path = str_replace('\\', '/', $path);
+        $path = preg_replace('~/+~', '/', $path) ?? '';
+        $path = trim($path, '/');
+
+        if ($path === '') {
+            return self::DISPATCHER_DEFAULT;
+        }
+
+        if (!preg_match('~^[A-Za-z0-9_-]+(?:/[A-Za-z0-9_-]+)*$~', $path)) {
+            return self::DISPATCHER_DEFAULT;
+        }
+
+        return $path;
     }
 
     /**

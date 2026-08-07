@@ -9,6 +9,8 @@ return [
     'app_prefix' => env('FILESYSTEM_APPS_PREFIX', ''),
     'public_root' => env('FILESYSTEM_PUBLIC_ROOT', '~storage/public'),
     'hash_length' => (int) env('FILE_HASH_LENGTH', 8),
+    // Private download URL prefix: /{dispatcher}/{hash} — override per app via filesystem.dispatcher
+    'dispatcher' => env('FILE_DISPATCHER', 'file'),
 
     'disks' => [
         'local' => [
