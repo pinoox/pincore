@@ -65,6 +65,7 @@ final class DependencyInstaller
         ?callable $onOutput,
     ): DependencyRunResult {
         $lockFile = $target->path . '/package-lock.json';
+        $warnings = [];
 
         if ($options->npmCi && is_file($lockFile)) {
             $command = [$this->npmBinary(), 'ci'];
@@ -73,11 +74,23 @@ final class DependencyInstaller
             if ($result->succeeded()) {
                 return $result;
             }
+
+            $warnings = NpmLockSyncHint::warningsForCiFailure(
+                $result->outputLines,
+                NpmLockSyncHint::relativeLockPath($target->path),
+            );
+
+            foreach ($warnings as $line) {
+                if ($onOutput !== null) {
+                    $onOutput($line);
+                }
+            }
         }
 
         $command = [$this->npmBinary(), 'install'];
+        $result = $this->runProcess($target, 'install', $this->formatCommandLine($command), $command, $target->path, $onOutput);
 
-        return $this->runProcess($target, 'install', $this->formatCommandLine($command), $command, $target->path, $onOutput);
+        return $warnings === [] ? $result : $result->withWarnings($warnings);
     }
 
     /**
