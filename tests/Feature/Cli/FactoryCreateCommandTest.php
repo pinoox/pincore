@@ -5,6 +5,7 @@ use Pinoox\Terminal\Factory\FactoryCreateCommand;
 use Symfony\Component\Console\Tester\CommandTester;
 
 afterEach(function () {
+    \Pinoox\Component\Database\Factories\FactoryToolkit::flush();
     AppTestKit::deleteFakeApp('com_test_factory_command');
 });
 
