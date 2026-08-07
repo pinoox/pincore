@@ -169,9 +169,17 @@ class SystemConfig
         };
 
         foreach (self::platformPathCandidates($resource) as $candidate) {
-            if (is_dir($candidate)) {
-                return $candidate;
+            if (!is_dir($candidate)) {
+                continue;
             }
+
+            // Prefer the configured lowercase path (database/) when it exists so
+            // Windows/Git do not reintroduce a sibling Database/ tree from casing.
+            if (is_dir($canonical)) {
+                return $canonical;
+            }
+
+            return $candidate;
         }
 
         return $canonical;

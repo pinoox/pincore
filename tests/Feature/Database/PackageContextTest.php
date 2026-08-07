@@ -20,6 +20,7 @@ it('detects package from app seeder and migration paths', function () {
 
     expect(AppPackagePath::fromDataFile($appDir . '/database/seeders/DemoSeeder.php'))->toBe($package)
         ->and(AppPackagePath::fromDataFile($appDir . '/database/seed/DemoSeeder.php'))->toBe($package)
+        ->and(AppPackagePath::fromDataFile($appDir . '/database/factories/DemoFactory.php'))->toBe($package)
         ->and(AppPackagePath::fromDataFile($appDir . '/database/migrations/2026_01_01_000000_create_demo_table.php'))->toBe($package)
         ->and(AppPackagePath::fromDataFile($appDir . '/patches/2026_01_01_000000_demo.php'))->toBe($package);
 });
@@ -28,6 +29,10 @@ it('detects platform package from pincore data files', function () {
     $corePath = rtrim(str_replace('\\', '/', testCoreRoot()), '/');
 
     expect(AppPackagePath::fromDataFile($corePath . '/database/migrations/2023_09_11_063510_create_history_table.php'))
+        ->toBe('platform')
+        ->and(AppPackagePath::fromDataFile($corePath . '/database/factories/UserFactory.php'))
+        ->toBe('platform')
+        ->and(AppPackagePath::fromDataFile($corePath . '/database/seeders/DemoSeeder.php'))
         ->toBe('platform');
 });
 
