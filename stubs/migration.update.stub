@@ -13,7 +13,7 @@ return new class extends MigrationBase
 	 */
     public function up()
     {
-        $this->schema->table($this->table('{{ table }}'), function (Blueprint $table) {
+        $this->schema->table('{{ table }}', function (Blueprint $table) {
             //
         });
     }
@@ -23,7 +23,7 @@ return new class extends MigrationBase
 	 */
 	public function down(): void
 	{
-		$this->schema->table($this->table('{{ table }}'), function (Blueprint $table) {
+		$this->schema->table('{{ table }}', function (Blueprint $table) {
 			//
 		});
 	}

@@ -38,9 +38,9 @@ it('writes create, update, and drop stubs from the migration name', function (st
         ->and(file_get_contents($result['path']))->toContain($needle)
         ->and(file_get_contents($result['path']))->toContain("namespace App\\com_acme_blog\\database\\migrations;");
 })->with([
-    ['posts', MigrationNameParser::TYPE_CREATE, "\$this->schema->create(\$this->table('posts')"],
-    ['add_email_to_users', MigrationNameParser::TYPE_UPDATE, "\$this->schema->table(\$this->table('users')"],
-    ['drop_posts_table', MigrationNameParser::TYPE_DROP, "\$this->schema->dropIfExists(\$this->table('posts')"],
+    ['posts', MigrationNameParser::TYPE_CREATE, "\$this->schema->create('posts'"],
+    ['add_email_to_users', MigrationNameParser::TYPE_UPDATE, "\$this->schema->table('users'"],
+    ['drop_posts_table', MigrationNameParser::TYPE_DROP, "\$this->schema->dropIfExists('posts'"],
 ]);
 
 it('uses --table for a blank-looking name without wrapping create_', function () {
@@ -57,5 +57,5 @@ it('uses --table for a blank-looking name without wrapping create_', function ()
     expect($result['type'])->toBe(MigrationNameParser::TYPE_UPDATE)
         ->and($result['table'])->toBe('users')
         ->and($result['name'])->toMatch('/^\d{4}_\d{2}_\d{2}_\d{6}_sync_legacy_flags$/')
-        ->and(file_get_contents($result['path']))->toContain("\$this->schema->table(\$this->table('users')");
+        ->and(file_get_contents($result['path']))->toContain("\$this->schema->table('users'");
 });
