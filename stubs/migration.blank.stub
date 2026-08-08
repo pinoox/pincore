@@ -1,0 +1,25 @@
+<?php
+{{ copyright }}
+
+namespace {{namespace}};
+
+use Pinoox\Component\Migration\MigrationBase;
+
+return new class extends MigrationBase
+{
+	/**
+	 * Run the migrations.
+	 */
+    public function up()
+    {
+        //
+    }
+
+	/**
+	 * Reverse the migrations.
+	 */
+	public function down(): void
+	{
+		//
+	}
+};

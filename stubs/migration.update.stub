@@ -1,0 +1,30 @@
+<?php
+{{ copyright }}
+
+namespace {{namespace}};
+
+use Illuminate\Database\Schema\Blueprint;
+use Pinoox\Component\Migration\MigrationBase;
+
+return new class extends MigrationBase
+{
+	/**
+	 * Run the migrations.
+	 */
+    public function up()
+    {
+        $this->schema->table($this->table('{{ table }}'), function (Blueprint $table) {
+            //
+        });
+    }
+
+	/**
+	 * Reverse the migrations.
+	 */
+	public function down(): void
+	{
+		$this->schema->table($this->table('{{ table }}'), function (Blueprint $table) {
+			//
+		});
+	}
+};
