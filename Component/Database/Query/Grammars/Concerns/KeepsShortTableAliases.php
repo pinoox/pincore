@@ -158,11 +158,16 @@ trait KeepsShortTableAliases
     }
 
     /**
-     * Keep short aliases (so Eloquent WHERE qualifiers match) but use the
-     * multi-table DELETE form MySQL accepts: `DELETE alias FROM tbl AS alias`.
+     * MySQL rejects `DELETE FROM tbl AS alias` on many versions, so DELETE is
+     * compiled as `DELETE alias FROM tbl AS alias`. SQLite/Postgres reject that
+     * form — compile a plain `DELETE FROM physical_table` without aliases.
      */
     public function compileDelete(Builder $query)
     {
+        if (!$this->usesMysqlDeleteAliasForm()) {
+            return $this->withoutTableAliases(fn () => parent::compileDelete($query));
+        }
+
         $table = $this->wrapTable($query->from);
         $where = $this->compileWheres($query);
 
@@ -181,5 +186,12 @@ trait KeepsShortTableAliases
         }
 
         return parent::compileDelete($query);
+    }
+
+    protected function usesMysqlDeleteAliasForm(): bool
+    {
+        $driver = $this->connection?->getDriverName();
+
+        return in_array($driver, ['mysql', 'mariadb'], true);
     }
 }
