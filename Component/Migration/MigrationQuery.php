@@ -24,6 +24,8 @@ class MigrationQuery
 
     public const TYPE_PATCH = 'patch';
 
+    public const TYPE_LIFECYCLE = 'lifecycle';
+
     private static function tableExists(): bool
     {
         return DB::schema('platform')->hasTable(DB::tableName(Table::HISTORY, 'platform'));
@@ -97,6 +99,19 @@ class MigrationQuery
         return self::retryOnSqliteBusy(static function () use ($migration, $app) {
             return HistoryModel::where('type', self::TYPE_MIGRATION)
                 ->where('migration', $migration)
+                ->where('app', $app)
+                ->delete();
+        });
+    }
+
+    public static function deleteByType(string $type, string $app): int|false
+    {
+        if (!self::tableExists()) {
+            return false;
+        }
+
+        return self::retryOnSqliteBusy(static function () use ($type, $app) {
+            return HistoryModel::where('type', $type)
                 ->where('app', $app)
                 ->delete();
         });

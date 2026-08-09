@@ -28,7 +28,7 @@ class PinxInstallCommand extends Terminal
     {
         $this
             ->setHelp($this->cliHelp(
-                'Install or update an app/theme package with the full pipeline: validate, minpin, extract, migrate, patch, registry, cache.',
+                'Install or update an app/theme package with the full pipeline: validate, minpin, extract, migrate, patch, lifecycle, registry, cache.',
                 [
                     'pinx:install packages/com_my_shop_v2.pinx',
                     'pinx:install com_my_shop.pinx --force',
@@ -40,6 +40,7 @@ class PinxInstallCommand extends Terminal
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Force install even when version is equal or lower')
             ->addOption('skip-migrate', null, InputOption::VALUE_NONE, 'Skip database migrations')
             ->addOption('skip-patch', null, InputOption::VALUE_NONE, 'Skip data patches')
+            ->addOption('skip-lifecycle', null, InputOption::VALUE_NONE, 'Skip lifecycle.php hooks')
             ->addOption('skip-cache', null, InputOption::VALUE_NONE, 'Skip cache rebuild')
             ->addOption('skip-verify', null, InputOption::VALUE_NONE, 'Skip Ed25519 signature verification')
             ->addOption('require-sign', null, InputOption::VALUE_NONE, 'Reject unsigned packages')
@@ -127,6 +128,7 @@ class PinxInstallCommand extends Terminal
             'force' => (bool) $input->getOption('force'),
             'skip_migrate' => (bool) $input->getOption('skip-migrate'),
             'skip_patch' => (bool) $input->getOption('skip-patch'),
+            'skip_lifecycle' => (bool) $input->getOption('skip-lifecycle'),
             'skip_cache' => (bool) $input->getOption('skip-cache'),
             'skip_verify' => (bool) $input->getOption('skip-verify'),
             'require_signature' => (bool) $input->getOption('require-sign'),

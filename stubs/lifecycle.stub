@@ -1,0 +1,34 @@
+<?php
+
+/**
+ * App lifecycle stub — install / update / uninstall / reset side-effects.
+ *
+ * Runs during pinx:install, pinx:uninstall, app:reset, and platform provision.
+ * Not a request boot file — use boot.php for routes, listeners, and DI.
+ *
+ * @see packages/docs/en/advanced/boot-and-events.md
+ */
+
+use Pinoox\Component\Package\Lifecycle\AppLifecycle;
+use Pinoox\Component\Package\Lifecycle\AppLifecycleContext;
+
+return function (AppLifecycle $life): void {
+    $life->onInstall(function (AppLifecycleContext $ctx): void {
+        // First install: seed defaults, create folders. Keep idempotent.
+        // $ctx->package, $ctx->toVersionCode, $ctx->appPath
+    });
+
+    $life->onUpdate(function (AppLifecycleContext $ctx): void {
+        // Every update (non-DB): clear app cache, rewrite files.
+        // Schema/data version bumps belong in migrations / patches.
+        // $ctx->fromVersionCode → $ctx->toVersionCode
+    });
+
+    $life->onUninstall(function (AppLifecycleContext $ctx): void {
+        // Before tables and folder are removed: delete uploads, extra config.
+    });
+
+    $life->onReset(function (AppLifecycleContext $ctx): void {
+        // Optional non-DB cleanup before migrate/patch reset; install runs again after.
+    });
+};

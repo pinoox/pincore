@@ -24,6 +24,23 @@ final class AppEventNames
 
     public const TERMINATE = 'app.terminate';
 
+    // Package lifecycle (install / update / uninstall / reset — not per-request)
+    public const INSTALLING = 'app.installing';
+
+    public const INSTALLED = 'app.installed';
+
+    public const UPDATING = 'app.updating';
+
+    public const UPDATED = 'app.updated';
+
+    public const UNINSTALLING = 'app.uninstalling';
+
+    public const UNINSTALLED = 'app.uninstalled';
+
+    public const RESETTING = 'app.resetting';
+
+    public const RESET = 'app.reset';
+
     public static function package(string $base, string $package): string
     {
         return $base . '.' . $package;

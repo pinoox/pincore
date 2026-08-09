@@ -35,6 +35,7 @@ return [
     'startup' => null,
     'boot' => true,
     'boot-global' => false,
+    'lifecycle' => true,
     'runtime' => [
         'mode' => null,
         'debug' => null,

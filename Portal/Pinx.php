@@ -14,6 +14,8 @@
 
 namespace Pinoox\Portal;
 
+use Pinoox\Component\Package\AppResetResult;
+use Pinoox\Component\Package\AppResetter;
 use Pinoox\Component\Package\Pinx\PinxBuilder;
 use Pinoox\Component\Package\Pinx\PinxInstallResult;
 use Pinoox\Component\Package\Pinx\PinxInstaller;
@@ -30,11 +32,13 @@ use Pinoox\Support\SystemConfig;
  * @method static PinxInstallResult install(string $packagePath, array $options = [])
  * @method static PinxUninstallResult uninstallApp(string $package, array $options = [])
  * @method static PinxUninstallResult uninstallTheme(string $package, string $themeName, array $options = [])
+ * @method static AppResetResult resetApp(string $package, array $options = [])
  * @method static PinxManifest manifest(string $packagePath)
  * @method static mixed withReader(string $packagePath, callable $callback)
  * @method static string resolveMode(PinxManifest $manifest, bool $force = false)
  * @method static PinxInstaller installer()
  * @method static PinxUninstaller uninstaller()
+ * @method static AppResetter resetter()
  * @method static PinxBuilder builder()
  * @method static PlatformBuilder platformBuilder()
  * @method static string tmpPath()

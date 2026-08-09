@@ -30,7 +30,7 @@ class PinxUninstallCommand extends Terminal
     {
         $this
             ->setHelp($this->cliHelp(
-                'Uninstall pipeline for apps installed via pinx or app:create: validate, dependents, migrate rollback, routes, pinker, remove files.',
+                'Uninstall pipeline for apps installed via pinx or app:create: validate, dependents, lifecycle, migrate rollback, routes, pinker, remove files.',
                 [
                     'pinx:uninstall com_my_shop',
                     'pinx:uninstall com_my_shop --keep-files',
@@ -44,6 +44,7 @@ class PinxUninstallCommand extends Terminal
             ->addOption('theme', 't', InputOption::VALUE_REQUIRED, 'Uninstall only a theme folder from the host app')
             ->addOption('force', 'f', InputOption::VALUE_NONE, 'Uninstall even when other apps depend on this package')
             ->addOption('skip-migrate', null, InputOption::VALUE_NONE, 'Skip migration rollback')
+            ->addOption('skip-lifecycle', null, InputOption::VALUE_NONE, 'Skip lifecycle.php uninstall hook')
             ->addOption('skip-routes', null, InputOption::VALUE_NONE, 'Skip URL route cleanup')
             ->addOption('keep-files', null, InputOption::VALUE_NONE, 'Keep app/theme files on disk (DB/routes/pinker cleanup only)')
             ->addOption('yes', 'y', InputOption::VALUE_NONE, 'Skip confirmation prompt');
@@ -108,6 +109,7 @@ class PinxUninstallCommand extends Terminal
         $options = [
             'force' => (bool) $input->getOption('force'),
             'skip_migrate' => (bool) $input->getOption('skip-migrate'),
+            'skip_lifecycle' => (bool) $input->getOption('skip-lifecycle'),
             'skip_routes' => (bool) $input->getOption('skip-routes'),
             'keep_files' => (bool) $input->getOption('keep-files'),
         ];

@@ -2,10 +2,13 @@
 
 namespace Pinoox\Component\Package\Pinx;
 
+use Pinoox\Component\Database\Patch\PatchToolkit;
 use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Migration\Migrator;
 use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Package\Engine\AppEngine;
+use Pinoox\Component\Package\Lifecycle\AppLifecycle;
+use Pinoox\Component\Package\Lifecycle\AppLifecycleRunner;
 use Pinoox\Component\Package\PackageName;
 use Pinoox\Portal\App\AppEngine as AppEnginePortal;
 use Pinoox\Portal\App\AppRouter;
@@ -36,6 +39,7 @@ class PinxUninstaller
      * @param array{
      *     force?: bool,
      *     skip_migrate?: bool,
+     *     skip_lifecycle?: bool,
      *     skip_routes?: bool,
      *     keep_files?: bool
      * } $options
@@ -43,10 +47,24 @@ class PinxUninstaller
     public function uninstallApp(string $package, array $options = []): PinxUninstallResult
     {
         $steps = [];
+        $runner = new AppLifecycleRunner($this->engine);
 
         try {
             $this->assertAppTarget($package, $steps, (bool) ($options['force'] ?? false));
             $this->assertNoDependents($package, $steps, (bool) ($options['force'] ?? false));
+
+            if (!($options['skip_lifecycle'] ?? false)) {
+                $result = $runner->run($package, AppLifecycle::UNINSTALL, [], [
+                    'once' => false,
+                    'record' => false,
+                    'dispatch_after' => false,
+                ]);
+                $this->recordStep($steps, 'lifecycle', $result['status'], $result['message']);
+            } else {
+                $this->recordStep($steps, 'lifecycle', 'skipped', 'Lifecycle skipped by option.');
+            }
+
+            $this->rollbackPatchesAndHistory($package, $runner, $steps);
 
             if (!($options['skip_migrate'] ?? false)) {
                 $this->rollbackMigrations($package, $steps);
@@ -69,6 +87,11 @@ class PinxUninstaller
             }
 
             AppEnginePortal::__rebuild();
+
+            if (!($options['skip_lifecycle'] ?? false)) {
+                $runner->dispatchAfter($package, AppLifecycle::UNINSTALL);
+            }
+
             $message = sprintf('App "%s" uninstalled successfully.', $package);
             $this->recordStep($steps, 'complete', 'ok', $message);
 
@@ -176,6 +199,37 @@ class PinxUninstaller
             'dependents',
             'ok',
             'Forced uninstall despite dependents: ' . implode(', ', $dependents) . '.',
+        );
+    }
+
+    /**
+     * @param list<array{step: string, status: string, message: string}> $steps
+     */
+    private function rollbackPatchesAndHistory(string $package, AppLifecycleRunner $runner, array &$steps): void
+    {
+        $toolkit = new PatchToolkit();
+        $toolkit->package($package)->load();
+
+        $rolled = 0;
+        $skipped = 0;
+        if ($toolkit->isSuccess()) {
+            $result = $toolkit->rollbackAll();
+            $rolled = $result['rolled'];
+            $skipped = $result['skipped'];
+        }
+
+        $toolkit->clearHistory();
+        $runner->clearHistory($package);
+
+        $this->recordStep(
+            $steps,
+            'patch',
+            'ok',
+            sprintf(
+                'Rolled back %d patch(es), skipped %d; patch and lifecycle history cleared.',
+                $rolled,
+                $skipped,
+            ),
         );
     }
 

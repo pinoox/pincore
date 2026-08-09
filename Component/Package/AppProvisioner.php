@@ -8,10 +8,12 @@ use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Migration\Migrator;
 use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Package\Engine\AppEngine;
+use Pinoox\Component\Package\Lifecycle\AppLifecycle;
+use Pinoox\Component\Package\Lifecycle\AppLifecycleRunner;
 
 /**
  * Provisions apps that already exist on disk (project setup / bulk bootstrap).
- * Mirrors post-extract steps from PinxInstaller: migrate, patch, cache, lang.
+ * Mirrors post-extract steps from PinxInstaller: migrate, patch, lifecycle, cache, lang.
  */
 final class AppProvisioner
 {
@@ -27,6 +29,7 @@ final class AppProvisioner
      *     only_enabled?: bool,
      *     skip_migrate?: bool,
      *     skip_patch?: bool,
+     *     skip_lifecycle?: bool,
      *     skip_cache?: bool,
      *     force?: bool
      * } $options
@@ -164,6 +167,7 @@ final class AppProvisioner
      *     lang?: ?string,
      *     skip_migrate?: bool,
      *     skip_patch?: bool,
+     *     skip_lifecycle?: bool,
      *     skip_cache?: bool,
      *     force?: bool
      * } $options
@@ -180,6 +184,13 @@ final class AppProvisioner
 
         if (!($options['skip_patch'] ?? false)) {
             $this->runPatches($package, (bool) ($options['force'] ?? false));
+        }
+
+        if (!($options['skip_lifecycle'] ?? false)) {
+            (new AppLifecycleRunner($this->engine))->run($package, AppLifecycle::INSTALL, [], [
+                'once' => true,
+                'record' => true,
+            ]);
         }
 
         if (!($options['skip_cache'] ?? false)) {

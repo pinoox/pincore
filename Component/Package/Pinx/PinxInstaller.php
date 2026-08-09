@@ -8,6 +8,8 @@ use Pinoox\Component\Kernel\Exception;
 use Pinoox\Component\Migration\Migrator;
 use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Package\Engine\AppEngine;
+use Pinoox\Component\Package\Lifecycle\AppLifecycle;
+use Pinoox\Component\Package\Lifecycle\AppLifecycleRunner;
 use Pinoox\Component\Package\PackageName;
 use Pinoox\Component\Template\Theme\ThemeManifest;
 use Pinoox\Portal\App\App;
@@ -47,6 +49,7 @@ class PinxInstaller
      *     force?: bool,
      *     skip_migrate?: bool,
      *     skip_patch?: bool,
+     *     skip_lifecycle?: bool,
      *     skip_cache?: bool,
      *     skip_verify?: bool,
      *     require_signature?: bool,
@@ -116,6 +119,8 @@ class PinxInstaller
 
             $mode = $this->detectMode($manifest, (bool) ($options['force'] ?? false));
             $this->recordStep($steps, 'detect', 'ok', $this->describeMode($manifest, $mode));
+
+            $fromVersion = $manifest->isApp() ? $this->installedVersion($manifest->package()) : null;
 
             if ($manifest->isTheme()) {
                 $this->assertThemeTarget($manifest);
@@ -205,6 +210,22 @@ class PinxInstaller
                     $this->runPatches($manifest->package(), $steps, (bool) ($options['force'] ?? false));
                 } else {
                     $this->recordStep($steps, 'patch', 'skipped', 'Patches skipped by option.');
+                }
+
+                if (!($options['skip_lifecycle'] ?? false)) {
+                    $this->runLifecycle(
+                        $manifest->package(),
+                        $mode === 'update' ? AppLifecycle::UPDATE : AppLifecycle::INSTALL,
+                        $steps,
+                        [
+                            'fromVersionCode' => is_array($fromVersion) ? $fromVersion['code'] : null,
+                            'fromVersionName' => is_array($fromVersion) ? $fromVersion['name'] : null,
+                            'toVersionCode' => $manifest->versionCode(),
+                            'toVersionName' => $manifest->versionName(),
+                        ],
+                    );
+                } else {
+                    $this->recordStep($steps, 'lifecycle', 'skipped', 'Lifecycle skipped by option.');
                 }
 
                 if (!($options['skip_cache'] ?? false)) {
@@ -496,6 +517,47 @@ class PinxInstaller
         }
 
         $this->recordStep($steps, 'patch', 'ok', $executed . ' patch(es) executed.');
+    }
+
+    /**
+     * @param list<array{step: string, status: string, message: string}> $steps
+     * @param array<string, mixed> $context
+     */
+    private function runLifecycle(string $package, string $action, array &$steps, array $context): void
+    {
+        $result = (new AppLifecycleRunner($this->engine))->run($package, $action, $context, [
+            'once' => $action === AppLifecycle::INSTALL,
+            'record' => $action === AppLifecycle::INSTALL,
+        ]);
+        $this->recordStep($steps, 'lifecycle', $result['status'], $result['message']);
+    }
+
+    /**
+     * @return array{code: ?int, name: ?string}|null
+     */
+    private function installedVersion(string $package): ?array
+    {
+        if (!$this->engine->exists($package)) {
+            return null;
+        }
+
+        try {
+            $existing = include $this->engine->path($package, 'app.php');
+        } catch (\Throwable) {
+            return null;
+        }
+
+        if (!is_array($existing)) {
+            return null;
+        }
+
+        $code = $existing['version-code'] ?? null;
+        $name = $existing['version-name'] ?? null;
+
+        return [
+            'code' => $code !== null && $code !== '' ? (int) $code : null,
+            'name' => is_string($name) && $name !== '' ? $name : null,
+        ];
     }
 
     /**
