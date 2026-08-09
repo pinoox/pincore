@@ -18,7 +18,7 @@ return new class extends MigrationBase {
             });
         }
 
-        DB::table(Table::TOKEN)
+        DB::table(Table::TOKEN, null, 'platform')
             ->where(function ($query) {
                 $query->whereNull('token_type')->orWhere('token_type', '');
             })
