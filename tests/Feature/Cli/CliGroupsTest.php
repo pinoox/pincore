@@ -83,6 +83,7 @@ it('registers migration and patch CLI commands', function () {
 
     expect($application->has('migrate'))->toBeTrue()
         ->and($application->has('migrate:create'))->toBeTrue()
+        ->and($application->has('make:migration'))->toBeTrue()
         ->and($application->has('patch:run'))->toBeTrue()
         ->and($application->has('patch:status'))->toBeTrue();
 });

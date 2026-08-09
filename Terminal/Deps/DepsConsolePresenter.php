@@ -5,6 +5,7 @@ namespace Pinoox\Terminal\Deps;
 use Pinoox\Component\Deps\DependencyOutputFilter;
 use Pinoox\Component\Deps\DependencyRunResult;
 use Pinoox\Component\Deps\DependencyTarget;
+use Pinoox\Component\Helpers\ConsoleApplication as ConsoleApplicationHelper;
 use Pinoox\Support\SystemConfig;
 use Symfony\Component\Console\Helper\ProgressBar;
 use Symfony\Component\Console\Helper\Table;
@@ -78,7 +79,7 @@ final class DepsConsolePresenter
         $table = new Table($this->output);
         $table->setHeaders(['#', 'Type', 'Scope', 'Target', 'Path', 'State', 'Step']);
         $table->setRows($rows);
-        $table->setStyle('box');
+        $table->setStyle($this->tableStyle());
         $table->render();
 
         $this->io->newLine();
@@ -213,7 +214,7 @@ final class DepsConsolePresenter
         $table = new Table($this->output);
         $table->setHeaders(['#', 'Type', 'Scope', 'Target', 'Path', 'Manifest', 'Vendor']);
         $table->setRows($rows);
-        $table->setStyle('box');
+        $table->setStyle($this->tableStyle());
         $table->render();
 
         $this->io->newLine();
@@ -225,9 +226,13 @@ final class DepsConsolePresenter
 
         if ($missing > 0) {
             $scope = $targets[0]->scope ?? 'all';
+            $invoke = getenv('PINOOX_CLI_INVOKE') === 'pinx'
+                ? 'pinx deps:install'
+                : 'php pinoox deps install';
             $this->io->note(sprintf(
-                '%d target(s) are not installed yet. Run: <info>php pinoox deps install %s</info>',
+                '%d target(s) are not installed yet. Run: <info>%s %s</info>',
                 $missing,
+                $invoke,
                 $scope,
             ));
         } else {
@@ -434,9 +439,16 @@ final class DepsConsolePresenter
         $progress->setFormat(
             "  <fg=cyan>progress</> %current%/%max% [%bar%] %percent:3s%%\n",
         );
-        $progress->setBarCharacter('█');
-        $progress->setEmptyBarCharacter('░');
-        $progress->setProgressCharacter('█');
+
+        if ($this->prefersAscii()) {
+            $progress->setBarCharacter('#');
+            $progress->setEmptyBarCharacter('-');
+            $progress->setProgressCharacter('#');
+        } else {
+            $progress->setBarCharacter('█');
+            $progress->setEmptyBarCharacter('░');
+            $progress->setProgressCharacter('█');
+        }
 
         return $progress;
     }
@@ -518,6 +530,16 @@ final class DepsConsolePresenter
 
     private function isPlain(): bool
     {
-        return $this->plain;
+        return $this->plain || $this->prefersAscii();
+    }
+
+    private function prefersAscii(): bool
+    {
+        return ConsoleApplicationHelper::prefersAsciiUi();
+    }
+
+    private function tableStyle(): string
+    {
+        return $this->prefersAscii() ? 'default' : 'box';
     }
 }

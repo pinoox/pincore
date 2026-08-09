@@ -4,6 +4,7 @@ use Pinoox\Component\Package\AppComposerVendor;
 use Pinoox\Component\Package\ComposerVendorGuard;
 use Pinoox\Component\Package\Pinx\PinxPaths;
 use Pinoox\Component\Package\Pinx\PlatformBuildConfig;
+use Pinoox\Component\Package\Pinx\PlatformBuilder;
 use Pinoox\Component\Package\Pinx\PlatformComposer;
 use Pinoox\Component\Package\Pinx\PlatformFileSelector;
 use Pinoox\Component\Package\Pinx\PlatformVendorMaterializer;
@@ -86,6 +87,19 @@ it('uses .zip filename for platform export path', function () {
 
     expect(str_ends_with($filename, '.zip'))->toBeTrue()
         ->and($filename)->toStartWith('pinoox_');
+});
+
+it('writes the platform build manifest inside storage', function () {
+    $archiveRoot = sys_get_temp_dir() . '/platform_manifest_' . uniqid('', true);
+    mkdir($archiveRoot, 0777, true);
+
+    $builder = new PlatformBuilder();
+    $method = (new ReflectionClass($builder))->getMethod('writeManifest');
+    $method->setAccessible(true);
+    $method->invoke($builder, $archiveRoot, ['name' => '1.0.0', 'code' => 1], 2, false, [], [], []);
+
+    expect(is_file($archiveRoot . '/storage/BUILD.json'))->toBeTrue()
+        ->and(is_file($archiveRoot . '/BUILD.json'))->toBeFalse();
 });
 
 it('includes htaccess files in platform payload selection', function () {

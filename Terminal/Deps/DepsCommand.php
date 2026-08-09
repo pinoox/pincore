@@ -7,6 +7,7 @@ use Pinoox\Component\Deps\DependencyInstaller;
 use Pinoox\Component\Deps\DependencyRunResult;
 use Pinoox\Component\Deps\DependencyScanner;
 use Pinoox\Component\Deps\DependencyTarget;
+use Pinoox\Component\Helpers\ConsoleApplication as ConsoleApplicationHelper;
 use Pinoox\Component\Template\Frontend\ThemeFrontendDevTarget;
 use Pinoox\Component\Terminal;
 use Pinoox\Terminal\Concerns\SelectsPackage;
@@ -81,7 +82,8 @@ HELP
         parent::execute($input, $output);
 
         $io = new SymfonyStyle($input, $output);
-        $presenter = new DepsConsolePresenter($io, $output, (bool) $input->getOption('plain'));
+        $plain = (bool) $input->getOption('plain') || ConsoleApplicationHelper::prefersAsciiUi();
+        $presenter = new DepsConsolePresenter($io, $output, $plain);
         $action = strtolower(trim((string) $input->getArgument('action')));
 
         if ($action === '') {
