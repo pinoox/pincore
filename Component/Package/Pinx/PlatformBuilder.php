@@ -92,7 +92,6 @@ final class PlatformBuilder
                     $projectRoot,
                     $archiveRoot,
                     $build['vendor_prune'],
-                    $build['strip_require_dev'],
                 );
             }
 
@@ -223,7 +222,6 @@ final class PlatformBuilder
         string $projectRoot,
         string $archiveRoot,
         bool $vendorPrune = true,
-        bool $stripRequireDev = true,
     ): array {
         $prepared = [];
         $appsRoot = rtrim(str_replace('\\', '/', $projectRoot), '/') . '/apps';
@@ -247,43 +245,29 @@ final class PlatformBuilder
                 continue;
             }
 
-            $result = AppComposerVendor::prepare($appPath, $projectRoot);
+            try {
+                $result = AppComposerVendor::prepare($appPath, $projectRoot, $vendorPrune);
 
-            if (!$result['prepared'] || !is_string($result['vendor_dir'])) {
-                continue;
-            }
+                if (!$result['prepared'] || !is_string($result['vendor_dir'])) {
+                    continue;
+                }
 
-            $sourceVendor = $appPath . '/' . $result['vendor_dir'];
-            $targetVendor = $archiveRoot . '/apps/' . $entry . '/vendor';
+                $sourceVendor = $appPath . '/' . $result['vendor_dir'];
+                $targetVendor = $archiveRoot . '/apps/' . $entry . '/vendor';
 
-            if (is_dir($sourceVendor)) {
-                $excludedDevPaths = $stripRequireDev
-                    ? ComposerVendorGuard::installedDevVendorPaths($appPath)
-                    : [];
+                if (!is_dir($sourceVendor)) {
+                    continue;
+                }
 
-                ComposerVendorGuard::copyVendorTree($sourceVendor, $targetVendor, $vendorPrune, $excludedDevPaths);
+                ComposerVendorGuard::copyVendorTree($sourceVendor, $targetVendor, false, []);
 
                 if ($vendorPrune) {
                     VendorPruner::prune($targetVendor);
                 }
 
-                if ($stripRequireDev && $excludedDevPaths !== []) {
-                    $excludedDevPackages = ComposerVendorGuard::installedDevPackageNames($appPath);
-                    ComposerVendorGuard::pruneInstalledMetadata($targetVendor, $excludedDevPackages);
-
-                    if (AppComposerVendor::hasComposerJson($appPath)) {
-                        ComposerVendorGuard::regenerateProductionAutoload(
-                            $archiveRoot . '/apps/' . $entry,
-                            PlatformComposer::distributionComposerForApp(
-                                AppComposerVendor::composerJsonPath($appPath),
-                                true,
-                            ),
-                            $projectRoot,
-                        );
-                    }
-                }
-
                 $prepared[] = $entry;
+            } finally {
+                AppComposerVendor::cleanup($appPath);
             }
         }
 

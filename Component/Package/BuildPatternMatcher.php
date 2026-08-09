@@ -200,7 +200,16 @@ final class BuildPatternMatcher
                 continue;
             }
 
-            $normalized[] = ltrim($pattern, '!');
+            $pattern = ltrim($pattern, '!');
+            $normalized[] = $pattern;
+
+            if (
+                !str_contains($pattern, '*')
+                && !str_contains($pattern, '?')
+                && !str_contains(basename($pattern), '.')
+            ) {
+                $normalized[] = rtrim($pattern, '/') . '/**';
+            }
         }
 
         return array_values(array_unique($normalized));

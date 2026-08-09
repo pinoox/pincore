@@ -73,7 +73,7 @@ class PinxBuilder
         $composerPackages = [];
 
         if ($build['type'] === PinxManifest::TYPE_APP && $build['composer'] && AppComposerVendor::hasComposerJson($packagePath)) {
-            $this->reportProgress($options, 'composer', 'Validating app Composer vendor...', 10);
+            $this->reportProgress($options, 'composer', 'Preparing app Composer vendor...', 10);
             $composerResult = AppComposerVendor::prepare($packagePath);
 
             if ($composerResult['prepared'] && is_string($composerResult['vendor_dir'])) {
@@ -86,19 +86,25 @@ class PinxBuilder
             }
         }
 
-        return $this->finalizeBuild(
-            $package,
-            $packagePath,
-            $sourcePath,
-            $build,
-            $manifest,
-            $appConfig,
-            $outputPath,
-            $alwaysInclude,
-            $composerPrepared,
-            $composerPackages,
-            $options,
-        );
+        try {
+            return $this->finalizeBuild(
+                $package,
+                $packagePath,
+                $sourcePath,
+                $build,
+                $manifest,
+                $appConfig,
+                $outputPath,
+                $alwaysInclude,
+                $composerPrepared,
+                $composerPackages,
+                $options,
+            );
+        } finally {
+            if ($composerPrepared) {
+                AppComposerVendor::cleanup($packagePath);
+            }
+        }
     }
 
     /**

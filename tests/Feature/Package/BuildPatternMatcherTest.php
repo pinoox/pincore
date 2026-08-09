@@ -19,6 +19,22 @@ it('matches gitignore-style exclude patterns in build matcher', function () {
         ->and($matcher->isExcluded('index.php'))->toBeFalse();
 });
 
+it('expands directory include names to cover nested files', function () {
+    $matcher = new BuildPatternMatcher('/project', [
+        'platform',
+        'platform/**',
+        'storage',
+        'storage/**',
+    ], [
+        'platform',
+        'storage',
+    ]);
+
+    expect($matcher->isExcluded('platform/apps.config.php'))->toBeFalse()
+        ->and($matcher->isExcluded('storage/logs/app.log'))->toBeFalse()
+        ->and($matcher->isExcluded('Controller/Home.php'))->toBeFalse();
+});
+
 it('applies include patterns as gitignore negation rules', function () {
     $matcher = new BuildPatternMatcher('/project', [
         '/apps/*',

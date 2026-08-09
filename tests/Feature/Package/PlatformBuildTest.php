@@ -534,6 +534,158 @@ PHP);
     expect(PlatformBuildConfig::resolve($root)['vendor_prune'])->toBeFalse();
 });
 
+it('omits pincore pinx-cli php and extensions from app distribution requires', function () {
+    $root = sys_get_temp_dir() . '/app_dist_requires_' . uniqid('', true);
+    mkdir($root, 0777, true);
+    file_put_contents($root . '/composer.json', json_encode([
+        'name' => 'pinoox/orbit',
+        'require' => [
+            'php' => '^8.2',
+            'ext-zip' => '*',
+            'pinoox/pincore' => '^3.1',
+            'monolog/monolog' => '^3.0',
+        ],
+        'require-dev' => [
+            'pinoox/pinx-cli' => '^1.2',
+            'pinoox/devdb' => '^1.0',
+        ],
+    ]));
+
+    expect(AppComposerVendor::distributionRequires($root))
+        ->toBe(['monolog/monolog' => '^3.0'])
+        ->and(AppComposerVendor::hasDistributionRequires($root))->toBeTrue();
+});
+
+it('materializes app vendor without pincore or require-dev packages', function () {
+    $root = sys_get_temp_dir() . '/app_vendor_slim_' . uniqid('', true);
+    mkdir($root . '/vendor/composer', 0777, true);
+    mkdir($root . '/vendor/monolog/monolog/src', 0777, true);
+    mkdir($root . '/vendor/psr/log/src', 0777, true);
+    mkdir($root . '/vendor/pinoox/pincore/Component', 0777, true);
+    mkdir($root . '/vendor/pinoox/pinx-cli/src', 0777, true);
+    mkdir($root . '/vendor/pinoox/devdb/src', 0777, true);
+    file_put_contents($root . '/composer.json', json_encode([
+        'name' => 'pinoox/orbit',
+        'require' => [
+            'php' => '^8.2',
+            'pinoox/pincore' => '^3.1',
+            'monolog/monolog' => '^3.0',
+        ],
+        'require-dev' => [
+            'pinoox/pinx-cli' => '^1.2',
+            'pinoox/devdb' => '^1.0',
+        ],
+    ]));
+    file_put_contents($root . '/vendor/autoload.php', '<?php');
+    file_put_contents($root . '/vendor/monolog/monolog/src/Logger.php', '<?php');
+    file_put_contents($root . '/vendor/psr/log/src/LoggerInterface.php', '<?php');
+    file_put_contents($root . '/vendor/pinoox/pincore/Component/Kernel.php', '<?php');
+    file_put_contents($root . '/vendor/pinoox/pinx-cli/src/Pinx.php', '<?php');
+    file_put_contents($root . '/vendor/pinoox/devdb/src/DevDb.php', '<?php');
+    file_put_contents($root . '/vendor/composer/installed.json', json_encode([
+        'packages' => [
+            [
+                'name' => 'monolog/monolog',
+                'require' => ['php' => '>=8.1', 'psr/log' => '^2 || ^3'],
+                'install-path' => '../monolog/monolog',
+            ],
+            [
+                'name' => 'psr/log',
+                'require' => ['php' => '>=8.0'],
+                'install-path' => '../psr/log',
+            ],
+            [
+                'name' => 'pinoox/pincore',
+                'require' => ['php' => '^8.2'],
+                'install-path' => '../pinoox/pincore',
+            ],
+            [
+                'name' => 'pinoox/pinx-cli',
+                'require' => ['php' => '^8.2'],
+                'install-path' => '../pinoox/pinx-cli',
+            ],
+            [
+                'name' => 'pinoox/devdb',
+                'require' => ['php' => '^8.2'],
+                'install-path' => '../pinoox/devdb',
+            ],
+        ],
+        'dev' => true,
+        'dev-package-names' => ['pinoox/pinx-cli', 'pinoox/devdb'],
+    ]));
+    file_put_contents($root . '/vendor/composer/installed.php', <<<'PHP'
+<?php return [
+    'root' => ['dev' => true],
+    'versions' => [
+        'monolog/monolog' => [
+            'pretty_version' => '3.0.0',
+            'version' => '3.0.0.0',
+            'reference' => 'abc',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../monolog/monolog',
+            'aliases' => [],
+            'dev_requirement' => false,
+        ],
+        'psr/log' => [
+            'pretty_version' => '3.0.0',
+            'version' => '3.0.0.0',
+            'reference' => 'def',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../psr/log',
+            'aliases' => [],
+            'dev_requirement' => false,
+        ],
+        'pinoox/pincore' => [
+            'pretty_version' => '3.9.0',
+            'version' => '3.9.0.0',
+            'reference' => 'ghi',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../pinoox/pincore',
+            'aliases' => [],
+            'dev_requirement' => false,
+        ],
+        'pinoox/pinx-cli' => [
+            'pretty_version' => '1.0.0',
+            'version' => '1.0.0.0',
+            'reference' => 'jkl',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../pinoox/pinx-cli',
+            'aliases' => [],
+            'dev_requirement' => true,
+        ],
+        'pinoox/devdb' => [
+            'pretty_version' => '1.0.0',
+            'version' => '1.0.0.0',
+            'reference' => 'mno',
+            'type' => 'library',
+            'install_path' => __DIR__ . '/../pinoox/devdb',
+            'aliases' => [],
+            'dev_requirement' => true,
+        ],
+    ],
+];
+PHP);
+
+    expect(AppComposerVendor::distributionPackageNames($root))
+        ->toBe(['monolog/monolog', 'psr/log'])
+        ->and(AppComposerVendor::excludedDistributionVendorPaths($root))
+        ->toContain('pinoox/pincore')
+        ->toContain('pinoox/pinx-cli')
+        ->toContain('pinoox/devdb');
+
+    $result = AppComposerVendor::materializeDistributionVendor($root);
+    $vendor = AppComposerVendor::distributionVendorPath($root);
+
+    expect($result['packages'])->toBe(['monolog/monolog'])
+        ->and(is_file($vendor . '/monolog/monolog/src/Logger.php'))->toBeTrue()
+        ->and(is_file($vendor . '/psr/log/src/LoggerInterface.php'))->toBeTrue()
+        ->and(is_file($vendor . '/pinoox/pincore/Component/Kernel.php'))->toBeFalse()
+        ->and(is_file($vendor . '/pinoox/pinx-cli/src/Pinx.php'))->toBeFalse()
+        ->and(is_file($vendor . '/pinoox/devdb/src/DevDb.php'))->toBeFalse();
+
+    AppComposerVendor::cleanup($root);
+});
+
 it('requires composer vendor before app pinx build', function () {
     $root = sys_get_temp_dir() . '/app_vendor_guard_' . uniqid('', true);
     mkdir($root, 0777, true);
