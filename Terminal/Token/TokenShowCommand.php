@@ -67,6 +67,7 @@ HELP
         $io->definitionList(
             ['Package context' => $package],
             ['Key' => (string) $row['token_key']],
+            ['Type' => (string) ($token->token_type ?: 'auth')],
             ['Name' => (string) ($token->token_name ?: '—')],
             ['User id' => (string) ($token->user_id ?: '—')],
             ['App scope' => (string) ($token->app ?: '—')],

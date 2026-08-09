@@ -14,6 +14,7 @@
 
 namespace Pinoox\Model;
 
+use Illuminate\Database\Eloquent\Builder;
 use Pinoox\Component\Database\Model;
 use Pinoox\Component\Transport\TransportConfig;
 use Pinoox\Component\Transport\TransportRuntime;
@@ -24,6 +25,11 @@ use Pinoox\Portal\Url;
 
 class TokenModel extends Model
 {
+    public const TYPE_AUTH = 'auth';
+    public const TYPE_RESET = 'reset';
+    public const TYPE_VERIFY = 'verify';
+    public const TYPE_API = 'api';
+
     public $incrementing = true;
     public $primaryKey = 'token_id';
     protected $table = Table::TOKEN;
@@ -32,6 +38,7 @@ class TokenModel extends Model
     protected $fillable = [
         'token_key',
         'token_name',
+        'token_type',
         'token_data',
         'user_id',
         'remote_url',
@@ -56,6 +63,9 @@ class TokenModel extends Model
             $token->user_id = $token->user_id ?? User::get('user_id');
             $token->ip = $token->ip ?? Url::clientIp();
             $token->user_agent = $token->user_agent ?? Url::userAgent();
+            if (empty($token->token_type)) {
+                $token->token_type = self::TYPE_AUTH;
+            }
         });
 
         self::addAppGlobalScope();
@@ -69,6 +79,11 @@ class TokenModel extends Model
     public static function getPackage(): string
     {
         return TransportConfig::package(TransportScenario::SESSION_TOKEN);
+    }
+
+    public function scopeOfType(Builder $query, string $type): Builder
+    {
+        return $query->where('token_type', $type);
     }
 
     private static function addAppGlobalScope(): void

@@ -30,13 +30,14 @@ Create a session token in the current token scope.
 
 Examples:
   php pinoox token:create com_pinoox_manager --user=admin
-  php pinoox token:create --user=admin --name="API access" --lifetime=7 --unit=day
+  php pinoox token:create --user=admin --name="API access" --type=api --lifetime=7 --unit=day
   php pinoox token:create --user=1 --data='{"scope":"api"}'
 HELP
             )
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
             ->addOption('user', 'u', InputOption::VALUE_REQUIRED, 'User id, username, or email')
             ->addOption('name', null, InputOption::VALUE_REQUIRED, 'Token label')
+            ->addOption('type', 't', InputOption::VALUE_REQUIRED, 'Token type: auth, reset, verify, api, or custom (default: auth)', 'auth')
             ->addOption('data', null, InputOption::VALUE_REQUIRED, 'Scalar payload stored as {"value": "..."}')
             ->addOption('json', null, InputOption::VALUE_REQUIRED, 'Token data as JSON object')
             ->addOption('lifetime', 'l', InputOption::VALUE_REQUIRED, 'Lifetime amount (default: 30)', '30')
@@ -61,12 +62,14 @@ HELP
             );
             $name = trim((string) ($input->getOption('name') ?: ''));
             $customKey = trim((string) ($input->getOption('key') ?: ''));
+            $type = $this->resolveTokenType(is_string($input->getOption('type')) ? $input->getOption('type') : null);
 
             $token = $this->createToken(
                 $data,
                 $userId,
                 $name !== '' ? $name : null,
                 $customKey !== '' ? $customKey : null,
+                $type,
             );
             $tokenKey = (string) $token->token_key;
         } catch (\InvalidArgumentException|\RuntimeException $e) {
@@ -94,6 +97,7 @@ HELP
 
         $io->definitionList(
             ['Token key' => $tokenKey],
+            ['Type' => (string) ($token->token_type ?: 'auth')],
             ['Name' => (string) ($token->token_name ?: '—')],
             ['Expires' => $this->formatExpiration($token)],
         );

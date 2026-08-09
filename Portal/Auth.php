@@ -49,6 +49,7 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * @method static bool setStatus(int $userId, string $status)
  * @method static bool remove(int $userId)
  * @method static int revokeSessions(int $userId)
+ * @method static int revokeTokens(int $userId, ?string $type = null)
  * @method static mixed meta(?string $key = null)
  * @method static bool setMeta(array|string $key, mixed $value = null)
  * @method static array profileRules(int $userId)
