@@ -190,17 +190,25 @@ class MigrationQuery
             return self::tableExists();
         }
 
-        if (str_contains($migration, 'create_access_tables')) {
-            return self::physicalTableExists(Table::ROLE);
-        }
-
         $name = preg_replace('/^\d{4}_\d{2}_\d{2}_\d{6}_/', '', $migration) ?? $migration;
 
-        if (preg_match('/^create_(.+)_table$/', $name, $matches)) {
-            return self::physicalTableExists($matches[1]);
+        if (!str_starts_with($name, 'create_')) {
+            return false;
         }
 
-        return false;
+        $tables = MigrationNameParser::extractTableNames($migration);
+
+        if ($tables === []) {
+            return false;
+        }
+
+        foreach ($tables as $table) {
+            if (!self::physicalTableExists($table)) {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     private static function physicalTableExists(string $table): bool

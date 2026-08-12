@@ -45,6 +45,8 @@ class MigrationNameParser
      * @var list<array{pattern: string, type: string}>
      */
     private const TABLE_NAME_PATTERNS = [
+        // Multi-table: create_role_and_permission_tables (requires at least one _and_)
+        ['pattern' => '/^create_(.+_and_.+)_tables$/', 'type' => self::TYPE_CREATE],
         ['pattern' => '/^create_(.+)_table$/', 'type' => self::TYPE_CREATE],
         ['pattern' => '/^drop_.+_from_(.+)$/', 'type' => self::TYPE_UPDATE],
         ['pattern' => '/^remove_.+_from_(.+)$/', 'type' => self::TYPE_UPDATE],
@@ -57,7 +59,18 @@ class MigrationNameParser
         ['pattern' => '/^.+_(?:to|from|in)_(.+)$/', 'type' => self::TYPE_UPDATE],
     ];
 
+    private const MULTI_CREATE_PATTERN = '/^create_(.+_and_.+)_tables$/';
+
     private const SHORT_CREATE_PATTERN = '/^create_(.+)$/';
+
+    /**
+     * Named multi-table migrations that do not list every table in the filename.
+     *
+     * @var array<string, list<string>>
+     */
+    private const MULTI_TABLE_ALIASES = [
+        'create_access_tables' => ['role', 'permission', 'role_permission', 'user_role'],
+    ];
 
     /**
      * Parse a CLI migration name into stub type, table, and snake file basename.
@@ -89,9 +102,18 @@ class MigrationNameParser
         $guessed = self::guess($snakeName, true);
 
         if ($guessed['type'] === self::TYPE_CREATE && is_string($guessed['table']) && $guessed['table'] !== '') {
-            $fileName = str_ends_with($snakeName, '_table')
-                ? $snakeName
-                : 'create_' . $guessed['table'] . '_table';
+            $multiTables = $guessed['tables'] ?? [];
+            if (isset(self::MULTI_TABLE_ALIASES[$snakeName])) {
+                $fileName = $snakeName;
+            } elseif (count($multiTables) >= 2) {
+                $fileName = preg_match(self::MULTI_CREATE_PATTERN, $snakeName) === 1
+                    ? $snakeName
+                    : 'create_' . implode('_and_', $multiTables) . '_tables';
+            } else {
+                $fileName = str_ends_with($snakeName, '_table')
+                    ? $snakeName
+                    : 'create_' . $guessed['table'] . '_table';
+            }
 
             return [
                 'type' => self::TYPE_CREATE,
@@ -130,7 +152,29 @@ class MigrationNameParser
      */
     public static function guess(string $snakeName, bool $includeShortCreate = false): array
     {
+        $aliasTables = self::MULTI_TABLE_ALIASES[$snakeName] ?? null;
+        if (is_array($aliasTables) && $aliasTables !== []) {
+            return [
+                'type' => self::TYPE_CREATE,
+                'table' => $aliasTables[0],
+                'tables' => $aliasTables,
+            ];
+        }
+
+        $tables = self::parseMultiCreateTables($snakeName);
+        if ($tables !== []) {
+            return [
+                'type' => self::TYPE_CREATE,
+                'table' => $tables[0],
+                'tables' => $tables,
+            ];
+        }
+
         foreach (self::TABLE_NAME_PATTERNS as $definition) {
+            if ($definition['pattern'] === self::MULTI_CREATE_PATTERN) {
+                continue;
+            }
+
             if (preg_match($definition['pattern'], $snakeName, $matches) !== 1) {
                 continue;
             }
@@ -144,6 +188,7 @@ class MigrationNameParser
             return [
                 'type' => $definition['type'],
                 'table' => $table,
+                'tables' => [$table],
             ];
         }
 
@@ -153,6 +198,7 @@ class MigrationNameParser
                 return [
                     'type' => self::TYPE_CREATE,
                     'table' => $table,
+                    'tables' => [$table],
                 ];
             }
         }
@@ -160,6 +206,7 @@ class MigrationNameParser
         return [
             'type' => self::TYPE_BLANK,
             'table' => null,
+            'tables' => [],
         ];
     }
 
@@ -168,6 +215,41 @@ class MigrationNameParser
         $clean = preg_replace(self::TIMESTAMP_PATTERN, '', $fileName) ?? $fileName;
 
         return self::guess(self::toSnakeCase($clean))['table'];
+    }
+
+    /**
+     * All logical tables declared by a migration filename (multi-table create_*_and_*_tables).
+     *
+     * @return list<string>
+     */
+    public static function extractTableNames(string $fileName): array
+    {
+        $clean = preg_replace(self::TIMESTAMP_PATTERN, '', $fileName) ?? $fileName;
+        $guessed = self::guess(self::toSnakeCase($clean));
+
+        return $guessed['tables'] ?? ($guessed['table'] !== null ? [$guessed['table']] : []);
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function parseMultiCreateTables(string $snakeName): array
+    {
+        if (preg_match(self::MULTI_CREATE_PATTERN, $snakeName, $matches) !== 1) {
+            return [];
+        }
+
+        $parts = explode('_and_', $matches[1]);
+        $tables = [];
+
+        foreach ($parts as $part) {
+            $table = self::normalizeTable($part);
+            if ($table !== null) {
+                $tables[] = $table;
+            }
+        }
+
+        return count($tables) >= 2 ? array_values(array_unique($tables)) : [];
     }
 
     public static function toSnakeCase(string $value): string
