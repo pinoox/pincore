@@ -59,7 +59,9 @@ return function (AppRegister $register): void {
     // --- Events ---
     // Default: classes in Event/ and Listener/ are auto-registered (no boot.php needed).
     // app.php: 'events' => true | false | ['discover' => false, 'listen' => [...], 'subscribe' => [...]]
-    // Helpers: event(OrderPlaced::class, $id); event_listen(OrderPlaced::class, SendOrderEmail::class);
+    // Helpers: event(OrderPlaced::class, $id); event('order.register', ['id' => 1]);
+    //           event_listen(OrderPlaced::class, SendOrderEmail::class);
+    //           event_listen('order.register', function (NamedEvent $event) {});
     // Extra / custom:
     // $register->listen(OrderPlaced::class, SendOrderEmail::class);
     // $register->listen(function (OrderPlaced $event) {});

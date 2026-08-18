@@ -32,6 +32,10 @@ final class EventName
      */
     public static function of(object $event): ?string
     {
+        if ($event instanceof NamedEvent) {
+            return $event->name();
+        }
+
         $class = $event::class;
 
         if (is_callable([$class, 'eventName'])) {

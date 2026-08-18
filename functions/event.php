@@ -1,15 +1,17 @@
 <?php
 
 use Pinoox\Component\Event\EventName;
+use Pinoox\Component\Event\NamedEvent;
 use Pinoox\Portal\Event;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 if (!function_exists('event')) {
     /**
-     * Dispatch an event.
+     * Dispatch an event class, instance, or string name with an optional payload.
      *
      *     event(new OrderPlaced($id));
      *     event(OrderPlaced::class, $id);
+     *     event('order.register', ['id' => 12, 'user_id' => 4]);
      */
     function event(object|string $event, mixed ...$payload): object
     {
@@ -17,13 +19,15 @@ if (!function_exists('event')) {
             return Event::dispatch($event, EventName::of($event));
         }
 
-        if (!class_exists($event)) {
-            throw new InvalidArgumentException(sprintf('Event class [%s] does not exist.', $event));
+        if (class_exists($event)) {
+            $instance = new $event(...$payload);
+
+            return Event::dispatch($instance, EventName::resolve($event));
         }
 
-        $instance = new $event(...$payload);
+        $named = NamedEvent::from($event, ...$payload);
 
-        return Event::dispatch($instance, EventName::resolve($event));
+        return Event::dispatch($named, $event);
     }
 }
 
@@ -33,6 +37,7 @@ if (!function_exists('event_listen')) {
      *
      *     event_listen(OrderPlaced::class, SendOrderEmail::class);
      *     event_listen(function (OrderPlaced $event) {});
+     *     event_listen('order.register', function (NamedEvent $event) {});
      */
     function event_listen(string|callable $event, callable|array|string|null $listener = null, int $priority = 0): void
     {
