@@ -113,11 +113,24 @@ class AppRegister
     }
 
     /**
-     * @param class-string|string $event Event class or dispatcher name
-     * @param callable|array|class-string $listener
+     * @param class-string|string|callable $event Event class, dispatcher name, or type-hinted closure
+     * @param callable|array|class-string|null $listener
      */
-    public function listen(string $event, callable|array|string $listener, int $priority = 0): self
+    public function listen(string|callable $event, callable|array|string|null $listener = null, int $priority = 0): self
     {
+        if (is_callable($event) && $listener === null) {
+            $types = \Pinoox\Component\Event\EventListener::eventTypesFromCallable($event);
+            foreach ($types as $type) {
+                $this->collector->listeners[] = [$type, $event, $priority];
+            }
+
+            return $this;
+        }
+
+        if (!is_string($event) || $listener === null) {
+            return $this;
+        }
+
         $this->collector->listeners[] = [$event, $listener, $priority];
 
         return $this;

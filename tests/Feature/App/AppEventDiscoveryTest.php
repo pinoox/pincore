@@ -11,6 +11,7 @@ beforeEach(function () {
 
 afterEach(function () {
     AppBootstrap::resetState();
+    EventPortal::dontFake();
 });
 
 it('auto-discovers a Listener handle method without boot.php', function () {
@@ -111,6 +112,28 @@ it('registers explicit listen map from app.php', function () {
     $eventClass::dispatch(21);
 
     expect($listenerClass::$seen)->toBe(21);
+
+    deleteFakeApp($package);
+});
+
+it('auto-discovers handle* methods from the event type hint', function () {
+    $package = 'com_evt_handle_' . bin2hex(random_bytes(3));
+    $eventClass = 'App\\' . $package . '\\Event\\OrderPlaced';
+    $listenerClass = 'App\\' . $package . '\\Listener\\OrderListener';
+
+    fakeApp($package, [
+        'app.php' => appEventDxManifest($package),
+        'Event/OrderPlaced.php' => appEventDxEventFile($package),
+        'Listener/OrderListener.php' => appEventDxPrefixedHandleListenerFile($package),
+    ]);
+
+    AppBootstrap::markKernelReady();
+    AppBootstrap::ensure($package, true);
+
+    $listenerClass::$seen = null;
+    $eventClass::dispatch(13);
+
+    expect($listenerClass::$seen)->toBe(13);
 
     deleteFakeApp($package);
 });
@@ -224,6 +247,27 @@ class OrderListener
 
     #[ListensTo(OrderPlaced::class)]
     public function onPlaced(OrderPlaced \$event): void
+    {
+        self::\$seen = \$event->id;
+    }
+}
+PHP;
+}
+
+function appEventDxPrefixedHandleListenerFile(string $package): string
+{
+    return <<<PHP
+<?php
+
+namespace App\\{$package}\\Listener;
+
+use App\\{$package}\\Event\\OrderPlaced;
+
+class OrderListener
+{
+    public static ?int \$seen = null;
+
+    public function handleOrderPlaced(OrderPlaced \$event): void
     {
         self::\$seen = \$event->id;
     }

@@ -26,4 +26,25 @@ final class EventName
 
         return $event;
     }
+
+    /**
+     * Dispatcher name for an event instance (null lets Symfony use the class name).
+     */
+    public static function of(object $event): ?string
+    {
+        $class = $event::class;
+
+        if (is_callable([$class, 'eventName'])) {
+            $name = $class::eventName();
+            if (is_string($name) && $name !== '') {
+                return $name;
+            }
+        }
+
+        if (isset($class::$eventName) && is_string($class::$eventName) && $class::$eventName !== '') {
+            return $class::$eventName;
+        }
+
+        return null;
+    }
 }

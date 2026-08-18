@@ -2,7 +2,13 @@
 
 namespace Pinoox\Component\Event;
 
+use Closure;
 use InvalidArgumentException;
+use ReflectionFunction;
+use ReflectionFunctionAbstract;
+use ReflectionMethod;
+use ReflectionNamedType;
+use ReflectionUnionType;
 
 /**
  * Turn class names / [class, method] into callables for the dispatcher.
@@ -46,6 +52,86 @@ final class EventListener
         }
 
         throw new InvalidArgumentException('Event listener must be a callable, class name, or [class, method].');
+    }
+
+    /**
+     * @return list<class-string>
+     */
+    public static function eventTypesFromCallable(callable $listener): array
+    {
+        try {
+            $ref = self::reflectCallable($listener);
+        } catch (\Throwable) {
+            return [];
+        }
+
+        return $ref !== null ? self::eventTypesOf($ref) : [];
+    }
+
+    /**
+     * @return list<class-string>
+     */
+    public static function eventTypesOf(ReflectionFunctionAbstract $method): array
+    {
+        $params = $method->getParameters();
+        if ($params === []) {
+            return [];
+        }
+
+        $type = $params[0]->getType();
+        if ($type instanceof ReflectionNamedType) {
+            return self::namedEventType($type);
+        }
+
+        if ($type instanceof ReflectionUnionType) {
+            $names = [];
+            foreach ($type->getTypes() as $inner) {
+                if ($inner instanceof ReflectionNamedType) {
+                    $names = array_merge($names, self::namedEventType($inner));
+                }
+            }
+
+            return array_values(array_unique($names));
+        }
+
+        return [];
+    }
+
+    /**
+     * @return list<class-string>
+     */
+    private static function namedEventType(ReflectionNamedType $type): array
+    {
+        if ($type->isBuiltin()) {
+            return [];
+        }
+
+        $name = $type->getName();
+
+        return $name !== '' ? [$name] : [];
+    }
+
+    private static function reflectCallable(callable $listener): ?ReflectionFunctionAbstract
+    {
+        if ($listener instanceof Closure) {
+            return new ReflectionFunction($listener);
+        }
+
+        if (is_array($listener) && isset($listener[0], $listener[1])) {
+            return new ReflectionMethod($listener[0], $listener[1]);
+        }
+
+        if (is_object($listener)) {
+            return new ReflectionMethod($listener, '__invoke');
+        }
+
+        if (is_string($listener) && str_contains($listener, '::')) {
+            [$class, $method] = explode('::', $listener, 2);
+
+            return new ReflectionMethod($class, $method);
+        }
+
+        return null;
     }
 
     /**

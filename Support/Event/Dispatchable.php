@@ -33,6 +33,16 @@ trait Dispatchable
         return Event::dispatch($instance, static::eventName());
     }
 
+    public static function dispatchIf(bool $condition, ...$arguments): ?object
+    {
+        return $condition ? static::dispatch(...$arguments) : null;
+    }
+
+    public static function dispatchUnless(bool $condition, ...$arguments): ?object
+    {
+        return !$condition ? static::dispatch(...$arguments) : null;
+    }
+
     public static function subDispatch(string $subname, ...$arguments): object
     {
         $instance = new static(...$arguments);

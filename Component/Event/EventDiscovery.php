@@ -7,7 +7,6 @@ use Pinoox\Portal\App\AppEngine;
 use Pinoox\Support\Event\ListensTo;
 use ReflectionClass;
 use ReflectionMethod;
-use ReflectionNamedType;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\Finder\Finder;
 use Throwable;
@@ -186,7 +185,7 @@ final class EventDiscovery
             return;
         }
 
-        $bound = false;
+        $attributed = [];
 
         foreach ($ref->getAttributes(ListensTo::class) as $attribute) {
             $meta = $attribute->newInstance();
@@ -196,7 +195,7 @@ final class EventDiscovery
             }
 
             $register->listen($meta->event, [$class, $method], $meta->priority);
-            $bound = true;
+            $attributed[$method] = true;
         }
 
         foreach ($ref->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
@@ -207,25 +206,30 @@ final class EventDiscovery
             foreach ($method->getAttributes(ListensTo::class) as $attribute) {
                 $meta = $attribute->newInstance();
                 $register->listen($meta->event, [$class, $method->getName()], $meta->priority);
-                $bound = true;
+                $attributed[$method->getName()] = true;
             }
         }
 
-        if ($bound) {
-            return;
-        }
+        foreach ($ref->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
+            if ($method->isStatic() || $method->isConstructor() || $method->isDestructor()) {
+                continue;
+            }
 
-        $method = self::defaultMethodName($ref);
-        if ($method === null) {
-            return;
-        }
+            if (isset($attributed[$method->getName()]) || !self::isHandlerMethod($method)) {
+                continue;
+            }
 
-        $event = self::eventTypeOf($ref->getMethod($method));
-        if ($event === null) {
-            return;
+            foreach (EventListener::eventTypesOf($method) as $event) {
+                $register->listen($event, [$class, $method->getName()]);
+            }
         }
+    }
 
-        $register->listen($event, [$class, $method]);
+    private static function isHandlerMethod(ReflectionMethod $method): bool
+    {
+        $name = $method->getName();
+
+        return $name === '__invoke' || str_starts_with($name, 'handle');
     }
 
     private static function defaultMethodName(ReflectionClass $ref): ?string
@@ -245,23 +249,6 @@ final class EventDiscovery
         }
 
         return null;
-    }
-
-    private static function eventTypeOf(ReflectionMethod $method): ?string
-    {
-        $params = $method->getParameters();
-        if ($params === []) {
-            return null;
-        }
-
-        $type = $params[0]->getType();
-        if (!$type instanceof ReflectionNamedType || $type->isBuiltin()) {
-            return null;
-        }
-
-        $name = $type->getName();
-
-        return $name !== '' ? $name : null;
     }
 
     private static function loadDirectory(string $package, string $folder): void
