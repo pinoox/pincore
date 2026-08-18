@@ -75,6 +75,8 @@ class AppCreateScaffolder
             "{$this->appDir}/routes",
             "{$this->appDir}/Flow",
             "{$this->appDir}/Model",
+            "{$this->appDir}/Event",
+            "{$this->appDir}/Listener",
             "{$this->appDir}/Component",
             "{$this->appDir}/Portal",
             "{$this->appDir}/lang/en",

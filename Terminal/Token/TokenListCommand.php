@@ -34,11 +34,13 @@ Examples:
   php pinoox token:list
   php pinoox token:list com_pinoox_manager
   php pinoox token:list --user=admin --active
+  php pinoox token:list --type=auth
   php pinoox token:list --expired
 HELP
             )
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
             ->addOption('user', 'u', InputOption::VALUE_REQUIRED, 'Filter by user id, username, or email')
+            ->addOption('type', 't', InputOption::VALUE_REQUIRED, 'Filter by token type (auth, reset, verify, api, …)')
             ->addOption('active', null, InputOption::VALUE_NONE, 'Show only active (non-expired) tokens')
             ->addOption('expired', null, InputOption::VALUE_NONE, 'Show only expired tokens')
             ->addOption('json', null, InputOption::VALUE_NONE, 'Output JSON');
@@ -64,6 +66,11 @@ HELP
             }
 
             $query->where('user_id', $user->user_id);
+        }
+
+        $typeFilter = trim((string) ($input->getOption('type') ?: ''));
+        if ($typeFilter !== '') {
+            $query->ofType($typeFilter);
         }
 
         $now = now()->format('Y-m-d H:i:s');
@@ -96,11 +103,12 @@ HELP
         $io->title('Tokens — ' . $package);
 
         $table = new Table($output);
-        $table->setHeaders(['ID', 'Key', 'Name', 'User', 'IP', 'Expires', 'Status']);
+        $table->setHeaders(['ID', 'Key', 'Type', 'Name', 'User', 'IP', 'Expires', 'Status']);
         foreach ($tokens as $token) {
             $table->addRow([
                 $token->token_id,
                 $this->maskTokenKey((string) $token->token_key),
+                $token->token_type ?: TokenModel::TYPE_AUTH,
                 $token->token_name ?: '—',
                 $token->user_id ?: '—',
                 $token->ip ?: '—',

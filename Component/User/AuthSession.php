@@ -289,7 +289,7 @@ class AuthSession
         if ($newKey) {
             $token_key = null;
         }
-        $token_key = Token::generate($user->toArray(), self::$user_session_key, $user_id, $token_key);
+        $token_key = Token::generate($user->toArray(), self::$user_session_key, $user_id, $token_key, TokenModel::TYPE_AUTH);
         self::setClientToken($token_key, $remember);
         self::$user = null;
     }

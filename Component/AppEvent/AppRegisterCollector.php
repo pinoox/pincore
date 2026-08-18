@@ -25,7 +25,7 @@ class AppRegisterCollector
     /** @var list<array<string, mixed>> */
     public array $graphqlManifests = [];
 
-    /** @var list<array{0: string, 1: callable, 2: int}> */
+    /** @var list<array{0: string, 1: callable|array|string, 2: int}> */
     public array $listeners = [];
 
     /** @var list<class-string> */

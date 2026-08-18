@@ -20,11 +20,18 @@ use Pinoox\Portal\App\App;
 use Pinoox\Portal\Kernel\Listener;
 
 /**
- * @method static Event listen(string $eventName, array|callable $listener, int $priority = 0)
+ * @method static Event listen(string|callable $eventName, array|callable|string|null $listener = null, int $priority = 0)
  * @method static object dispatch(object $event, ?string $eventName = NULL)
  * @method static array getListeners(?string $eventName = NULL)
  * @method static int|null getListenerPriority(string $eventName, array|callable $listener)
  * @method static bool hasListeners(?string $eventName = NULL)
+ * @method static void fake(array|string|null $events = null)
+ * @method static void dontFake()
+ * @method static void assertDispatched(string $event, int|callable|null $callback = null)
+ * @method static void assertDispatchedOnce(string $event)
+ * @method static void assertNotDispatched(string $event, ?callable $callback = null)
+ * @method static void assertNothingDispatched()
+ * @method static array dispatched(string $event, ?callable $callback = null)
  * @method static addListener(string $eventName, array|callable $listener, int $priority = 0)
  * @method static removeListener(string $eventName, array|callable $listener)
  * @method static addSubscriber(\Symfony\Component\EventDispatcher\EventSubscriberInterface $subscriber)

@@ -15,7 +15,7 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 
 #[AsCommand(
     name: 'token:update',
-    description: 'Update token name, data, or extend expiration',
+    description: 'Update token type, name, data, or extend expiration',
 )]
 class TokenUpdateCommand extends Terminal
 {
@@ -30,6 +30,7 @@ Update token metadata or extend its lifetime.
 
 Examples:
   php pinoox token:update 12 --name="Mobile app"
+  php pinoox token:update 12 --type=api
   php pinoox token:update 12 --json='{"scope":"panel"}'
   php pinoox token:update 12 --extend --lifetime=7 --unit=day
 HELP
@@ -37,6 +38,7 @@ HELP
             ->addArgument('token', InputArgument::OPTIONAL, 'Token id or token_key. Leave empty to pick from the list.')
             ->addArgument('package', InputArgument::OPTIONAL, $this->packageArgumentHelp(optional: true))
             ->addOption('name', null, InputOption::VALUE_REQUIRED, 'Token label')
+            ->addOption('type', 't', InputOption::VALUE_REQUIRED, 'Token type: auth, reset, verify, api, or custom')
             ->addOption('data', null, InputOption::VALUE_REQUIRED, 'Scalar payload stored as {"value": "..."}')
             ->addOption('json', null, InputOption::VALUE_REQUIRED, 'Replace token_data with JSON')
             ->addOption('extend', null, InputOption::VALUE_NONE, 'Extend expiration from now')
@@ -69,6 +71,13 @@ HELP
                 $token->token_name = $name;
                 $dirty = true;
                 $changes[] = 'name';
+            }
+
+            $type = trim((string) ($input->getOption('type') ?: ''));
+            if ($type !== '') {
+                $token->token_type = $type;
+                $dirty = true;
+                $changes[] = 'type';
             }
 
             $json = $input->getOption('json');
@@ -107,6 +116,7 @@ HELP
 
         $io->success(sprintf('Token #%d updated (%s).', $token->token_id, implode(', ', $changes)));
         $io->definitionList(
+            ['Type' => (string) ($token->token_type ?: 'auth')],
             ['Name' => (string) ($token->token_name ?: '—')],
             ['Expires' => $this->formatExpiration($token)],
             ['Status' => $this->tokenStatusLabel($token)],

@@ -19,6 +19,7 @@ require_once __DIR__ . '/lang.php';
 require_once __DIR__ . '/user.php';
 require_once __DIR__ . '/access.php';
 require_once __DIR__ . '/app_event.php';
+require_once __DIR__ . '/event.php';
 require_once __DIR__ . '/cache_app.php';
 require_once __DIR__ . '/redis.php';
 require_once __DIR__ . '/log.php';

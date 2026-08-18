@@ -29,6 +29,7 @@ return new class extends MigrationBase
             $table->increments('token_id');
             $table->string('token_key', 100);
             $table->string('token_name', 255)->nullable();
+            $table->string('token_type', 50)->default('auth');
             $table->json('token_data')->nullable();
             $table->string('app', 50);
             $table->unsignedInteger('user_id')->nullable();
@@ -39,6 +40,8 @@ return new class extends MigrationBase
             $table->timestamps();
 
             $table->index('user_id');
+            $table->index('token_type');
+            $table->index(['user_id', 'token_type']);
             $table->foreign('user_id')->references('user_id')->on(Table::USER)->onDelete('set null')->onUpdate('cascade');
         });
     }

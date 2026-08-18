@@ -62,14 +62,16 @@ class Token implements BootInterface
         return date('Y-m-d H:i:s', time() + self::$lifeTime);
     }
 
-    public static function generate($data, $name = null, $user_id = null, $token_key = null)
+    public static function generate($data, $name = null, $user_id = null, $token_key = null, $type = TokenModel::TYPE_AUTH)
     {
         $data = is_array($data) ? $data : [$data];
         self::$token_key = empty($token_key) ? self::generateUniqueKey() : $token_key;
- 
+        $type = is_string($type) && $type !== '' ? $type : TokenModel::TYPE_AUTH;
+
         TokenModel::create([
             'token_key' => self::$token_key,
             'token_name' => $name,
+            'token_type' => $type,
             'token_data' => $data,
             'user_id' => $user_id,
             'expiration_date' => self::calculateExpirationDate(),

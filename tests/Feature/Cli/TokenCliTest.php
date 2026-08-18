@@ -138,3 +138,44 @@ it('applies default token lifetime when unset', function () {
 
     expect(Token::$lifeTime)->toBeGreaterThan(0);
 });
+
+it('accepts type option on token create update and list', function () {
+    foreach ([
+        new TokenCreateCommand(),
+        new TokenUpdateCommand(),
+        new TokenListCommand(),
+    ] as $command) {
+        expect($command->getDefinition()->hasOption('type'))->toBeTrue();
+    }
+});
+
+it('defaults token type to auth', function () {
+    $probe = cliTraitProbe([ManagesCliTokens::class]);
+
+    expect(cliTraitInvoke($probe, 'resolveTokenType', null))->toBe(TokenModel::TYPE_AUTH)
+        ->and(cliTraitInvoke($probe, 'resolveTokenType', ''))->toBe(TokenModel::TYPE_AUTH)
+        ->and(cliTraitInvoke($probe, 'resolveTokenType', ' reset '))->toBe('reset');
+});
+
+it('includes token_type in token row output', function () {
+    $probe = cliTraitProbe([ManagesCliTokens::class]);
+    $token = new TokenModel();
+    $token->token_id = 1;
+    $token->token_key = 'abcdefghijklmnopqrstuvwxyz1234567890';
+    $token->token_name = 'session';
+    $token->token_type = TokenModel::TYPE_RESET;
+    $token->user_id = 7;
+    $token->app = 'platform';
+    $token->ip = '127.0.0.1';
+    $token->user_agent = 'pinoox-cli';
+    $token->remote_url = null;
+    $token->expiration_date = null;
+    $token->token_data = ['a' => 1];
+    $token->created_at = null;
+    $token->updated_at = null;
+
+    $row = cliTraitInvoke($probe, 'tokenRow', $token);
+
+    expect($row['token_type'])->toBe(TokenModel::TYPE_RESET)
+        ->and($row['token_name'])->toBe('session');
+});

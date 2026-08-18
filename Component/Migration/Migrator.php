@@ -456,17 +456,24 @@ class Migrator
 
         foreach (array_reverse($migrations) as $migration) {
             $fileName = (string) ($migration['fileName'] ?? '');
+            $fromName = MigrationNameParser::extractTableNames($fileName);
+            $declared = $migration['tableNames'] ?? [];
 
-            if (str_contains($fileName, 'create_access_tables')) {
-                foreach ([Table::USER_ROLE, Table::ROLE_PERMISSION, Table::PERMISSION, Table::ROLE] as $accessTable) {
-                    $tables[] = $accessTable;
-                }
-                continue;
+            if (!is_array($declared) || $declared === []) {
+                $declared = $fromName;
             }
 
-            $table = $migration['tableName'] ?? null;
-            if (is_string($table) && $table !== '') {
-                $tables[] = $table;
+            foreach ($declared as $table) {
+                if (is_string($table) && $table !== '') {
+                    $tables[] = $table;
+                }
+            }
+
+            if ($declared === []) {
+                $table = $migration['tableName'] ?? null;
+                if (is_string($table) && $table !== '') {
+                    $tables[] = $table;
+                }
             }
         }
 
@@ -688,18 +695,24 @@ class Migrator
     private function targetTableExists(array $migration): bool
     {
         $fileName = (string) ($migration['fileName'] ?? '');
+        $tables = $migration['tableNames'] ?? MigrationNameParser::extractTableNames($fileName);
 
-        if (str_contains($fileName, 'create_access_tables')) {
-            return $this->schemaHasTable(Table::ROLE, $this->package);
+        if (!is_array($tables) || $tables === []) {
+            $table = $migration['tableName'] ?? null;
+            if (!is_string($table) || $table === '') {
+                return true;
+            }
+
+            return $this->schemaHasTable($table, $this->package);
         }
 
-        $table = $migration['tableName'] ?? null;
-
-        if (!is_string($table) || $table === '') {
-            return true;
+        foreach ($tables as $table) {
+            if (!is_string($table) || $table === '' || !$this->schemaHasTable($table, $this->package)) {
+                return false;
+            }
         }
 
-        return $this->schemaHasTable($table, $this->package);
+        return true;
     }
 
     private function schemaHasTable(string $table, ?string $package = null): bool

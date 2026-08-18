@@ -99,7 +99,9 @@ class DatabaseManager extends Capsule
     public function currentTable($table, $as = null, $connection = null)
     {
         if ($connection === null && is_string($table)) {
-            $table = $this->tableName($table, App::package());
+            // PackageContext (migrate/seed CLI) must win over App::package(), which
+            // often stays on the default/installer app and corrupts logical names.
+            $table = $this->tableName($table);
         }
 
         return $this->currentConnection($connection)->table($table, $as);
@@ -107,7 +109,7 @@ class DatabaseManager extends Capsule
 
     public function currentConnectionName(): string
     {
-        return $this->connectionNameForPackage(App::package());
+        return $this->connectionNameForPackage();
     }
 
     public function connectionNameForModel(string $class): string

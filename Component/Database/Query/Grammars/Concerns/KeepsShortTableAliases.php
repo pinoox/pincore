@@ -160,12 +160,15 @@ trait KeepsShortTableAliases
     /**
      * MySQL rejects `DELETE FROM tbl AS alias` on many versions, so DELETE is
      * compiled as `DELETE alias FROM tbl AS alias`. SQLite/Postgres reject that
-     * form — compile a plain `DELETE FROM physical_table` without aliases.
+     * MySQL form but accept `DELETE FROM physical AS logical` — keep aliases so
+     * Eloquent WHERE clauses that qualify columns with the logical name
+     * (`history.type`) still resolve after wrapTable() emits `pinx_history AS history`.
      */
     public function compileDelete(Builder $query)
     {
         if (!$this->usesMysqlDeleteAliasForm()) {
-            return $this->withoutTableAliases(fn () => parent::compileDelete($query));
+            // Keep short aliases: DELETE FROM "pinx_history" AS "history" WHERE ...
+            return parent::compileDelete($query);
         }
 
         $table = $this->wrapTable($query->from);

@@ -125,10 +125,14 @@ class BootCacheStore implements CacheStoreInterface
             $files[] = str_replace('\\', '/', $appFile);
         }
 
-        $controllerDir = AppEngine::path($package, 'Controller');
-        if (is_dir($controllerDir)) {
+        foreach (['Controller', 'Event', 'Listener'] as $folder) {
+            $dir = AppEngine::path($package, $folder);
+            if (!is_dir($dir)) {
+                continue;
+            }
+
             $finder = new \Symfony\Component\Finder\Finder();
-            $finder->files()->in($controllerDir)->name('*.php');
+            $finder->files()->in($dir)->name('*.php');
             foreach ($finder as $file) {
                 $files[] = str_replace('\\', '/', $file->getRealPath());
             }

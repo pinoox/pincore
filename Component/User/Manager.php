@@ -416,7 +416,17 @@ class Manager
 
     public function revokeSessions(int $userId): int
     {
-        return TokenModel::where('user_id', $userId)->delete();
+        return $this->revokeTokens($userId, TokenModel::TYPE_AUTH);
+    }
+
+    public function revokeTokens(int $userId, ?string $type = null): int
+    {
+        $query = TokenModel::where('user_id', $userId);
+        if ($type !== null && $type !== '') {
+            $query->where('token_type', $type);
+        }
+
+        return $query->delete();
     }
 
     public function meta(?string $key = null): mixed

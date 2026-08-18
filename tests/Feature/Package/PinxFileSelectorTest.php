@@ -132,6 +132,47 @@ it('ships theme dist and drops theme src for production app packages', function 
     pinxSelectorDeleteDirectory($root);
 });
 
+it('excludes platform and storage from pinx payload unless included', function () {
+    $root = sys_get_temp_dir() . '/pinx_platform_storage_' . uniqid('', true);
+    mkdir($root . '/platform', 0777, true);
+    mkdir($root . '/storage/logs', 0777, true);
+    mkdir($root . '/Controller', 0777, true);
+    file_put_contents($root . '/app.php', '<?php return [];');
+    file_put_contents($root . '/platform/apps.config.php', '<?php return [];');
+    file_put_contents($root . '/storage/logs/app.log', 'log');
+    file_put_contents($root . '/Controller/HomeController.php', '<?php');
+
+    $selector = new PinxFileSelector();
+    $excluded = $selector->payloadFiles($root, [
+        'gitignore' => false,
+        'exclude' => \Pinoox\Component\Package\Pinx\PinxBuildConfig::defaultAppExcludes(),
+        'include' => \Pinoox\Component\Package\Pinx\PinxBuildConfig::defaultAppIncludes(),
+        'include_themes' => [],
+    ]);
+
+    expect(array_keys($excluded))
+        ->toContain('app.php')
+        ->toContain('Controller/HomeController.php')
+        ->not->toContain('platform/apps.config.php')
+        ->not->toContain('storage/logs/app.log');
+
+    $included = $selector->payloadFiles($root, [
+        'gitignore' => false,
+        'exclude' => \Pinoox\Component\Package\Pinx\PinxBuildConfig::defaultAppExcludes(),
+        'include' => array_merge(
+            \Pinoox\Component\Package\Pinx\PinxBuildConfig::defaultAppIncludes(),
+            ['platform', 'storage'],
+        ),
+        'include_themes' => [],
+    ]);
+
+    expect(array_keys($included))
+        ->toContain('platform/apps.config.php')
+        ->toContain('storage/logs/app.log');
+
+    pinxSelectorDeleteDirectory($root);
+});
+
 function pinxSelectorDeleteDirectory(string $path): void
 {
     if (!is_dir($path)) {

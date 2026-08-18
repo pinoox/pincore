@@ -80,5 +80,21 @@ it('extracts table names from timestamped filenames', function () {
         ->and(MigrationNameParser::extractTableName('2026_08_08_120000_drop_posts_table'))->toBe('posts')
         ->and(MigrationNameParser::extractTableName('2026_08_08_120000_drop_email_from_users_table'))->toBe('users')
         ->and(MigrationNameParser::extractTableName('2026_08_08_120000_unique_label_name_per_project'))->toBeNull()
-        ->and(MigrationNameParser::extractTableName('2026_06_07_120000_create_access_tables'))->toBeNull();
+        ->and(MigrationNameParser::extractTableName('2026_06_07_120000_create_access_tables'))->toBe('role')
+        ->and(MigrationNameParser::extractTableName(
+            '2026_06_07_120000_create_role_and_permission_and_role_permission_and_user_role_tables'
+        ))->toBe('role');
+});
+
+it('extracts multiple tables from create_*_and_*_tables names', function () {
+    expect(MigrationNameParser::extractTableNames(
+        '2026_06_07_120000_create_role_and_permission_and_role_permission_and_user_role_tables'
+    ))->toBe(['role', 'permission', 'role_permission', 'user_role'])
+        ->and(MigrationNameParser::extractTableNames('2026_08_08_120000_create_posts_table'))->toBe(['posts'])
+        ->and(MigrationNameParser::extractTableNames('2026_06_07_120000_create_access_tables'))
+        ->toBe(['role', 'permission', 'role_permission', 'user_role'])
+        ->and(MigrationNameParser::parse('create_role_and_permission_tables')['name'])
+        ->toBe('create_role_and_permission_tables')
+        ->and(MigrationNameParser::parse('create_access_tables')['name'])
+        ->toBe('create_access_tables');
 });

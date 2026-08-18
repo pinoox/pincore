@@ -116,6 +116,64 @@ class PatchToolkit
             ->delete();
     }
 
+    /**
+     * @return array{rolled: int, skipped: int}
+     */
+    public function rollbackAll(): array
+    {
+        $patches = $this->patches;
+        usort($patches, static function (array $a, array $b): int {
+            $aBatch = (int) ($a['record']['batch'] ?? 0);
+            $bBatch = (int) ($b['record']['batch'] ?? 0);
+            if ($aBatch !== $bBatch) {
+                return $bBatch <=> $aBatch;
+            }
+
+            return ((int) ($b['record']['id'] ?? 0)) <=> ((int) ($a['record']['id'] ?? 0));
+        });
+
+        $rolled = 0;
+        $skipped = 0;
+
+        foreach ($patches as $patch) {
+            if (empty($patch['ran'])) {
+                continue;
+            }
+
+            if (empty($patch['can_rollback'])) {
+                $skipped++;
+                continue;
+            }
+
+            $startedAt = microtime(true);
+            $patch['instance']->down();
+            $this->deleteSuccessRecord($patch['name']);
+            $this->recordRolledBack(
+                $patch['name'],
+                $patch['checksum'],
+                (int) round((microtime(true) - $startedAt) * 1000),
+                [
+                    'class' => $patch['class'],
+                    'description' => $patch['description'],
+                ],
+            );
+            $rolled++;
+        }
+
+        return ['rolled' => $rolled, 'skipped' => $skipped];
+    }
+
+    public function clearHistory(): void
+    {
+        if (!$this->historyTableExists()) {
+            return;
+        }
+
+        HistoryModel::where('type', MigrationQuery::TYPE_PATCH)
+            ->where('app', $this->package)
+            ->delete();
+    }
+
     public function latestRecord(string $patch): ?array
     {
         if (!$this->historyTableExists()) {

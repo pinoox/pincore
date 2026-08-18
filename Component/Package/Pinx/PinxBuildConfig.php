@@ -20,6 +20,11 @@ class PinxBuildConfig
             'tests',
             '.github',
             ...PinxPaths::buildExcludePatterns(),
+            // Single-app host/runtime — platform already provides these.
+            'platform',
+            'platform/**',
+            'storage',
+            'storage/**',
             'composer.json',
             'composer.lock',
             '.env',

@@ -35,6 +35,10 @@ return [
     'startup' => null,
     'boot' => true,
     'boot-global' => false,
+    'lifecycle' => true,
+    // true = auto-discover Listener/ (and Event/ classes). false = off.
+    // array: discover, path, listen (event => listeners), subscribe
+    'events' => true,
     'runtime' => [
         'mode' => null,
         'debug' => null,

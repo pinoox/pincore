@@ -117,11 +117,12 @@ trait ManagesCliTokens
         $io->section($sectionTitle);
 
         $table = new Table($output);
-        $table->setHeaders(['ID', 'Key', 'Name', 'User', 'Expires', 'Status']);
+        $table->setHeaders(['ID', 'Key', 'Type', 'Name', 'User', 'Expires', 'Status']);
         foreach ($tokens as $token) {
             $table->addRow([
                 $token->token_id,
                 $this->maskTokenKey((string) $token->token_key),
+                $token->token_type ?: TokenModel::TYPE_AUTH,
                 $token->token_name ?: '—',
                 $token->user_id ?: '—',
                 $this->formatExpiration($token),
@@ -206,6 +207,7 @@ trait ManagesCliTokens
             'token_id' => $token->token_id,
             'token_key' => $revealKey ? $token->token_key : $this->maskTokenKey((string) $token->token_key),
             'token_name' => $token->token_name,
+            'token_type' => $token->token_type ?: TokenModel::TYPE_AUTH,
             'user_id' => $token->user_id,
             'app' => $token->app,
             'ip' => $token->ip,
@@ -296,17 +298,26 @@ trait ManagesCliTokens
         return (int) $user->user_id;
     }
 
+    protected function resolveTokenType(?string $type): string
+    {
+        $type = trim((string) $type);
+
+        return $type !== '' ? $type : TokenModel::TYPE_AUTH;
+    }
+
     protected function createToken(
         array $data,
         int $userId,
         ?string $name = null,
         ?string $tokenKey = null,
+        ?string $type = null,
     ): TokenModel {
         $this->applyTokenLifetimeFromDefaults();
 
         return TokenModel::create([
             'token_key' => $tokenKey ?: $this->generateTokenKey(),
             'token_name' => $name,
+            'token_type' => $this->resolveTokenType($type),
             'token_data' => $data,
             'user_id' => $userId,
             'ip' => '127.0.0.1',

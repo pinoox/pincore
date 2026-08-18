@@ -97,6 +97,153 @@ final class AppComposerVendor
     }
 
     /**
+     * Package names that should ship in an app .pinx vendor tree.
+     *
+     * Direct composer.json require entries (minus php/ext/platform packages)
+     * plus their installed transitive dependencies.
+     *
+     * @return list<string>
+     */
+    public static function distributionPackageNames(string $appPath): array
+    {
+        $direct = array_keys(self::distributionRequires($appPath));
+
+        if ($direct === []) {
+            return [];
+        }
+
+        $index = self::installedPackageIndex($appPath);
+
+        if ($index === [] || !self::hasRequireGraph($index)) {
+            sort($direct);
+
+            return array_values(array_unique($direct));
+        }
+
+        $keep = [];
+        $queue = $direct;
+
+        while ($queue !== []) {
+            $name = array_shift($queue);
+
+            if (isset($keep[$name]) || in_array($name, self::PLATFORM_PACKAGES, true)) {
+                continue;
+            }
+
+            if ($name === 'php' || str_starts_with($name, 'ext-')) {
+                continue;
+            }
+
+            if (!isset($index[$name])) {
+                continue;
+            }
+
+            $keep[$name] = true;
+
+            foreach ($index[$name]['require'] as $dependency) {
+                $queue[] = $dependency;
+            }
+        }
+
+        $names = array_keys($keep);
+        sort($names);
+
+        return $names;
+    }
+
+    /**
+     * Vendor-relative directories for {@see distributionPackageNames()}.
+     *
+     * @return list<string>
+     */
+    public static function distributionVendorPaths(string $appPath): array
+    {
+        $index = self::installedPackageIndex($appPath);
+        $paths = [];
+
+        foreach (self::distributionPackageNames($appPath) as $name) {
+            $path = $index[$name]['path'] ?? $name;
+
+            if ($path !== '') {
+                $paths[] = $path;
+            }
+        }
+
+        sort($paths);
+
+        return array_values(array_unique($paths));
+    }
+
+    /**
+     * Vendor-relative directories that must not ship in an app .pinx.
+     *
+     * @return list<string>
+     */
+    public static function excludedDistributionVendorPaths(string $appPath): array
+    {
+        $keepPaths = array_fill_keys(self::distributionVendorPaths($appPath), true);
+        $excluded = ComposerVendorGuard::installedDevVendorPaths($appPath);
+
+        foreach (self::PLATFORM_PACKAGES as $package) {
+            $excluded[] = $package;
+        }
+
+        foreach (self::installedPackageIndex($appPath) as $name => $meta) {
+            if (isset($keepPaths[$meta['path']])) {
+                continue;
+            }
+
+            if ($meta['path'] !== '') {
+                $excluded[] = $meta['path'];
+            } elseif (!in_array($name, self::PLATFORM_PACKAGES, true)) {
+                $excluded[] = $name;
+            }
+        }
+
+        sort($excluded);
+
+        return array_values(array_unique(array_filter($excluded)));
+    }
+
+    /**
+     * Copy a slim vendor tree into .pinx-build/vendor without running dump-autoload.
+     *
+     * @return array{vendor_dir: string, vendor_as: string, packages: list<string>}
+     */
+    public static function materializeDistributionVendor(string $appPath, bool $vendorPrune = true): array
+    {
+        $requires = self::distributionRequires($appPath);
+        $appPath = rtrim(str_replace('\\', '/', $appPath), '/');
+        ComposerVendorGuard::requireInstalled($appPath, 'app');
+
+        $buildDir = self::buildDirectory($appPath);
+        $stagingVendor = self::distributionVendorPath($appPath);
+        self::resetBuildDirectory($buildDir);
+
+        ComposerVendorGuard::copyVendorTree(
+            ComposerVendorGuard::vendorDir($appPath),
+            $stagingVendor,
+            $vendorPrune,
+            self::excludedDistributionVendorPaths($appPath),
+        );
+
+        ComposerVendorGuard::pruneInstalledMetadata(
+            $stagingVendor,
+            self::excludedDistributionPackageNames($appPath),
+        );
+
+        if ($vendorPrune) {
+            VendorPruner::prune($stagingVendor);
+        }
+
+        return [
+            'vendor_dir' => self::distributionVendorRelativePath(),
+            'vendor_as' => self::VENDOR_SUBDIR,
+            'packages' => array_keys($requires),
+        ];
+    }
+
+    /**
      * @return array{
      *     prepared: bool,
      *     reason: ?string,
@@ -105,7 +252,7 @@ final class AppComposerVendor
      *     packages: list<string>
      * }
      */
-    public static function prepare(string $appPath, ?string $projectRoot = null): array
+    public static function prepare(string $appPath, ?string $projectRoot = null, bool $vendorPrune = true): array
     {
         $requires = self::distributionRequires($appPath);
 
@@ -130,14 +277,26 @@ final class AppComposerVendor
         }
 
         $appPath = rtrim(str_replace('\\', '/', $appPath), '/');
-        ComposerVendorGuard::requireInstalled($appPath, 'app');
+        $materialized = self::materializeDistributionVendor($appPath, $vendorPrune);
+
+        try {
+            ComposerVendorGuard::regenerateProductionAutoload(
+                self::buildDirectory($appPath),
+                self::buildDistributionComposer($appPath, $requires),
+                $projectRoot ?? $appPath,
+            );
+        } catch (\Throwable $e) {
+            self::cleanup($appPath);
+
+            throw $e;
+        }
 
         return [
             'prepared' => true,
             'reason' => null,
-            'vendor_dir' => self::VENDOR_SUBDIR,
-            'vendor_as' => self::VENDOR_SUBDIR,
-            'packages' => array_keys($requires),
+            'vendor_dir' => $materialized['vendor_dir'],
+            'vendor_as' => $materialized['vendor_as'],
+            'packages' => $materialized['packages'],
         ];
     }
 
@@ -187,6 +346,155 @@ final class AppComposerVendor
         }
 
         return $composer;
+    }
+
+    /**
+     * @return list<string>
+     */
+    private static function excludedDistributionPackageNames(string $appPath): array
+    {
+        $keep = array_fill_keys(self::distributionPackageNames($appPath), true);
+        $excluded = ComposerVendorGuard::installedDevPackageNames($appPath);
+
+        foreach (self::PLATFORM_PACKAGES as $package) {
+            $excluded[] = $package;
+        }
+
+        foreach (array_keys(self::installedPackageIndex($appPath)) as $name) {
+            if (!isset($keep[$name])) {
+                $excluded[] = $name;
+            }
+        }
+
+        sort($excluded);
+
+        return array_values(array_unique($excluded));
+    }
+
+    /**
+     * @return array<string, array{path: string, require: list<string>}>
+     */
+    private static function installedPackageIndex(string $appPath): array
+    {
+        $vendorDir = rtrim(str_replace('\\', '/', ComposerVendorGuard::vendorDir($appPath)), '/');
+        $installedJson = $vendorDir . '/composer/installed.json';
+
+        if (is_file($installedJson)) {
+            $raw = file_get_contents($installedJson);
+            $installed = is_string($raw) ? json_decode($raw, true) : null;
+
+            if (is_array($installed)) {
+                $packages = is_array($installed['packages'] ?? null) ? $installed['packages'] : $installed;
+                $index = [];
+
+                foreach ($packages as $package) {
+                    if (!is_array($package) || !isset($package['name'])) {
+                        continue;
+                    }
+
+                    $name = (string) $package['name'];
+                    $path = isset($package['install-path'])
+                        ? self::vendorRelativePath($vendorDir, (string) $package['install-path'])
+                        : $name;
+
+                    if ($path === '') {
+                        $path = $name;
+                    }
+
+                    $require = [];
+
+                    foreach ($package['require'] ?? [] as $dependency => $constraint) {
+                        if (is_string($dependency) && $dependency !== '') {
+                            $require[] = $dependency;
+                        }
+                    }
+
+                    $index[$name] = [
+                        'path' => $path,
+                        'require' => $require,
+                    ];
+                }
+
+                if ($index !== []) {
+                    return $index;
+                }
+            }
+        }
+
+        $installedPhp = $vendorDir . '/composer/installed.php';
+
+        if (!is_file($installedPhp)) {
+            return [];
+        }
+
+        $data = include $installedPhp;
+
+        if (!is_array($data['versions'] ?? null)) {
+            return [];
+        }
+
+        $index = [];
+
+        foreach ($data['versions'] as $name => $meta) {
+            if (!is_string($name) || !is_array($meta) || !isset($meta['install_path'])) {
+                continue;
+            }
+
+            $path = self::vendorRelativePath($vendorDir, (string) $meta['install_path']);
+
+            $index[$name] = [
+                'path' => $path !== '' ? $path : $name,
+                'require' => [],
+            ];
+        }
+
+        return $index;
+    }
+
+    /**
+     * @param array<string, array{path: string, require: list<string>}> $index
+     */
+    private static function hasRequireGraph(array $index): bool
+    {
+        foreach ($index as $meta) {
+            foreach ($meta['require'] as $dependency) {
+                if ($dependency !== 'php' && !str_starts_with($dependency, 'ext-')) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static function vendorRelativePath(string $vendorDir, string $installPath): string
+    {
+        $vendorDir = rtrim(str_replace('\\', '/', $vendorDir), '/');
+        $installPath = str_replace('\\', '/', $installPath);
+
+        if ($installPath === '') {
+            return '';
+        }
+
+        if (!str_starts_with($installPath, '/') && !preg_match('/^[A-Za-z]:\//', $installPath)) {
+            $installPath = $vendorDir . '/composer/' . ltrim($installPath, '/');
+        }
+
+        $resolved = realpath($installPath);
+
+        if (is_string($resolved) && $resolved !== '') {
+            $installPath = str_replace('\\', '/', $resolved);
+        }
+
+        if (!is_dir($installPath) && !is_file($installPath)) {
+            return '';
+        }
+
+        if (!str_starts_with($installPath, $vendorDir)) {
+            return '';
+        }
+
+        return ltrim(substr($installPath, strlen($vendorDir)), '/');
     }
 
     /**

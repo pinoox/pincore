@@ -344,27 +344,20 @@ class MigrationToolkit
         try {
             $fileName = $this->getFileName($migration);
             $migrationFile = $migration['path'];
-            $tableName = $this->extractTableName($fileName);
+            $tableNames = MigrationNameParser::extractTableNames($fileName);
 
             return [
                 'sync' => $migration['sync'] ?? false,
                 'packageName' => $this->package,
                 'migrationFile' => $migrationFile,
                 'fileName' => $fileName,
-                'tableName' => $tableName,
+                'tableName' => $tableNames[0] ?? null,
+                'tableNames' => $tableNames,
             ];
         } catch (\Exception $e) {
             $this->addError($e);
             throw $e;
         }
-    }
-
-    /**
-     * Extract the table name from migration filename using pattern matching
-     */
-    private function extractTableName(string $fileName): ?string
-    {
-        return MigrationNameParser::extractTableName($fileName);
     }
 
     /**

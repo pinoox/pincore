@@ -2,6 +2,8 @@
 
 namespace Pinoox\Component\Package\Pinx;
 
+use Pinoox\Component\Package\AppResetResult;
+use Pinoox\Component\Package\AppResetter;
 use Pinoox\Component\Package\Engine\AppEngine;
 
 /**
@@ -33,6 +35,11 @@ final class PinxService
     public function uninstaller(): PinxUninstaller
     {
         return new PinxUninstaller($this->engine);
+    }
+
+    public function resetter(): AppResetter
+    {
+        return new AppResetter($this->engine);
     }
 
     public function builder(): PinxBuilder
@@ -67,6 +74,14 @@ final class PinxService
     public function uninstallTheme(string $package, string $themeName, array $options = []): PinxUninstallResult
     {
         return $this->uninstaller()->uninstallTheme($package, $themeName, $options);
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     */
+    public function resetApp(string $package, array $options = []): AppResetResult
+    {
+        return $this->resetter()->reset($package, $options);
     }
 
     public function manifest(string $packagePath): PinxManifest
