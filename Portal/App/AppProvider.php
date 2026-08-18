@@ -27,6 +27,7 @@ use Pinoox\Portal\Event;
 use Pinoox\Portal\Kernel\HttpKernel;
 use Pinoox\Portal\Kernel\Terminal;
 use Pinoox\Portal\Session;
+use Pinoox\Component\Identity\Identity;
 use Pinoox\Component\Kernel\Debug\PinooxDebug;
 use Pinoox\Component\Runtime\RuntimeMode;
 use Pinoox\Component\Store\Config\Config as ConfigStore;
@@ -73,6 +74,12 @@ class AppProvider extends Portal
         Env::register();
         SystemConfig::clearCache();
         ConfigStore::reloadEnvSensitive();
+
+        try {
+            Identity::boot();
+        } catch (\Throwable) {
+            // Retry on the next request if pinker/state is not writable yet.
+        }
 
         // Always register the handler so production gets a friendly page (not PHP display_errors).
         // PINOOX_EXCEPTION controls rich vs generic rendering inside the handler.

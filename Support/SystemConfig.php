@@ -403,6 +403,14 @@ class SystemConfig
     }
 
     /**
+     * Stable per-install identity file (not a baked config overlay).
+     */
+    public static function identityFile(): string
+    {
+        return self::join(self::path('pinker'), 'state/identity.php');
+    }
+
+    /**
      * @return list<string>
      */
     public static function pinkerStateConfigCandidates(string $config): array
