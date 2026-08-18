@@ -112,7 +112,11 @@ class AppRegister
         return $this;
     }
 
-    public function listen(string $event, callable|array $listener, int $priority = 0): self
+    /**
+     * @param class-string|string $event Event class or dispatcher name
+     * @param callable|array|class-string $listener
+     */
+    public function listen(string $event, callable|array|string $listener, int $priority = 0): self
     {
         $this->collector->listeners[] = [$event, $listener, $priority];
 

@@ -56,6 +56,13 @@ return function (AppRegister $register): void {
     //     $schedule->command('reports:daily')->daily();
     // });
 
+    // --- Events ---
+    // Default: classes in Event/ and Listener/ are auto-registered (no boot.php needed).
+    // app.php: 'events' => true | false | ['discover' => false, 'listen' => [...], 'subscribe' => [...]]
+    // Extra / custom:
+    // $register->listen(OrderPlaced::class, SendOrderEmail::class);
+    // $register->subscribe(InventorySubscriber::class);
+    //
     // --- Events (boot lifecycle) ---
     // $register->listen(AppEventNames::package(AppEventNames::BOOTED, $register->package()), $listener);
     // $register->subscribe(MyEventSubscriber::class);

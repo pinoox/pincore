@@ -18,9 +18,9 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 
 class EventDispatcher extends EventDispatcherSymfony
 {
-    public function listen(string $eventName, callable|array $listener, int $priority = 0): void
+    public function listen(string $eventName, callable|array|string $listener, int $priority = 0): void
     {
-        parent::addListener($eventName, $listener, $priority);
+        parent::addListener(EventName::resolve($eventName), EventListener::make($listener), $priority);
     }
 
     public function addSubscriber(EventSubscriberInterface $subscriber): void

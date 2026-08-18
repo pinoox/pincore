@@ -20,7 +20,7 @@ use Pinoox\Portal\App\App;
 use Pinoox\Portal\Kernel\Listener;
 
 /**
- * @method static Event listen(string $eventName, array|callable $listener, int $priority = 0)
+ * @method static Event listen(string $eventName, array|callable|string $listener, int $priority = 0)
  * @method static object dispatch(object $event, ?string $eventName = NULL)
  * @method static array getListeners(?string $eventName = NULL)
  * @method static int|null getListenerPriority(string $eventName, array|callable $listener)

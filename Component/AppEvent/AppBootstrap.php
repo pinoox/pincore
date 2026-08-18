@@ -3,6 +3,7 @@
 namespace Pinoox\Component\AppEvent;
 
 use Pinoox\Component\Cache\Store\BootCacheStore;
+use Pinoox\Component\Event\EventDiscovery;
 use Pinoox\Component\Router\RouteManifest;
 use Pinoox\Component\Router\Router;
 use Pinoox\PinDoc\Api\ApiRouteLoader;
@@ -103,6 +104,7 @@ class AppBootstrap
         self::$kernelReady = false;
         AppRegisterCollector::$pendingWhen = [];
         AppWatchRegistry::reset();
+        EventDiscovery::resetState();
     }
 
     /**
@@ -125,6 +127,7 @@ class AppBootstrap
 
         if (BootCacheStore::tryHydrate($package)) {
             self::$booted[$package] = true;
+            self::attachDiscoveredEvents($package, $integrate);
             if ($integrate) {
                 self::integrate($package);
             }
@@ -239,6 +242,7 @@ class AppBootstrap
             Event::dispatch($booting, AppEventNames::package(AppEventNames::BOOTING, $package));
         }
 
+        EventDiscovery::register($package, $register);
         self::runBootFile($package, $register);
         self::runStartup($package, $register);
         self::applyWhenTargets($package, $register);
@@ -252,6 +256,17 @@ class AppBootstrap
         }
 
         return $register;
+    }
+
+    private static function attachDiscoveredEvents(string $package, bool $integrate): void
+    {
+        $collector = new AppRegisterCollector();
+        $register = new AppRegister($package, $collector);
+        EventDiscovery::register($package, $register);
+
+        if ($collector->listeners !== [] || $collector->subscribers !== []) {
+            self::commit($package, $collector, $integrate);
+        }
     }
 
     private static function runBootFile(string $package, AppRegister $register): void

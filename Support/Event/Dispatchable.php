@@ -17,17 +17,26 @@ use Pinoox\Portal\Event;
 
 trait Dispatchable
 {
+    /**
+     * Dispatcher name: explicit `$eventName`, otherwise the class name.
+     */
+    public static function eventName(): string
+    {
+        $name = static::$eventName ?? null;
+
+        return (is_string($name) && $name !== '') ? $name : static::class;
+    }
+
     public static function dispatch(...$arguments): object
     {
         $instance = new static(...$arguments);
-        return Event::dispatch($instance, static::$eventName);
+        return Event::dispatch($instance, static::eventName());
     }
 
     public static function subDispatch(string $subname, ...$arguments): object
     {
         $instance = new static(...$arguments);
-        $eventName = self::subname($subname);
-        return Event::dispatch($instance, $eventName);
+        return Event::dispatch($instance, static::subname($subname));
     }
 
     public static function subFreeDispatch(string $eventName, ...$arguments): object
@@ -38,8 +47,6 @@ trait Dispatchable
 
     public static function subname(string $subname): string
     {
-        $eventName = static::$eventName;
-        $eventName .= '.' . $subname;
-        return $eventName;
+        return static::eventName() . '.' . $subname;
     }
 }
