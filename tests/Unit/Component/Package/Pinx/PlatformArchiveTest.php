@@ -15,6 +15,8 @@ it('preserves runtime paths and allows BUILD.json', function () {
         ->and(PlatformArchive::shouldPreserve('platform/apps.config.php'))->toBeTrue()
         ->and(PlatformArchive::shouldPreserve('platform/pinoox.config.php'))->toBeFalse()
         ->and(PlatformArchive::shouldPreserve('pinroll/pinroll.config.php'))->toBeTrue()
+        ->and(PlatformArchive::shouldPreserve('.pinoox/pinroll.config.php'))->toBeTrue()
+        ->and(PlatformArchive::shouldPreserve('pingate.php'))->toBeTrue()
         ->and(PlatformArchive::shouldPreserve('pincore/composer.json'))->toBeTrue()
         ->and(PlatformArchive::shouldPreserve('storage/BUILD.json'))->toBeFalse()
         ->and(PlatformArchive::shouldPreserve('index.php'))->toBeFalse()
