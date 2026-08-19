@@ -152,15 +152,78 @@ final class PlatformBuildConfig
      */
     public static function rawConfig(?string $projectRoot = null): array
     {
+        $projectRoot ??= SystemConfig::rootPath();
         $file = self::configFile($projectRoot);
+        $data = [];
 
-        if (!is_file($file)) {
-            return [];
+        if (is_file($file)) {
+            $loaded = include $file;
+            $data = is_array($loaded) ? $loaded : [];
         }
 
-        $data = include $file;
+        return self::mergePinrollBuild($projectRoot, $data);
+    }
 
-        return is_array($data) ? $data : [];
+    /**
+     * Overlay `.pinoox/pinroll.config.php` → build (exclude/include/…) and PINROLL_BUILD_EXCLUDE env.
+     *
+     * @param array<string, mixed> $data
+     * @return array<string, mixed>
+     */
+    private static function mergePinrollBuild(string $projectRoot, array $data): array
+    {
+        $root = rtrim(str_replace('\\', '/', $projectRoot), '/');
+        foreach ([$root . '/.pinoox/pinroll.config.php', $root . '/pinroll/pinroll.config.php'] as $pinrollFile) {
+            if (!is_file($pinrollFile)) {
+                continue;
+            }
+
+            try {
+                $loaded = include $pinrollFile;
+            } catch (\Throwable) {
+                continue;
+            }
+            $build = is_array($loaded) && is_array($loaded['build'] ?? null) ? $loaded['build'] : [];
+            if ($build === []) {
+                break;
+            }
+
+            foreach (['gitignore', 'composer', 'app_composer', 'exclude_theme_src', 'strip_require_dev', 'vendor_prune', 'manifest', 'output_dir'] as $key) {
+                if (array_key_exists($key, $build)) {
+                    $data[$key] = $build[$key];
+                }
+            }
+
+            $data['exclude'] = array_values(array_unique(array_merge(
+                self::stringList($data['exclude'] ?? []),
+                self::stringList($build['exclude'] ?? []),
+            )));
+            $data['include'] = array_values(array_unique(array_merge(
+                self::stringList($data['include'] ?? []),
+                self::stringList($build['include'] ?? []),
+            )));
+            break;
+        }
+
+        $envExclude = $_ENV['PINROLL_BUILD_EXCLUDE'] ?? $_SERVER['PINROLL_BUILD_EXCLUDE'] ?? getenv('PINROLL_BUILD_EXCLUDE');
+        if (is_string($envExclude) && trim($envExclude) !== '') {
+            $extra = array_values(array_filter(array_map('trim', explode(',', $envExclude))));
+            $data['exclude'] = array_values(array_unique(array_merge(
+                self::stringList($data['exclude'] ?? []),
+                $extra,
+            )));
+        }
+
+        $envInclude = $_ENV['PINROLL_BUILD_INCLUDE'] ?? $_SERVER['PINROLL_BUILD_INCLUDE'] ?? getenv('PINROLL_BUILD_INCLUDE');
+        if (is_string($envInclude) && trim($envInclude) !== '') {
+            $extra = array_values(array_filter(array_map('trim', explode(',', $envInclude))));
+            $data['include'] = array_values(array_unique(array_merge(
+                self::stringList($data['include'] ?? []),
+                $extra,
+            )));
+        }
+
+        return $data;
     }
 
     /**
