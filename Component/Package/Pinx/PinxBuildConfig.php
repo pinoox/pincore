@@ -6,6 +6,7 @@ use Pinoox\Component\Package\Engine\AppEngine;
 use Pinoox\Component\Package\Pinx\PinxManifest;
 use Pinoox\Component\Store\Config\ConfigInterface;
 use Pinoox\Component\Template\Theme\ThemeManifest;
+use Pinoox\Support\SystemConfig;
 
 class PinxBuildConfig
 {
@@ -113,6 +114,7 @@ class PinxBuildConfig
      *     include: list<string>,
      *     include_themes: list<string>,
      *     composer: bool,
+     *     output_dir: ?string,
      *     sign: array{enabled: bool, require_signature: bool, key_path: ?string, key_id: ?string}
      * }
      */
@@ -172,6 +174,8 @@ class PinxBuildConfig
             self::stringList($build['include'] ?? []),
         )));
 
+        $outputDir = trim((string) ($build['output_dir'] ?? ''));
+
         return [
             'type' => $type,
             'target_app' => (string) ($pinx['target_app'] ?? $packageName),
@@ -186,6 +190,7 @@ class PinxBuildConfig
             'composer' => array_key_exists('composer', $build)
                 ? (bool) $build['composer']
                 : true,
+            'output_dir' => $outputDir !== '' ? SystemConfig::resolvePath($outputDir) : null,
             'sign' => $sign,
         ];
     }
