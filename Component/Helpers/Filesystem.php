@@ -123,4 +123,57 @@ final class Filesystem
 
         return $removed;
     }
+
+    public static function copyDirectory(string $source, string $target): void
+    {
+        $sourceRoot = rtrim(str_replace('\\', '/', realpath($source) ?: $source), '/');
+        $targetRoot = rtrim(str_replace('\\', '/', $target), '/');
+
+        if (!is_dir($sourceRoot)) {
+            throw new \InvalidArgumentException('Directory not found: ' . $source);
+        }
+
+        if (!is_dir($targetRoot) && !mkdir($targetRoot, 0777, true) && !is_dir($targetRoot)) {
+            throw new \RuntimeException('Failed to create directory: ' . $targetRoot);
+        }
+
+        $iterator = new \RecursiveIteratorIterator(
+            new \RecursiveDirectoryIterator($sourceRoot, \FilesystemIterator::SKIP_DOTS),
+            \RecursiveIteratorIterator::SELF_FIRST,
+        );
+
+        foreach ($iterator as $item) {
+            $absolutePath = str_replace('\\', '/', $item->getPathname());
+            $relativePath = ltrim(substr($absolutePath, strlen($sourceRoot)), '/');
+            $targetPath = $targetRoot . '/' . $relativePath;
+
+            if ($item->isDir() && !$item->isLink()) {
+                if (!is_dir($targetPath)) {
+                    mkdir($targetPath, 0777, true);
+                }
+
+                continue;
+            }
+
+            if (!$item->isFile()) {
+                continue;
+            }
+
+            $targetDir = dirname($targetPath);
+
+            if (!is_dir($targetDir)) {
+                mkdir($targetDir, 0777, true);
+            }
+
+            if (!copy($item->getPathname(), $targetPath)) {
+                throw new \RuntimeException('Failed to copy file: ' . $targetPath);
+            }
+        }
+    }
+
+    public static function replaceDirectory(string $source, string $target): void
+    {
+        self::removeDirectory($target);
+        self::copyDirectory($source, $target);
+    }
 }

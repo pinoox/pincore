@@ -13,6 +13,8 @@ final class PlatformBuildConfig
 
     public const STAGING_DIR = 'storage/.platform-build/staging';
 
+    public const UPDATE_DIR = 'storage/.platform-update';
+
     public static function buildPath(string $projectRoot, string $relative = ''): string
     {
         $root = rtrim(str_replace('\\', '/', $projectRoot), '/');
@@ -39,6 +41,7 @@ final class PlatformBuildConfig
             'uploads',
             'downloads',
             self::BUILD_DIR,
+            self::UPDATE_DIR,
             '.env',
             'phpunit.xml',
             '.phpunit.result.cache',
@@ -61,6 +64,7 @@ final class PlatformBuildConfig
             'vendor',
             '.git',
             '.platform-build',
+            '.platform-update',
             AppComposerVendor::BUILD_DIR,
         ];
     }

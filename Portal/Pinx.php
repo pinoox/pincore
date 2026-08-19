@@ -24,6 +24,9 @@ use Pinoox\Component\Package\Pinx\PinxReader;
 use Pinoox\Component\Package\Pinx\PinxService;
 use Pinoox\Component\Package\Pinx\PinxUninstallResult;
 use Pinoox\Component\Package\Pinx\PinxUninstaller;
+use Pinoox\Component\Package\Pinx\PlatformBuilder;
+use Pinoox\Component\Package\Pinx\PlatformUpdateResult;
+use Pinoox\Component\Package\Pinx\PlatformUpdater;
 use Pinoox\Component\Source\Portal;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Support\SystemConfig;
@@ -41,6 +44,8 @@ use Pinoox\Support\SystemConfig;
  * @method static AppResetter resetter()
  * @method static PinxBuilder builder()
  * @method static PlatformBuilder platformBuilder()
+ * @method static PlatformUpdater platformUpdater()
+ * @method static PlatformUpdateResult updatePlatform(string $archivePath, array $options = [])
  * @method static string tmpPath()
  * @method static \Pinoox\Component\Package\Engine\AppEngine engine()
  * @method static PinxService ___()

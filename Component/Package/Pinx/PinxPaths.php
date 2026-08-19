@@ -225,6 +225,34 @@ final class PinxPaths
     }
 
     /**
+     * Newest platform .zip in ~/pinx/export/platform, if any.
+     */
+    public static function latestPlatformArchive(): ?string
+    {
+        $dir = self::platformExportDir();
+
+        if (!is_dir($dir)) {
+            return null;
+        }
+
+        $files = [];
+
+        foreach (glob($dir . '/*.zip') ?: [] as $file) {
+            if (is_file($file)) {
+                $files[] = $file;
+            }
+        }
+
+        if ($files === []) {
+            return null;
+        }
+
+        usort($files, static fn (string $a, string $b): int => filemtime($b) <=> filemtime($a));
+
+        return $files[0];
+    }
+
+    /**
      * @return list<string>
      */
     public static function buildExcludePatterns(): array
