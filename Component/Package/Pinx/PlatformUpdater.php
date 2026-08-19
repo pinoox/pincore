@@ -123,6 +123,18 @@ final class PlatformUpdater
             $this->applyExtracted($stagingRoot, $projectRoot, $apps);
             $this->recordStep($steps, 'apply', 'ok', 'Project files updated (runtime data preserved).');
 
+            $refreshed = PlatformPinkerGuard::refreshOverrideTimestamps($projectRoot);
+            if ($refreshed > 0) {
+                $this->recordStep(
+                    $steps,
+                    'pinker',
+                    'ok',
+                    sprintf('Kept %d pinker/state override file(s) (database, routes, app settings).', $refreshed),
+                );
+            } else {
+                $this->recordStep($steps, 'pinker', 'skipped', 'No pinker/state overrides to keep.');
+            }
+
             $liveRoot = rtrim(str_replace('\\', '/', SystemConfig::rootPath()), '/');
 
             if ($projectRoot !== $liveRoot) {
@@ -178,6 +190,7 @@ final class PlatformUpdater
             );
         } finally {
             Filesystem::removeDirectory($projectRoot . '/' . PlatformBuildConfig::UPDATE_DIR);
+            Filesystem::removeDirectory($projectRoot . '/' . PlatformBuildConfig::UPDATE_HOLD_DIR);
         }
     }
 
@@ -344,6 +357,12 @@ final class PlatformUpdater
             Filesystem::replaceDirectory($extractedVendor, $projectRoot . '/vendor');
         }
 
+        $heldAppPinker = PlatformPinkerGuard::holdAppPinkerDirs(
+            $projectRoot,
+            $apps,
+            $projectRoot . '/' . PlatformBuildConfig::UPDATE_HOLD_DIR . '/app-pinker',
+        );
+
         foreach ($apps as $package) {
             $sourceApp = $extractedRoot . '/apps/' . $package;
 
@@ -353,6 +372,8 @@ final class PlatformUpdater
 
             Filesystem::replaceDirectory($sourceApp, $projectRoot . '/apps/' . $package);
         }
+
+        PlatformPinkerGuard::restoreAppPinkerDirs($projectRoot, $heldAppPinker);
 
         $iterator = new \RecursiveIteratorIterator(
             new \RecursiveDirectoryIterator($extractedRoot, \FilesystemIterator::SKIP_DOTS),

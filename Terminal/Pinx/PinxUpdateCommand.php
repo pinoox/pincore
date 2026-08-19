@@ -35,7 +35,7 @@ class PinxUpdateCommand extends Terminal
                     'pinx:update archive.zip --dry-run',
                     'pinx:update archive.zip --force --yes',
                 ],
-                'Preserves .env, storage/, uploads/, downloads/, pinker/, and apps that are not in the zip.',
+                'Preserves .env, pinker/state (database, app-router), storage/, uploads/, downloads/, pinroll/, and apps that are not in the zip.',
             ))
             ->addArgument('target', InputArgument::OPTIONAL, 'Archive path, or "platform" (same as pinx:build platform)')
             ->addArgument('archive', InputArgument::OPTIONAL, 'Platform .zip path when target is "platform"')
@@ -83,7 +83,7 @@ class PinxUpdateCommand extends Terminal
             ['Installed' => $this->formatVersion($fromVersion)],
             ['Archive' => $this->formatVersion($toVersion)],
             ['Apps' => $apps === [] ? '—' : implode(', ', $apps)],
-            ['Preserved' => implode(', ', ['.env', 'storage/', 'uploads/', 'downloads/', 'pinker/'])],
+            ['Preserved' => implode(', ', ['.env', 'pinker/state', 'storage/', 'uploads/', 'downloads/', 'pinroll/', 'platform routes'])],
         );
 
         if (!$input->getOption('yes') && !$dryRun && !$io->confirm('Apply this platform archive?', true)) {

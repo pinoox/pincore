@@ -26,10 +26,12 @@ final class PlatformArchive
             'downloads',
             'pinker',
             'pinx',
+            'pinroll',
             'packages',
             'pincore',
             '.git',
             '.github',
+            ...PlatformPinkerGuard::runtimeConfigFiles(),
         ];
     }
 
@@ -42,6 +44,10 @@ final class PlatformArchive
         }
 
         if ($relativePath === '.env' || str_starts_with($relativePath, '.env.')) {
+            return true;
+        }
+
+        if (PlatformPinkerGuard::shouldPreserveRuntimeConfig($relativePath)) {
             return true;
         }
 

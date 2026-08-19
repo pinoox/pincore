@@ -15,6 +15,8 @@ final class PlatformBuildConfig
 
     public const UPDATE_DIR = 'storage/.platform-update';
 
+    public const UPDATE_HOLD_DIR = 'storage/.platform-update-hold';
+
     public static function buildPath(string $projectRoot, string $relative = ''): string
     {
         $root = rtrim(str_replace('\\', '/', $projectRoot), '/');
@@ -42,6 +44,7 @@ final class PlatformBuildConfig
             'downloads',
             self::BUILD_DIR,
             self::UPDATE_DIR,
+            self::UPDATE_HOLD_DIR,
             '.env',
             'phpunit.xml',
             '.phpunit.result.cache',
@@ -65,6 +68,7 @@ final class PlatformBuildConfig
             '.git',
             '.platform-build',
             '.platform-update',
+            '.platform-update-hold',
             AppComposerVendor::BUILD_DIR,
         ];
     }
