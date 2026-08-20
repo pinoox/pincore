@@ -250,6 +250,7 @@ class Pinker
     {
         $this->removeCache();
         $this->removeOverride();
+        // pinker/stable is durable — never wiped by clean/remove/rebuild
     }
 
     public function removeCache(): void
@@ -264,6 +265,15 @@ class Pinker
 
         if ($overrideFile !== null && is_file($overrideFile)) {
             $this->fileHandler->remove($overrideFile);
+        }
+    }
+
+    public function removeStable(): void
+    {
+        $stableFile = $this->getStableFile();
+
+        if ($stableFile !== null && is_file($stableFile)) {
+            $this->fileHandler->remove($stableFile);
         }
     }
 
@@ -291,7 +301,7 @@ class Pinker
 
             $source = $this->sourceDataForRead();
 
-            return $this->applyOverride($source);
+            return $this->applyStable($this->applyOverride($source));
         }
 
         if (!is_file($this->bakedFile) && is_file($this->mainFile)) {
@@ -343,32 +353,41 @@ class Pinker
 
     public function getOverrideFile(): ?string
     {
-        if (!$this->usesOverlayStorage()) {
+        $relative = $this->overlayRelative();
+
+        if ($relative === null) {
             return null;
         }
 
-        $bakedFile = $this->normalizePath($this->bakedFile);
-        $root = $this->pinkerRoot();
+        return $this->pinkerRoot() . '/state/' . $relative;
+    }
 
-        if ($root === null || !str_starts_with($bakedFile, $root . '/')) {
+    public function getStableFile(): ?string
+    {
+        $relative = $this->overlayRelative();
+
+        if ($relative === null) {
             return null;
         }
 
-        return $root . '/state/' . substr($bakedFile, strlen($root) + 1);
+        return $this->pinkerRoot() . '/stable/' . $relative;
     }
 
     public function status(): array
     {
         $info = $this->sourceInfo();
         $override = $this->loadOverride();
+        $stable = $this->loadStable();
 
         return [
             'source' => $this->mainFile,
             'cache' => $this->bakedFile,
             'override' => $this->getOverrideFile(),
+            'stable' => $this->getStableFile(),
             'source_exists' => is_file($this->mainFile),
             'cache_exists' => is_file($this->bakedFile),
             'override_exists' => $override !== null,
+            'stable_exists' => $stable !== null,
             'cache_valid' => $this->isCacheValid(),
             'env_sensitive' => $this->isSourceEnvSensitive(),
             'env_priority' => $this->envPriorityStatus($override),
@@ -467,20 +486,21 @@ class Pinker
     {
         $source = $this->sourceData();
         $override = $this->loadOverride();
+        $stable = $this->loadStable();
 
         if (EnvSensitiveConfig::shouldResolveFromEnv()) {
-            if ($override !== null && !empty($override['data'])) {
-                return $this->applyOverride($source);
+            if (($override !== null && !empty($override['data'])) || $stable !== null) {
+                return $this->applyStable($this->applyOverride($source));
             }
 
             return $source;
         }
 
-        if ($override === null || empty($override['data'])) {
+        if (($override === null || empty($override['data'])) && $stable === null) {
             return $source;
         }
 
-        return $this->applyOverride($source);
+        return $this->applyStable($this->applyOverride($source));
     }
 
     private function sourceData()
@@ -730,40 +750,117 @@ class Pinker
 
     private function loadOverride(): ?array
     {
-        foreach ($this->overrideFileCandidates() as $overrideFile) {
-            if (!is_file($overrideFile)) {
-                continue;
-            }
+        $overrideFile = $this->getOverrideFile();
 
-            $data = $this->fileHandler->retrieve($overrideFile);
+        if ($overrideFile === null || !is_file($overrideFile)) {
+            return null;
+        }
 
-            if (is_array($data) && ($data['__pinker_override__'] ?? false) === true) {
-                return $data;
-            }
+        $data = $this->fileHandler->retrieve($overrideFile);
+
+        if (is_array($data) && ($data['__pinker_override__'] ?? false) === true) {
+            return $data;
         }
 
         return null;
     }
 
     /**
-     * @return list<string>
+     * Simple durable config under pinker/stable (hand-editable nested array).
+     *
+     * @return array<string, mixed>|null
      */
-    private function overrideFileCandidates(): array
+    public function loadStable(): ?array
     {
-        $overrideFile = $this->getOverrideFile();
+        $stableFile = $this->getStableFile();
 
-        if ($overrideFile === null) {
-            return [];
+        if ($stableFile === null || !is_file($stableFile)) {
+            return null;
         }
 
-        $candidates = [$overrideFile];
-        $legacy = str_replace('/state/platform/', '/state/config/', $overrideFile);
+        $data = $this->fileHandler->retrieve($stableFile);
 
-        if ($legacy !== $overrideFile) {
-            $candidates[] = $legacy;
+        if (!is_array($data) || ($data['__pinker_override__'] ?? false) === true) {
+            return null;
         }
 
-        return $candidates;
+        return $data;
+    }
+
+    /**
+     * Persist a simple nested config to pinker/stable. Does not touch bake/state.
+     *
+     * @param array<string, mixed> $data
+     */
+    public function saveStable(array $data): self
+    {
+        $stableFile = $this->getStableFile();
+
+        if ($stableFile === null) {
+            return $this;
+        }
+
+        $this->fileHandler->store($stableFile, $this->formatStable($data));
+
+        return $this;
+    }
+
+    private function formatStable(array $data): string
+    {
+        return '<?' . 'php' . "\n"
+            . "/**\n"
+            . " * Pinoox Baker\n"
+            . " * @stable yes\n"
+            . " */\n\n"
+            . 'return ' . $this->exportPhp($data) . ';';
+    }
+
+    /**
+     * @param mixed $source
+     * @return mixed
+     */
+    private function applyStable($source)
+    {
+        $stable = $this->loadStable();
+
+        if ($stable === null) {
+            return $source;
+        }
+
+        $sourceArray = is_array($source) ? $source : [];
+
+        return $this->mergeStableInto($sourceArray, $stable, '');
+    }
+
+    /**
+     * @param array<string, mixed> $target
+     * @param array<string, mixed> $stable
+     * @return array<string, mixed>
+     */
+    private function mergeStableInto(array $target, array $stable, string $prefix): array
+    {
+        foreach ($stable as $key => $value) {
+            $path = $prefix === '' ? (string) $key : $prefix . '.' . $key;
+
+            if (EnvSensitiveConfig::shouldSkipPinkerPath($this->mainFile, $path)) {
+                continue;
+            }
+
+            if (
+                is_array($value)
+                && $this->isAssoc($value)
+                && isset($target[$key])
+                && is_array($target[$key])
+                && $this->isAssoc($target[$key])
+            ) {
+                $target[$key] = $this->mergeStableInto($target[$key], $value, $path);
+                continue;
+            }
+
+            $target[$key] = $value;
+        }
+
+        return $target;
     }
 
     private function makeOverride($source, $current): array
@@ -987,6 +1084,31 @@ class Pinker
         }
 
         return substr($bakedFile, 0, $pos + strlen('/pinker'));
+    }
+
+    /**
+     * Path under pinker/bake/ → relative used for state/ and stable/ mirrors.
+     */
+    private function overlayRelative(): ?string
+    {
+        if (!$this->usesOverlayStorage()) {
+            return null;
+        }
+
+        $bakedFile = $this->normalizePath($this->bakedFile);
+        $root = $this->pinkerRoot();
+
+        if ($root === null || !str_starts_with($bakedFile, $root . '/')) {
+            return null;
+        }
+
+        $relative = substr($bakedFile, strlen($root) + 1);
+
+        if (str_starts_with($relative, 'bake/')) {
+            $relative = substr($relative, strlen('bake/'));
+        }
+
+        return $relative;
     }
 
     private function normalizePath(string $path): string

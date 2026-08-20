@@ -12,6 +12,7 @@ it('applies archive files while preserving runtime data and extra apps', functio
     mkdir($project . '/apps/com_user_shop', 0777, true);
     mkdir($project . '/apps/com_pinoox_manager/pinker', 0777, true);
     mkdir($project . '/pinker/state/platform', 0777, true);
+    mkdir($project . '/pinker/stable/platform', 0777, true);
     mkdir($project . '/platform', 0777, true);
     file_put_contents($project . '/.env', "SECRET=keep-me\nDB_CONNECTION=mysql\n");
     file_put_contents($project . '/storage/keep.txt', 'runtime');
@@ -20,15 +21,30 @@ it('applies archive files while preserving runtime data and extra apps', functio
     file_put_contents($project . '/apps/com_pinoox_manager/pinker/keep.txt', 'app-pinker');
     file_put_contents($project . '/platform/app-router.config.php', "<?php\nreturn ['/' => 'com_pinoox_welcome'];\n");
     file_put_contents($project . '/platform/pinoox.config.php', "<?php\nreturn ['version_name' => '1.0.0'];\n");
-    file_put_contents($project . '/pinker/state/platform/database.config.php', <<<'PHP'
+    file_put_contents($project . '/pinker/stable/platform/database.config.php', <<<'PHP'
+<?php
+/**
+ * Pinoox Baker
+ * @stable yes
+ */
+
+return [
+    'default' => 'mysql',
+    'connections' => [
+        'mysql' => [
+            'host' => 'localhost',
+            'port' => '13308',
+        ],
+    ],
+];
+PHP);
+    file_put_contents($project . '/pinker/state/platform/app-router.config.php', <<<'PHP'
 <?php
 return [
     '__pinker_override__' => true,
     'schema' => 1,
     'data' => [
-        'default' => 'mysql',
-        'connections.mysql.host' => 'localhost',
-        'connections.mysql.port' => '13308',
+        '/' => 'com_pinoox_welcome',
     ],
     'remove' => [],
     'info' => [
@@ -60,7 +76,8 @@ PHP);
         'skip_cache' => true,
     ]);
 
-    $databaseOverride = include $project . '/pinker/state/platform/database.config.php';
+    $databaseStable = include $project . '/pinker/stable/platform/database.config.php';
+    $routerState = include $project . '/pinker/state/platform/app-router.config.php';
 
     expect($result->success)->toBeTrue()
         ->and($result->apps)->toBe(['com_pinoox_manager'])
@@ -70,9 +87,9 @@ PHP);
         ->and(file_get_contents($project . '/storage/BUILD.json'))->toContain('"type": "platform"')
         ->and(file_get_contents($project . '/platform/app-router.config.php'))->toContain('com_pinoox_welcome')
         ->and(file_get_contents($project . '/platform/pinoox.config.php'))->toContain('9.9.9')
-        ->and($databaseOverride['data']['default'] ?? null)->toBe('mysql')
-        ->and($databaseOverride['data']['connections.mysql.port'] ?? null)->toBe('13308')
-        ->and($databaseOverride['info']['updated_at'] ?? 0)->toBeGreaterThan(1)
+        ->and($databaseStable['default'] ?? null)->toBe('mysql')
+        ->and($databaseStable['connections']['mysql']['port'] ?? null)->toBe('13308')
+        ->and($routerState['info']['updated_at'] ?? 0)->toBeGreaterThan(1)
         ->and(is_file($project . '/apps/com_user_shop/app.php'))->toBeTrue()
         ->and(is_file($project . '/apps/com_pinoox_manager/app.php'))->toBeTrue()
         ->and(file_get_contents($project . '/apps/com_pinoox_manager/pinker/keep.txt'))->toBe('app-pinker')

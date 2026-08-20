@@ -7,10 +7,10 @@ use Pinoox\Component\Helpers\Filesystem;
 /**
  * Keeps Pinker runtime state valid after a platform zip overwrite.
  *
- * Pinker prunes override paths when the source file is newer than
- * pinker/state (database, app-router, app.php tweaks). Vendor/app
- * replace updates source mtimes, so override timestamps must be
- * refreshed after apply.
+ * Soft overrides live in pinker/state and may be pruned when source is newer.
+ * Durable install data lives in pinker/stable and is never wiped by clean/rebuild.
+ * Vendor/app replace updates source mtimes, so state override timestamps must be
+ * refreshed after apply. Stable files need no timestamp refresh.
  */
 final class PlatformPinkerGuard
 {

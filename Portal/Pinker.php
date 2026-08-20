@@ -113,7 +113,7 @@ class Pinker extends Portal
 			}
 		}
 
-		return self::ds(SystemConfig::path('pinker') . '/' . ltrim($relative, '/'));
+		return self::ds(SystemConfig::path('pinker') . '/bake/' . ltrim($relative, '/'));
 	}
 
 	private static function externalAppRelative(string $sourceFile): ?string

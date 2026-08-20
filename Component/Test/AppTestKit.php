@@ -216,8 +216,10 @@ class AppTestKit
     public static function deleteFakeApp(string $package): void
     {
         self::deleteDirectory(self::path($package));
+        self::deleteDirectory(SystemConfig::resolvePath('~pinker/bake/apps/' . $package));
         self::deleteDirectory(SystemConfig::resolvePath('~pinker/apps/' . $package));
         self::deleteDirectory(SystemConfig::resolvePath('~pinker/state/apps/' . $package));
+        self::deleteDirectory(SystemConfig::resolvePath('~pinker/stable/apps/' . $package));
         AppEnvBridge::reset();
         AppEngine::__rebuild();
     }

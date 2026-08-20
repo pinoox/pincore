@@ -129,7 +129,7 @@ final class PlatformUpdater
                     $steps,
                     'pinker',
                     'ok',
-                    sprintf('Kept %d pinker/state override file(s) (database, routes, app settings).', $refreshed),
+                    sprintf('Kept %d pinker/state override file(s); pinker/stable left untouched.', $refreshed),
                 );
             } else {
                 $this->recordStep($steps, 'pinker', 'skipped', 'No pinker/state overrides to keep.');

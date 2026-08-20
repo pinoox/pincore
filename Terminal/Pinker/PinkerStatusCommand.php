@@ -63,7 +63,7 @@ class PinkerStatusCommand extends Terminal
         }
 
         $io->table(['Package', 'File', 'State', 'Cache', 'Override', 'Source modified'], $rows);
-        $io->note('runtime = source uses env(); defined .env keys override pinker/state; unset keys fall back to pinker.');
+        $io->note('runtime = source uses env(); defined .env keys override pinker/state and pinker/stable; unset keys fall back to overlays. stable survives clean/rebuild.');
 
         return Command::SUCCESS;
     }

@@ -2,13 +2,12 @@
 
 namespace Pinoox\Component\Database;
 
-use Pinoox\Component\Store\Baker\EnvSensitiveConfig;
 use Pinoox\Component\Store\Config\Strategy\FileConfigStrategy;
 use Pinoox\Portal\Config;
 use Pinoox\Support\SystemConfig;
 
 /**
- * Persist platform database connections to Pinker (~database config).
+ * Persist platform database connections to pinker/stable (simple hand-editable config).
  */
 final class PlatformDatabaseStore
 {
@@ -28,57 +27,35 @@ final class PlatformDatabaseStore
             }
 
             $pinker = $strategy->getPinker();
-            $overridePath = $pinker->getOverrideFile();
-            $overrideBackup = is_string($overridePath) && is_file($overridePath)
-                ? file_get_contents($overridePath)
+            $stablePath = $pinker->getStableFile();
+            $stableBackup = is_string($stablePath) && is_file($stablePath)
+                ? file_get_contents($stablePath)
                 : null;
 
             try {
-                $pinker->restore();
-                $database->restore();
-
-                $root = $database->all();
-
-                if (!is_array($root)) {
-                    $root = [];
-                }
-
-                $root = DatabaseConfig::normalize($root);
-
-                if ($setDefault) {
-                    $root['default'] = $connectionName;
-                }
-
-                $connections = is_array($root['connections'] ?? null) ? $root['connections'] : [];
+                $existing = $pinker->loadStable() ?? [];
+                $connections = is_array($existing['connections'] ?? null) ? $existing['connections'] : [];
                 $connections[$connectionName] = array_replace(
                     is_array($connections[$connectionName] ?? null) ? $connections[$connectionName] : [],
                     self::storageConfig($config, $connectionName),
                 );
-                $root['connections'] = $connections;
 
-                $database->setData($root);
+                $payload = $existing;
+                $payload['connections'] = $connections;
 
-                $pinker->forceOverridePaths(array_filter([
-                    'default' => $setDefault ? $connectionName : null,
-                    DatabaseConfig::pinkerPathForConnection($connectionName) => DatabaseConfig::pinkerPathForConnection($connectionName),
-                ]));
+                if ($setDefault || !isset($payload['default'])) {
+                    $payload['default'] = $connectionName;
+                }
 
-                $storedProfiles = self::storedProfiles($root);
-
-                $pinker->info([
-                    'env_sensitive' => 'yes',
-                    'env_priority' => EnvSensitiveConfig::envPriorityLabel(),
-                    'env_resolution' => EnvSensitiveConfig::resolutionLabel(),
-                    'stored_profiles' => implode(',', $storedProfiles),
-                ]);
-
-                $database->save();
+                // Soft state must not fight durable stable for the same config.
+                $pinker->removeOverride();
+                $pinker->saveStable($payload);
                 SystemConfig::clearCache();
 
                 return true;
             } catch (\Throwable $e) {
-                if ($overrideBackup !== null && is_string($overridePath)) {
-                    file_put_contents($overridePath, $overrideBackup);
+                if ($stableBackup !== null && is_string($stablePath)) {
+                    file_put_contents($stablePath, $stableBackup);
                     SystemConfig::clearCache();
                 }
 
@@ -102,26 +79,27 @@ final class PlatformDatabaseStore
             }
 
             $pinker = $strategy->getPinker();
-            $pinker->restore();
-            $database->restore();
-
-            $root = $database->all();
-
-            if (!is_array($root)) {
-                return false;
-            }
-
-            $root = DatabaseConfig::normalize($root);
-            $connections = is_array($root['connections'] ?? null) ? $root['connections'] : [];
+            $existing = $pinker->loadStable() ?? [];
+            $connections = is_array($existing['connections'] ?? null) ? $existing['connections'] : [];
 
             if (!isset($connections[$connectionName])) {
-                return false;
+                $root = self::platformRoot();
+                $platformConnections = is_array($root['connections'] ?? null) ? $root['connections'] : [];
+
+                if (!isset($platformConnections[$connectionName])) {
+                    return false;
+                }
+
+                $connections[$connectionName] = self::storageConfig(
+                    is_array($platformConnections[$connectionName]) ? $platformConnections[$connectionName] : [],
+                    $connectionName,
+                );
             }
 
-            $root['default'] = $connectionName;
-            $database->setData($root);
-            $pinker->forceOverridePaths(['default' => $connectionName]);
-            $database->save();
+            $existing['connections'] = $connections;
+            $existing['default'] = $connectionName;
+            $pinker->removeOverride();
+            $pinker->saveStable($existing);
             SystemConfig::clearCache();
 
             return true;
@@ -161,22 +139,6 @@ final class PlatformDatabaseStore
         ];
     }
 
-    /**
-     * @param array<string, mixed> $root
-     * @return list<string>
-     */
-    private static function storedProfiles(array $root): array
-    {
-        $profiles = ['default'];
-        $connections = is_array($root['connections'] ?? null) ? $root['connections'] : [];
-
-        foreach (array_keys($connections) as $name) {
-            $profiles[] = DatabaseConfig::pinkerPathForConnection((string) $name);
-        }
-
-        return array_values(array_unique($profiles));
-    }
-
     private static function normalizeConnectionName(string $connectionName): string
     {
         $connectionName = strtolower(trim($connectionName));
@@ -189,8 +151,6 @@ final class PlatformDatabaseStore
     }
 
     /**
-     * Pinker stores the logical driver (mariadb stays mariadb); runtime may normalize to mysql.
-     *
      * @param array<string, mixed> $config
      * @return array<string, mixed>
      */

@@ -10,6 +10,8 @@ it('preserves runtime paths and allows BUILD.json', function () {
         ->and(PlatformArchive::shouldPreserve('downloads/file.zip'))->toBeTrue()
         ->and(PlatformArchive::shouldPreserve('pinker/state/app.php'))->toBeTrue()
         ->and(PlatformArchive::shouldPreserve('pinker/state/platform/database.config.php'))->toBeTrue()
+        ->and(PlatformArchive::shouldPreserve('pinker/stable/platform/database.config.php'))->toBeTrue()
+        ->and(PlatformArchive::shouldPreserve('pinker/bake/platform/database.config.php'))->toBeTrue()
         ->and(PlatformArchive::shouldPreserve('platform/app-router.config.php'))->toBeTrue()
         ->and(PlatformArchive::shouldPreserve('platform/domain.config.php'))->toBeTrue()
         ->and(PlatformArchive::shouldPreserve('platform/apps.config.php'))->toBeTrue()

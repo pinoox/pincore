@@ -250,16 +250,16 @@ it('supports Laravel-compatible env aliases for core runtime config', function (
         ->and(SystemConfig::get('pinoox', 'log.level'))->toBe('warning');
 });
 
-it('resolves pinker_config to pinker/platform even when paths config is unavailable', function () {
+it('resolves pinker_config to pinker/bake/platform even when paths config is unavailable', function () {
     $root = rtrim(str_replace('\\', '/', (string) PINOOX_BASE_PATH), '/');
 
     // Force a miss: point config path at a non-existent directory so paths.config.php cannot load.
     setSystemConfigTestEnv('PINOOX_CONFIG_PATH', testFixturesProjectRelative('system_config/missing_config_dir'));
     SystemConfig::clearCache();
 
-    expect(SystemConfig::rawPath('pinker_config'))->toBe('~pinker/platform')
-        ->and(SystemConfig::path('pinker_config'))->toBe($root . '/pinker/platform')
-        ->and(SystemConfig::pinkerConfigPath('pinoox.config.php'))->toBe($root . '/pinker/platform/pinoox.config.php')
+    expect(SystemConfig::rawPath('pinker_config'))->toBe('~pinker/bake/platform')
+        ->and(SystemConfig::path('pinker_config'))->toBe($root . '/pinker/bake/platform')
+        ->and(SystemConfig::pinkerConfigPath('pinoox.config.php'))->toBe($root . '/pinker/bake/platform/pinoox.config.php')
         ->and(SystemConfig::path('pinker_config'))->not->toBe($root . '/pinker_config');
 });
 

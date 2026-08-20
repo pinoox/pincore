@@ -223,8 +223,10 @@ final class PinxPinkerRegistry
         $pinkerRoot = rtrim(str_replace('\\', '/', SystemConfig::path('pinker')), '/');
 
         foreach ([
+            $pinkerRoot . '/bake/apps/' . $package,
             $pinkerRoot . '/apps/' . $package,
             $pinkerRoot . '/state/apps/' . $package,
+            $pinkerRoot . '/stable/apps/' . $package,
         ] as $dir) {
             if (is_dir($dir)) {
                 \Pinoox\Portal\FileSystem::remove($dir);
