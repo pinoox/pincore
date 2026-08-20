@@ -82,3 +82,29 @@ it('rejects older archives unless versions are unknown', function () {
         ->and(PlatformArchive::isNewerOrEqual(56, 55))->toBeTrue()
         ->and(PlatformArchive::isNewerOrEqual(null, 55))->toBeTrue();
 });
+
+it('does not treat app pinx archives as platform zips', function () {
+    if (!class_exists(ZipArchive::class)) {
+        test()->markTestSkipped('ZipArchive extension not available');
+    }
+
+    $tmp = sys_get_temp_dir() . '/pincore-pinx-' . bin2hex(random_bytes(4));
+    mkdir($tmp, 0755, true);
+    $archive = $tmp . '/com_pinoox_manager.pinx';
+
+    $zip = new ZipArchive();
+    expect($zip->open($archive, ZipArchive::CREATE))->toBeTrue();
+    $zip->addFromString('manifest.json', json_encode([
+        'format' => 'pinx',
+        'type' => 'app',
+        'package' => 'com_pinoox_manager',
+    ], JSON_THROW_ON_ERROR));
+    $zip->addFromString('payload/app.php', "<?php return ['package' => 'com_pinoox_manager'];");
+    $zip->close();
+
+    expect(PlatformArchive::isPinxPackageArchive($archive))->toBeTrue()
+        ->and(PlatformArchive::isPlatformArchive($archive))->toBeFalse();
+
+    @unlink($archive);
+    @rmdir($tmp);
+});

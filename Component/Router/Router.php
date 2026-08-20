@@ -541,6 +541,12 @@ class Router
 
     public function build($path, $routes): Router
     {
+        // Portal Router is a shared instance; reset action state so each app build
+        // only registers actions from its own route files (avoids cross-app duplicates
+        // during pinx install / cache rebuild in one PHP request).
+        $this->actions = [];
+        $this->actionMeta = [];
+
         $collection = $this->collection(
             path: $path,
             routes: $routes,

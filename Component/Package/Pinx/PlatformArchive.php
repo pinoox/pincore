@@ -12,6 +12,8 @@ final class PlatformArchive
 {
     public const MANIFEST_ENTRY = 'storage/BUILD.json';
 
+    public const PINX_MANIFEST_ENTRY = 'manifest.json';
+
     /**
      * Host paths that must not be replaced from a distribution zip.
      *
@@ -81,7 +83,6 @@ final class PlatformArchive
 
             if (!is_string($raw) || $raw === '') {
                 return [
-                    'type' => 'platform',
                     'prefix' => $prefix,
                 ];
             }
@@ -195,9 +196,62 @@ final class PlatformArchive
         return $root;
     }
 
+    public static function isPinxPackageArchive(string $archivePath): bool
+    {
+        if (!is_file($archivePath)) {
+            return false;
+        }
+
+        try {
+            $zip = self::open($archivePath);
+        } catch (\Throwable) {
+            return false;
+        }
+
+        try {
+            $entries = self::entryNames($zip);
+            $prefix = self::archivePrefix($entries);
+
+            foreach ([$prefix . self::PINX_MANIFEST_ENTRY, self::PINX_MANIFEST_ENTRY] as $entry) {
+                $raw = $zip->getFromName($entry);
+
+                if (!is_string($raw) || $raw === '') {
+                    continue;
+                }
+
+                $decoded = json_decode($raw, true);
+
+                if (!is_array($decoded)) {
+                    continue;
+                }
+
+                if (($decoded['format'] ?? null) === PinxManifest::FORMAT) {
+                    return true;
+                }
+            }
+
+            foreach ($entries as $entry) {
+                $relative = $prefix === '' ? $entry : substr($entry, strlen($prefix));
+                $relative = self::normalizeRelative($relative);
+
+                if (str_starts_with($relative, PinxManifest::PAYLOAD_PREFIX)) {
+                    return true;
+                }
+            }
+
+            return false;
+        } finally {
+            $zip->close();
+        }
+    }
+
     public static function isPlatformArchive(string $archivePath): bool
     {
         if (!is_file($archivePath)) {
+            return false;
+        }
+
+        if (self::isPinxPackageArchive($archivePath)) {
             return false;
         }
 

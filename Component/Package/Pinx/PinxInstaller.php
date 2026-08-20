@@ -228,8 +228,10 @@ class PinxInstaller
                     $this->recordStep($steps, 'lifecycle', 'skipped', 'Lifecycle skipped by option.');
                 }
 
-                if (!($options['skip_cache'] ?? false)) {
-                    $this->rebuildCache($manifest->package(), $steps);
+            if (!($options['skip_cache'] ?? false)) {
+                \Pinoox\Component\Router\Action\ActionRegistry::reset();
+                \Pinoox\Component\AppEvent\AppRouteRegistry::reset();
+                $this->rebuildCache($manifest->package(), $steps);
                 } else {
                     $this->recordStep($steps, 'cache', 'skipped', 'Cache rebuild skipped by option.');
                 }
