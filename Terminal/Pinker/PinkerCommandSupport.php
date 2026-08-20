@@ -52,7 +52,8 @@ trait PinkerCommandSupport
             foreach ($this->sourceFiles($pkg) as $label => $sourceFile) {
                 $pinker = new Pinker($sourceFile, PinkerPortal::bakedFileFromSource($sourceFile));
 
-                if (basename($sourceFile) === SystemConfig::rawPath('app_file', 'app.php')) {
+                if (basename($sourceFile) === SystemConfig::rawPath('app_file', 'app.php')
+                    || basename($sourceFile) === 'theme.php') {
                     $pinker->dumping(true);
                 }
 
@@ -79,6 +80,20 @@ trait PinkerCommandSupport
         $appFile = SystemConfig::rawPath('app_file', 'app.php');
         if ($package !== 'platform' && is_file($base . '/' . $appFile)) {
             $files[$appFile] = $base . '/' . $appFile;
+        }
+
+        $themeRoot = $base . '/theme';
+        if ($package !== 'platform' && is_dir($themeRoot)) {
+            foreach (scandir($themeRoot) ?: [] as $entry) {
+                if ($entry === '.' || $entry === '..') {
+                    continue;
+                }
+
+                $themeFile = $themeRoot . '/' . $entry . '/theme.php';
+                if (is_file($themeFile)) {
+                    $files['theme/' . $entry . '/theme.php'] = $themeFile;
+                }
+            }
         }
 
         $configFolder = trim(SystemConfig::rawPath('app_config', 'config'), '/\\');

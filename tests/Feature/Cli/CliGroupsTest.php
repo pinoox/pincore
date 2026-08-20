@@ -5,6 +5,9 @@ use Pinoox\Terminal\App\AppListCommand;
 use Pinoox\Terminal\App\AppResolveCommand;
 use Pinoox\Terminal\App\AppRouterCommand;
 use Pinoox\Terminal\Cache\CacheBuildCommand;
+use Pinoox\Terminal\Config\ConfigGetCommand;
+use Pinoox\Terminal\Config\ConfigRemoveCommand;
+use Pinoox\Terminal\Config\ConfigSetCommand;
 use Pinoox\Terminal\Controller\ControllerCreateCommand;
 use Pinoox\Terminal\Deps\DepsCommand;
 use Pinoox\Terminal\Docs\PinDocHtmlCommand;
@@ -67,6 +70,20 @@ it('registers app management CLI commands', function () {
         ->and($application->has('app:resolve'))->toBeTrue()
         ->and($application->has('app:router'))->toBeTrue()
         ->and($application->has('app:domain'))->toBeTrue();
+});
+
+it('registers config CLI commands', function () {
+    $application = cliApplication([
+        new ConfigSetCommand(),
+        new ConfigGetCommand(),
+        new ConfigRemoveCommand(),
+    ]);
+
+    expect($application->has('config:set'))->toBeTrue()
+        ->and($application->has('config:get'))->toBeTrue()
+        ->and($application->has('config:show'))->toBeTrue()
+        ->and($application->has('config:remove'))->toBeTrue()
+        ->and($application->has('config:unset'))->toBeTrue();
 });
 
 it('registers migration and patch CLI commands', function () {

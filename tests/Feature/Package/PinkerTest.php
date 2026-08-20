@@ -367,6 +367,18 @@ it('maps pincore config source files to pinker/bake/platform', function () {
         ->toBe(pinkerTestPinkerRoot() . '/bake/platform/app/source.config.php');
 });
 
+it('maps vendor pinoox/pincore config into bake/platform not bake/vendor', function () {
+    $vendorConfig = pinkerTestPath(testProjectRoot() . '/vendor/pinoox/pincore/config/database.config.php');
+
+    if (!is_file($vendorConfig)) {
+        test()->markTestSkipped('vendor/pinoox/pincore is not present in this checkout.');
+    }
+
+    expect(Pinker::bakedFileFromSource($vendorConfig))
+        ->toBe(pinkerTestPinkerRoot() . '/bake/platform/database.config.php')
+        ->and(Pinker::bakedFileFromSource($vendorConfig))->not->toContain('/bake/vendor/');
+});
+
 it('keeps test runtime sources inside the isolated pinker root', function () {
     $sourceFile = pinkerTestPath(testRuntimeRoot() . '/config/sample.php');
     $bakedFile = Pinker::bakedFileFromSource($sourceFile);
@@ -377,7 +389,7 @@ it('keeps test runtime sources inside the isolated pinker root', function () {
         ->and($bakedFile)->not->toContain('/pinker/pincore/tests/Fixtures/runtime/');
 });
 
-it('maps external registry app sources to pinker/apps/{package}', function () {
+it('maps external registry app sources to pinker/bake/apps/{package}', function () {
     $package = 'com_test_pinker_external';
     $externalApp = pinkerTestPath(dirname(testProjectRoot()) . '/pinoox_external_pinker_test/' . $package);
 

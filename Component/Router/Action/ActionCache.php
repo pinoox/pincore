@@ -13,7 +13,7 @@ class ActionCache
         return AppCachePath::store($package, 'routes');
     }
 
-    /** @deprecated Old global layout before per-app pinker/apps/{package}/cache/ */
+    /** @deprecated Old global layout before per-app pinker/bake/apps/{package}/cache/ */
 
     public static function legacyGlobalPath(string $package): string
     {

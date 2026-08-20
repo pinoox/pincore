@@ -446,14 +446,14 @@ final class DoctorRunner
 
     private function checkPinkerCache(DoctorReport $report, string $platformRoot, string $package): void
     {
-        $pinkerApp = $platformRoot . '/pinker/apps/' . $package;
+        $pinkerApp = $platformRoot . '/pinker/bake/apps/' . $package;
 
         $report->add(new CheckItem(
             group: 'Pinker',
             id: 'cache',
             label: 'Pinker cache',
             status: is_dir($pinkerApp) ? CheckStatus::Pass : CheckStatus::Warn,
-            detail: is_dir($pinkerApp) ? 'pinker/apps/' . $package : 'Not built yet',
+            detail: is_dir($pinkerApp) ? 'pinker/bake/apps/' . $package : 'Not built yet',
             hint: ProjectCli::format('pinker:rebuild ' . $package, $platformRoot),
         ));
     }

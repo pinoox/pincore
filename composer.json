@@ -1,5 +1,6 @@
 {
   "name": "pinoox/pincore",
+  "version": "3.13.0",
   "description": "Pinoox HMVC framework core",
   "keywords": [
     "PHP",

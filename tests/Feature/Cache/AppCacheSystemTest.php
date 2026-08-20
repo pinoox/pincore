@@ -51,10 +51,10 @@ it('uses explicit build store overrides when configured', function () {
         ->toMatchArray(['routes' => true, 'pinker' => false, 'api' => false]);
 });
 
-it('resolves package cache path inside pinker apps folder', function () {
+it('resolves package cache path inside pinker/bake/apps', function () {
     $path = AppCachePath::store('com_acme_demo', 'routes');
 
-    expect($path)->toContain('/pinker/apps/com_acme_demo/cache/routes.php');
+    expect($path)->toContain('/pinker/bake/apps/com_acme_demo/cache/routes.php');
 });
 
 it('writes and reads php cache files with legacy json migration', function () {

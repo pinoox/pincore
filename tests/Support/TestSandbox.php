@@ -40,7 +40,7 @@ final class TestSandbox
 
     public static function pinkerApps(): string
     {
-        return self::ensure('pinker/apps');
+        return self::ensure('pinker/bake/apps');
     }
 
     public static function write(string $relative, string $contents): string

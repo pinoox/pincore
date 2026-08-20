@@ -19,12 +19,13 @@ class PinkerCacheStore implements CacheStoreInterface
 
     public function path(string $package): string
     {
+        $pinker = rtrim(str_replace('\\', '/', SystemConfig::path('pinker')), '/');
+
         if ($package === 'platform') {
-            return rtrim(str_replace('\\', '/', SystemConfig::path('pinker')), '/') . '/pincore';
+            return $pinker . '/bake/platform';
         }
 
-        return rtrim(str_replace('\\', '/', SystemConfig::path('pinker')), '/')
-            . '/apps/' . $package;
+        return $pinker . '/bake/apps/' . $package;
     }
 
     public function isFresh(string $package): bool
