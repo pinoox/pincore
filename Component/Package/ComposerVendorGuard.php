@@ -243,7 +243,7 @@ final class ComposerVendorGuard
         );
 
         $command = self::dumpAutoloadCommand($projectRoot);
-        $process = new Process($command, $workingDirectory, null, null, 300);
+        $process = new Process($command, $workingDirectory, null, null, 1200);
         $process->run();
 
         if (!$process->isSuccessful()) {

@@ -55,6 +55,8 @@ it('registers the install-platform command', function () {
         ->and($command->getDefinition()->hasArgument('action'))->toBeTrue()
         ->and($command->getDefinition()->hasOption('file'))->toBeTrue()
         ->and($command->getDefinition()->hasOption('force'))->toBeTrue()
+        ->and($command->getDefinition()->hasOption('remove'))->toBeTrue()
+        ->and($command->getDefinition()->hasOption('delete'))->toBeTrue()
         ->and($command->getDefinition()->hasOption('dry-run'))->toBeTrue();
 });
 
@@ -143,6 +145,34 @@ it('fails run when the config file is missing', function () use (&$installPlatfo
 
     expect($status)->toBe(Command::FAILURE)
         ->and($tester->getDisplay())->toContain('Config not found');
+});
+
+it('deletes a config file via InstallPlatformConfig::remove', function () use (&$installPlatformFiles) {
+    $path = $installPlatformFiles[] = installPlatformTempFile();
+    InstallPlatformConfig::writeStub($path, true, installPlatformValidPayload());
+
+    expect(is_file($path))->toBeTrue()
+        ->and(InstallPlatformConfig::remove($path))->toBeTrue()
+        ->and(is_file($path))->toBeFalse()
+        ->and(InstallPlatformConfig::remove($path))->toBeTrue();
+});
+
+it('does not delete the config on dry-run even with -r', function () use (&$installPlatformFiles) {
+    $path = $installPlatformFiles[] = installPlatformTempFile();
+    InstallPlatformConfig::writeStub($path, true, installPlatformValidPayload());
+
+    $application = cliApplication([new InstallPlatformCommand()]);
+    $tester = new CommandTester($application->find('install-platform'));
+
+    $status = $tester->execute([
+        'action' => 'run',
+        '--file' => $path,
+        '--dry-run' => true,
+        '--remove' => true,
+    ], ['interactive' => false]);
+
+    expect($status)->toBe(Command::SUCCESS)
+        ->and(is_file($path))->toBeTrue();
 });
 
 it('rejects an unknown action', function () {
