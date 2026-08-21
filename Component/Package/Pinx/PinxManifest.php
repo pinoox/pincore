@@ -50,6 +50,7 @@ class PinxManifest
         $packageLabel = AppManifest::displayName($package);
         $packageDescription = AppManifest::description($package);
         $packageLabels = AppManifest::labels($package);
+        $requirements = PinxRequirements::normalize($pinxConfig['requirements'] ?? []);
 
         return new self([
             'format' => self::FORMAT,
@@ -65,6 +66,7 @@ class PinxManifest
             'version_name' => $themeManifest?->versionName() ?: (string) ($appConfig['version-name'] ?? '1.0'),
             'version_code' => $themeManifest?->versionCode() ?: (int) ($appConfig['version-code'] ?? 1),
             'minpin' => (int) ($pinxConfig['minpin'] ?? $appConfig['minpin'] ?? 0),
+            'requirements' => $requirements,
             'depends' => self::dependsForManifest($depends),
             'target_app' => $type === self::TYPE_THEME ? $targetApp : null,
             'theme_name' => $type === self::TYPE_THEME ? $themeName : null,
@@ -109,6 +111,8 @@ class PinxManifest
         if ($this->package() === '') {
             throw new Exception('Manifest is missing package name.');
         }
+
+        PinxRequirements::normalize($this->requirementsRaw());
 
         if ($type === self::TYPE_THEME) {
             if ($this->targetApp() === '') {
@@ -216,6 +220,19 @@ class PinxManifest
     public function minpin(): int
     {
         return (int) ($this->data['minpin'] ?? 0);
+    }
+
+    public function requirementsRaw(): mixed
+    {
+        return $this->data['requirements'] ?? [];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function requirements(): array
+    {
+        return PinxRequirements::normalize($this->requirementsRaw());
     }
 
     /**
@@ -331,4 +348,3 @@ class PinxManifest
         return $depends;
     }
 }
-
