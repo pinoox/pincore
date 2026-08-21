@@ -1,5 +1,5 @@
 <?php
-
+ 
 namespace Pinoox\Component\Package\Pinx;
 
 use Pinoox\Component\Kernel\Exception;
