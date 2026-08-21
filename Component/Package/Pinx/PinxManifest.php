@@ -68,7 +68,7 @@ class PinxManifest
             'version_name' => $themeManifest?->versionName() ?: (string) ($appConfig['version-name'] ?? '1.0'),
             'version_code' => $themeManifest?->versionCode() ?: (int) ($appConfig['version-code'] ?? 1),
             'minpin' => $minpin,
-            'requirements' => $requirements,
+            ...($requirements !== [] ? ['requirements' => $requirements] : []),
             'depends' => self::dependsForManifest($depends),
             'target_app' => $type === self::TYPE_THEME ? $targetApp : null,
             'theme_name' => $type === self::TYPE_THEME ? $themeName : null,
