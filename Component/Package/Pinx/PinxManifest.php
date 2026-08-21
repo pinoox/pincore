@@ -114,7 +114,14 @@ class PinxManifest
             throw new Exception('Manifest is missing package name.');
         }
 
-        PinxRequirements::normalize($this->requirementsRaw());
+        $requirements = PinxRequirements::normalize($this->requirementsRaw());
+
+        if ($requirements !== [] && $this->minpin() < PinxRequirements::MIN_KERNEL_CODE) {
+            throw new Exception(sprintf(
+                'Pinx runtime requirements require minpin %d or higher.',
+                PinxRequirements::MIN_KERNEL_CODE,
+            ));
+        }
 
         if ($type === self::TYPE_THEME) {
             if ($this->targetApp() === '') {
