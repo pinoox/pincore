@@ -23,7 +23,12 @@ final class PlatformDatabaseStore
             $strategy = $database->getStrategy();
 
             if (!$strategy instanceof FileConfigStrategy) {
-                return false;
+                return self::writeFallbackFile($connectionName, [
+                    'default' => $connectionName,
+                    'connections' => [
+                        $connectionName => self::storageConfig($config, $connectionName),
+                    ],
+                ]);
             }
 
             $pinker = $strategy->getPinker();
@@ -52,7 +57,12 @@ final class PlatformDatabaseStore
                 $pinker->saveStable($payload);
                 SystemConfig::clearCache();
 
-                return true;
+                $stablePath = $pinker->getStableFile();
+                if (is_string($stablePath) && is_file($stablePath)) {
+                    return true;
+                }
+
+                return self::writeFallbackFile($connectionName, $payload);
             } catch (\Throwable $e) {
                 if ($stableBackup !== null && is_string($stablePath)) {
                     file_put_contents($stablePath, $stableBackup);
@@ -61,6 +71,33 @@ final class PlatformDatabaseStore
 
                 throw $e;
             }
+        } catch (\Throwable) {
+            return self::writeFallbackFile($connectionName, [
+                'default' => $connectionName,
+                'connections' => [
+                    $connectionName => self::storageConfig($config, $connectionName),
+                ],
+            ]);
+        }
+    }
+
+    /**
+     * @param array<string, mixed> $payload
+     */
+    private static function writeFallbackFile(string $connectionName, array $payload): bool
+    {
+        unset($connectionName);
+
+        try {
+            $file = SystemConfig::pinkerStableConfigPath('database');
+            $dir = dirname($file);
+            if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
+                return false;
+            }
+
+            $export = var_export($payload, true);
+
+            return @file_put_contents($file, "<?php\n\nreturn {$export};\n") !== false;
         } catch (\Throwable) {
             return false;
         }
