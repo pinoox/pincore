@@ -31,10 +31,10 @@ it('stores app baked files in the configured pinker directory', function () {
     $data = $pinker->pickup();
     $status = $pinker->status();
 
-    expect($pinker->getBakedFile())->toBe($pinkerRoot . '/apps/' . $package . '/app.php')
+    expect($pinker->getBakedFile())->toBe($pinkerRoot . '/bake/apps/' . $package . '/app.php')
         ->and($data['package'])->toBe($package)
         ->and($status['source_size'])->toBe(filesize($appDir . '/app.php'))
-        ->and(is_file($pinkerRoot . '/apps/' . $package . '/app.php'))->toBeTrue()
+        ->and(is_file($pinkerRoot . '/bake/apps/' . $package . '/app.php'))->toBeTrue()
         ->and(is_dir($appDir . '/pinker'))->toBeFalse();
 });
 
@@ -255,7 +255,7 @@ it('stores runtime config changes as state overrides', function () {
 
     expect($pinker->pickup())
         ->toMatchArray(['name' => 'Runtime', 'nested' => ['keep' => true]])
-        ->and($pinker->getBakedFile())->toBe(pinkerTestPinkerRoot() . '/apps/' . $package . '/app.php')
+        ->and($pinker->getBakedFile())->toBe(pinkerTestPinkerRoot() . '/bake/apps/' . $package . '/app.php')
         ->and($pinker->getOverrideFile())->toBe(pinkerTestPinkerRoot() . '/state/apps/' . $package . '/app.php')
         ->and(is_file($pinker->getOverrideFile()))->toBeTrue();
 });
@@ -359,12 +359,24 @@ it('recovers when the baked cache file is corrupted', function () {
         ->and($pinker->status()['cache_valid'])->toBeTrue();
 });
 
-it('maps pincore config source files to pinker/platform', function () {
+it('maps pincore config source files to pinker/bake/platform', function () {
     $corePath = pinkerTestPath(testCoreRoot()) . '/';
     $sourceFile = pinkerTestPath($corePath . 'config/app/source.config.php');
 
     expect(Pinker::bakedFileFromSource($sourceFile))
-        ->toBe(pinkerTestPinkerRoot() . '/platform/app/source.config.php');
+        ->toBe(pinkerTestPinkerRoot() . '/bake/platform/app/source.config.php');
+});
+
+it('maps vendor pinoox/pincore config into bake/platform not bake/vendor', function () {
+    $vendorConfig = pinkerTestPath(testProjectRoot() . '/vendor/pinoox/pincore/config/database.config.php');
+
+    if (!is_file($vendorConfig)) {
+        test()->markTestSkipped('vendor/pinoox/pincore is not present in this checkout.');
+    }
+
+    expect(Pinker::bakedFileFromSource($vendorConfig))
+        ->toBe(pinkerTestPinkerRoot() . '/bake/platform/database.config.php')
+        ->and(Pinker::bakedFileFromSource($vendorConfig))->not->toContain('/bake/vendor/');
 });
 
 it('keeps test runtime sources inside the isolated pinker root', function () {
@@ -372,12 +384,12 @@ it('keeps test runtime sources inside the isolated pinker root', function () {
     $bakedFile = Pinker::bakedFileFromSource($sourceFile);
 
     expect($bakedFile)
-        ->toBe(testRuntimePinker() . '/runtime/config/sample.php')
+        ->toBe(testRuntimePinker() . '/bake/runtime/config/sample.php')
         ->and($bakedFile)->toStartWith(testRuntimePinker() . '/')
         ->and($bakedFile)->not->toContain('/pinker/pincore/tests/Fixtures/runtime/');
 });
 
-it('maps external registry app sources to pinker/apps/{package}', function () {
+it('maps external registry app sources to pinker/bake/apps/{package}', function () {
     $package = 'com_test_pinker_external';
     $externalApp = pinkerTestPath(dirname(testProjectRoot()) . '/pinoox_external_pinker_test/' . $package);
 
@@ -396,7 +408,7 @@ it('maps external registry app sources to pinker/apps/{package}', function () {
 
     try {
         expect(Pinker::bakedFileFromSource($sourceFile))
-            ->toBe(pinkerTestPinkerRoot() . '/apps/' . $package . '/theme/ada/theme.php');
+            ->toBe(pinkerTestPinkerRoot() . '/bake/apps/' . $package . '/theme/ada/theme.php');
     } finally {
         deletePinkerTestDirectory(dirname($externalApp));
     }

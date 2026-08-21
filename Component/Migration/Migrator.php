@@ -491,9 +491,7 @@ class Migrator
             return false;
         }
 
-        $connection = $this->package === 'platform'
-            ? 'platform'
-            : DB::connectionNameForPackage($this->package);
+        $connection = $this->packageConnectionName();
         $conn = DB::connection($connection);
         $physical = DB::physicalTableName($table, $this->package);
         $prefix = (string) $conn->getTablePrefix();
@@ -719,9 +717,7 @@ class Migrator
     {
         try {
             $package ??= $this->package;
-            $connection = $package === 'platform'
-                ? 'platform'
-                : DB::connectionNameForPackage($package);
+            $connection = $this->packageConnectionName($package);
             $conn = DB::connection($connection);
             $physical = DB::physicalTableName($table, $package);
             $prefix = (string) $conn->getTablePrefix();
@@ -758,31 +754,40 @@ class Migrator
         }
     }
 
+    private function packageConnectionName(?string $package = null): string
+    {
+        $package ??= $this->package;
+
+        return $package === 'platform'
+            ? 'platform'
+            : DB::connectionNameForPackage($package);
+    }
+
     private function disableForeignKeyChecks(): bool
     {
-        if (!$this->usesMySqlForeignKeyChecks()) {
+        if (!$this->supportsForeignKeyCheckToggle()) {
             return false;
         }
 
-        DB::statement('SET FOREIGN_KEY_CHECKS=0');
+        // SQLiteConnection / DevDbConnection map this to PRAGMA foreign_keys = OFF.
+        DB::connection($this->packageConnectionName())->statement('SET FOREIGN_KEY_CHECKS=0');
 
         return true;
     }
 
     private function enableForeignKeyChecks(): void
     {
-        if ($this->usesMySqlForeignKeyChecks()) {
-            DB::statement('SET FOREIGN_KEY_CHECKS=1');
+        if ($this->supportsForeignKeyCheckToggle()) {
+            DB::connection($this->packageConnectionName())->statement('SET FOREIGN_KEY_CHECKS=1');
         }
     }
 
-    private function usesMySqlForeignKeyChecks(): bool
+    private function supportsForeignKeyCheckToggle(): bool
     {
         try {
-            $connection = DB::connection(DB::connectionNameForPackage($this->package));
-            $driver = strtolower((string) $connection->getDriverName());
+            $driver = strtolower((string) DB::connection($this->packageConnectionName())->getDriverName());
 
-            return in_array($driver, ['mysql', 'mariadb'], true);
+            return in_array($driver, ['mysql', 'mariadb', 'sqlite', 'devdb'], true);
         } catch (Exception) {
             return false;
         }

@@ -28,8 +28,10 @@ it('keeps project config loads inside runtime pinker', function () {
     );
 
     $watched = [
+        testProjectRoot() . '/pinker/bake/platform/app-router.config.php',
         testProjectRoot() . '/pinker/platform/app-router.config.php',
         testProjectRoot() . '/pinker/state/platform/app-router.config.php',
+        testProjectRoot() . '/pinker/stable/platform/app-router.config.php',
     ];
     $before = testRuntimeIsolationFileSignatures($watched);
 

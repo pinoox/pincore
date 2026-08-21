@@ -10,11 +10,11 @@ use Pinoox\Portal\Config;
 use Pinoox\Portal\Pinker;
 use Pinoox\Support\SystemConfig;
 
-it('documents env priority metadata on env-sensitive pinker overrides', function () {
+it('writes a simple @stable database file under pinker/stable', function () {
     AppTestKit::boot();
 
-    $overridePath = SystemConfig::pinkerStateConfigPath('database');
-    $overrideBackup = is_file($overridePath) ? file_get_contents($overridePath) : null;
+    $stablePath = SystemConfig::pinkerStableConfigPath('database');
+    $stableBackup = is_file($stablePath) ? file_get_contents($stablePath) : null;
 
     try {
         Config::name('~pinoox')->set('mode', 'production');
@@ -35,27 +35,29 @@ it('documents env priority metadata on env-sensitive pinker overrides', function
             'timezone' => '+03:30',
         ], 'mysql'))->toBeTrue();
 
-        $override = include $overridePath;
+        $raw = file_get_contents($stablePath);
+        $stable = include $stablePath;
 
-        expect($override['info']['env_sensitive'] ?? null)->toBe('yes')
-            ->and($override['info']['env_priority'] ?? null)->toBe('env-over-pinker')
-            ->and($override['info']['env_resolution'] ?? null)->toContain('defined-env-key-overrides-pinker');
+        expect($raw)->toContain('@stable yes')
+            ->and($stable['default'] ?? null)->toBe('mysql')
+            ->and($stable['connections']['mysql']['host'] ?? null)->toBe('pinker-host')
+            ->and($stable['__pinker_override__'] ?? null)->toBeNull();
     } finally {
-        if ($overrideBackup !== null) {
-            file_put_contents($overridePath, $overrideBackup);
-        } elseif (is_file($overridePath)) {
-            unlink($overridePath);
+        if ($stableBackup !== null) {
+            file_put_contents($stablePath, $stableBackup);
+        } elseif (is_file($stablePath)) {
+            unlink($stablePath);
         }
     }
 });
 
-it('uses env values instead of pinker when the env key is defined', function () {
+it('uses env values instead of pinker/stable when the env key is defined', function () {
     AppTestKit::boot();
 
     $mainFile = SystemConfig::configPath('database.config.php');
     $bakedFile = SystemConfig::pinkerConfigPath('database.config.php');
-    $overridePath = SystemConfig::pinkerStateConfigPath('database');
-    $overrideBackup = is_file($overridePath) ? file_get_contents($overridePath) : null;
+    $stablePath = SystemConfig::pinkerStableConfigPath('database');
+    $stableBackup = is_file($stablePath) ? file_get_contents($stablePath) : null;
 
     putenv('APP_ENV=' . RuntimeMode::DEVELOPMENT);
     $_ENV['APP_ENV'] = RuntimeMode::DEVELOPMENT;
@@ -95,23 +97,23 @@ it('uses env values instead of pinker when the env key is defined', function () 
         putenv('APP_ENV');
         unset($_ENV['APP_ENV'], $_SERVER['APP_ENV']);
 
-        if ($overrideBackup !== null) {
-            file_put_contents($overridePath, $overrideBackup);
-        } elseif (is_file($overridePath)) {
-            unlink($overridePath);
+        if ($stableBackup !== null) {
+            file_put_contents($stablePath, $stableBackup);
+        } elseif (is_file($stablePath)) {
+            unlink($stablePath);
         }
 
         SystemConfig::clearCache();
     }
 });
 
-it('falls back to pinker when the mapped env key is not defined', function () {
+it('falls back to pinker/stable when the mapped env key is not defined', function () {
     AppTestKit::boot();
 
     $mainFile = SystemConfig::configPath('database.config.php');
     $bakedFile = SystemConfig::pinkerConfigPath('database.config.php');
-    $overridePath = SystemConfig::pinkerStateConfigPath('database');
-    $overrideBackup = is_file($overridePath) ? file_get_contents($overridePath) : null;
+    $stablePath = SystemConfig::pinkerStableConfigPath('database');
+    $stableBackup = is_file($stablePath) ? file_get_contents($stablePath) : null;
 
     putenv('APP_ENV=' . RuntimeMode::PRODUCTION);
     $_ENV['APP_ENV'] = RuntimeMode::PRODUCTION;
@@ -150,10 +152,10 @@ it('falls back to pinker when the mapped env key is not defined', function () {
         putenv('APP_ENV');
         unset($_ENV['APP_ENV'], $_SERVER['APP_ENV']);
 
-        if ($overrideBackup !== null) {
-            file_put_contents($overridePath, $overrideBackup);
-        } elseif (is_file($overridePath)) {
-            unlink($overridePath);
+        if ($stableBackup !== null) {
+            file_put_contents($stablePath, $stableBackup);
+        } elseif (is_file($stablePath)) {
+            unlink($stablePath);
         }
 
         SystemConfig::clearCache();

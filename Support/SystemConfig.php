@@ -44,7 +44,7 @@ class SystemConfig
     private const PATH_DEFAULTS = [
         'config' => '~pincore/config',
         'system' => '~pincore/config',
-        'pinker_config' => '~pinker/platform',
+        'pinker_config' => '~pinker/bake/platform',
         'apps' => 'apps',
         'pinker' => 'pinker',
         'pinx' => '~/pinx',
@@ -381,6 +381,15 @@ class SystemConfig
             return;
         }
 
+        // Never plant an empty app-router on the host. That file is shipped in
+        // platform/app-router.config.php and must stay the zip source of truth.
+        if ($config === 'app-router') {
+            $stubData = include $stub;
+            if (!is_array($stubData) || $stubData === []) {
+                return;
+            }
+        }
+
         $directory = dirname($projectFile);
 
         if (!is_dir($directory)) {
@@ -394,12 +403,25 @@ class SystemConfig
 
     public static function pinkerConfigPath(string $path = ''): string
     {
-        return self::join(self::path('pinker_config', '~pinker/platform'), $path);
+        return self::join(self::path('pinker_config', '~pinker/bake/platform'), $path);
     }
 
     public static function pinkerStateConfigPath(string $config): string
     {
         return self::join(self::path('pinker'), 'state/platform/' . $config . '.config.php');
+    }
+
+    public static function pinkerStableConfigPath(string $config): string
+    {
+        return self::join(self::path('pinker'), 'stable/platform/' . $config . '.config.php');
+    }
+
+    /**
+     * Stable per-install identity file (not a baked config overlay).
+     */
+    public static function identityFile(): string
+    {
+        return self::join(self::path('pinker'), 'state/identity.php');
     }
 
     /**
@@ -566,20 +588,13 @@ class SystemConfig
             return false;
         }
 
-        $stateFile = self::join(
-            self::pathWithoutAlias('pinker', 'pinker'),
-            'state/platform/' . $config . '.config.php',
-        );
-        $legacyStateFile = self::join(
-            self::pathWithoutAlias('pinker', 'pinker'),
-            'state/config/' . $config . '.config.php',
-        );
-        $legacyBakedFile = self::join(self::path('pinker'), 'config/' . $config . '.config.php');
+        $pinker = self::pathWithoutAlias('pinker', 'pinker');
+        $stateFile = self::join($pinker, 'state/platform/' . $config . '.config.php');
+        $stableFile = self::join($pinker, 'stable/platform/' . $config . '.config.php');
 
         return is_file($stateFile)
-            || is_file($legacyStateFile)
+            || is_file($stableFile)
             || is_file($bakedFile)
-            || is_file($legacyBakedFile)
             || \Pinoox\Component\Store\Baker\EnvSensitiveConfig::sourceUsesEnv($mainFile);
     }
 

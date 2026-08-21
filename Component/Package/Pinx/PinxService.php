@@ -52,6 +52,19 @@ final class PinxService
         return new PlatformBuilder();
     }
 
+    public function platformUpdater(): PlatformUpdater
+    {
+        return new PlatformUpdater($this->engine);
+    }
+
+    /**
+     * @param array<string, mixed> $options
+     */
+    public function updatePlatform(string $archivePath, array $options = []): PlatformUpdateResult
+    {
+        return $this->platformUpdater()->update($archivePath, $options);
+    }
+
     /**
      * @param array<string, mixed> $options
      */

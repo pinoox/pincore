@@ -268,7 +268,7 @@ class AppEngine implements EngineInterface
                 $pinkerPath = $basePath . '/' . $pinkerPath;
             }
 
-            $bakedFile = $pinkerPath . '/apps/' . $packageName . '/' . $this->appFile;
+            $bakedFile = $pinkerPath . '/bake/apps/' . $packageName . '/' . $this->appFile;
             $pinker = new Pinker($mainFile, $bakedFile);
             $pinker
                 ->dumping(true)

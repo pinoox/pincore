@@ -109,6 +109,60 @@ final class AppProvisioner
     }
 
     /**
+     * Apply pending migrations/patches and UPDATE lifecycle for an existing install.
+     *
+     * @param list<string> $packages
+     * @param array{
+     *     skip_migrate?: bool,
+     *     skip_patch?: bool,
+     *     skip_lifecycle?: bool,
+     *     skip_cache?: bool,
+     *     force?: bool,
+     *     lifecycle_context?: array<string, array<string, mixed>>
+     * } $options
+     */
+    public function updatePackages(array $packages, array $options = []): void
+    {
+        $force = (bool) ($options['force'] ?? false);
+        $contexts = is_array($options['lifecycle_context'] ?? null) ? $options['lifecycle_context'] : [];
+        $packages = AppDependency::sortForInstall($packages, $this->engine);
+
+        if (!($options['skip_migrate'] ?? false) || !($options['skip_patch'] ?? false)) {
+            $this->provisionCore([
+                'skip_migrate' => (bool) ($options['skip_migrate'] ?? false),
+                'skip_patch' => (bool) ($options['skip_patch'] ?? false),
+                'force' => $force,
+            ]);
+        }
+
+        foreach ($packages as $package) {
+            if (!$this->engine->exists($package)) {
+                continue;
+            }
+
+            if (!($options['skip_migrate'] ?? false) && $this->hasMigrationFiles($package)) {
+                (new Migrator($package))->run();
+            }
+
+            if (!($options['skip_patch'] ?? false)) {
+                $this->runPatches($package, $force);
+            }
+
+            if (!($options['skip_lifecycle'] ?? false)) {
+                $context = is_array($contexts[$package] ?? null) ? $contexts[$package] : [];
+                (new AppLifecycleRunner($this->engine))->run($package, AppLifecycle::UPDATE, $context, [
+                    'once' => false,
+                    'record' => false,
+                ]);
+            }
+
+            if (!($options['skip_cache'] ?? false)) {
+                AppCacheManager::build($package, null, true);
+            }
+        }
+    }
+
+    /**
      * @param list<string> $packages
      */
     public function applyLangToPackages(array $packages, ?string $lang): void

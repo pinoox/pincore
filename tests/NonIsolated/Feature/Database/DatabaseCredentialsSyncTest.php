@@ -56,11 +56,11 @@ it('throws when DB_CONNECTION is unknown', function () {
     SystemConfig::clearCache();
 });
 
-it('syncs installer database credentials to pinker only', function () {
+it('syncs installer database credentials to pinker/stable', function () {
     AppTestKit::boot();
 
-    $overridePath = SystemConfig::pinkerStateConfigPath('database');
-    $overrideBackup = is_file($overridePath) ? file_get_contents($overridePath) : null;
+    $stablePath = SystemConfig::pinkerStableConfigPath('database');
+    $stableBackup = is_file($stablePath) ? file_get_contents($stablePath) : null;
 
     try {
         putenv('APP_ENV=' . RuntimeMode::PRODUCTION);
@@ -85,15 +85,14 @@ it('syncs installer database credentials to pinker only', function () {
             'timezone' => '+03:30',
         ], 'mysql'))->toBeTrue();
 
-        expect(is_file($overridePath))->toBeTrue();
+        expect(is_file($stablePath))->toBeTrue();
 
-        $override = include $overridePath;
+        $stable = include $stablePath;
 
-        expect($override['data']['default'] ?? null)->toBe('mysql')
-            ->and($override['data']['connections.mysql.database'] ?? null)->toBe('pin')
-            ->and($override['data']['connections.mysql.host'] ?? null)->toBe('localhost')
-            ->and($override['info']['env_priority'] ?? null)->toBe('env-over-pinker')
-            ->and($override['info']['stored_profiles'] ?? null)->toContain('connections.mysql');
+        expect($stable['default'] ?? null)->toBe('mysql')
+            ->and($stable['connections']['mysql']['database'] ?? null)->toBe('pin')
+            ->and($stable['connections']['mysql']['host'] ?? null)->toBe('localhost')
+            ->and($stable['__pinker_override__'] ?? null)->toBeNull();
 
         SystemConfig::clearCache();
 
@@ -116,19 +115,19 @@ it('syncs installer database credentials to pinker only', function () {
         putenv('APP_ENV');
         unset($_ENV['APP_ENV'], $_SERVER['APP_ENV']);
 
-        if ($overrideBackup !== null) {
-            file_put_contents($overridePath, $overrideBackup);
-        } elseif (is_file($overridePath)) {
-            unlink($overridePath);
+        if ($stableBackup !== null) {
+            file_put_contents($stablePath, $stableBackup);
+        } elseif (is_file($stablePath)) {
+            unlink($stablePath);
         }
     }
 });
 
-it('syncs mariadb installer credentials and default connection to pinker', function () {
+it('syncs mariadb installer credentials and default connection to pinker/stable', function () {
     AppTestKit::boot();
 
-    $overridePath = SystemConfig::pinkerStateConfigPath('database');
-    $overrideBackup = is_file($overridePath) ? file_get_contents($overridePath) : null;
+    $stablePath = SystemConfig::pinkerStableConfigPath('database');
+    $stableBackup = is_file($stablePath) ? file_get_contents($stablePath) : null;
 
     try {
         putenv('APP_ENV=' . RuntimeMode::PRODUCTION);
@@ -153,12 +152,12 @@ it('syncs mariadb installer credentials and default connection to pinker', funct
             'timezone' => '+03:30',
         ], 'mariadb'))->toBeTrue();
 
-        $override = include $overridePath;
+        $stable = include $stablePath;
 
-        expect($override['data']['default'] ?? null)->toBe('mariadb')
-            ->and($override['data']['connections.mariadb.database'] ?? null)->toBe('maria_pin')
-            ->and($override['data']['connections.mariadb.host'] ?? null)->toBe('db.local')
-            ->and($override['info']['stored_profiles'] ?? null)->toContain('connections.mariadb');
+        expect($stable['default'] ?? null)->toBe('mariadb')
+            ->and($stable['connections']['mariadb']['database'] ?? null)->toBe('maria_pin')
+            ->and($stable['connections']['mariadb']['host'] ?? null)->toBe('db.local')
+            ->and($stable['connections']['mariadb']['driver'] ?? null)->toBe('mariadb');
 
         SystemConfig::clearCache();
 
@@ -182,10 +181,10 @@ it('syncs mariadb installer credentials and default connection to pinker', funct
         putenv('APP_ENV');
         unset($_ENV['APP_ENV'], $_SERVER['APP_ENV']);
 
-        if ($overrideBackup !== null) {
-            file_put_contents($overridePath, $overrideBackup);
-        } elseif (is_file($overridePath)) {
-            unlink($overridePath);
+        if ($stableBackup !== null) {
+            file_put_contents($stablePath, $stableBackup);
+        } elseif (is_file($stablePath)) {
+            unlink($stablePath);
         }
     }
 });

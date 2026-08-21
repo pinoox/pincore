@@ -13,6 +13,7 @@
 
 require_once __DIR__ . '/core.php';
 require_once __DIR__ . '/env.php';
+require_once __DIR__ . '/identity.php';
 require_once __DIR__ . '/mode.php';
 require_once __DIR__ . '/date.php';
 require_once __DIR__ . '/lang.php';

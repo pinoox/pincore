@@ -11,7 +11,7 @@ return [
     |
     */
     'config' => env('PINOOX_CONFIG_PATH', '~pincore/config'),
-    'pinker_config' => env('PINOOX_PINKER_CONFIG_PATH', '~pinker/platform'),
+    'pinker_config' => env('PINOOX_PINKER_CONFIG_PATH', '~pinker/bake/platform'),
     'system' => env('PINOOX_CONFIG_PATH', '~pincore/config'),
     'apps' => env('PINOOX_APPS_PATH', 'apps'),
     'pinker' => env('PINOOX_PINKER_PATH', 'pinker'),

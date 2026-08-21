@@ -163,7 +163,7 @@ class PinxBuilder
 
         $manifest->validate();
 
-        $outputPath ??= $this->defaultOutputPath($package, $manifest);
+        $outputPath ??= $this->defaultOutputPath($package, $manifest, $build);
         $outputDir = dirname($outputPath);
         if (!is_dir($outputDir)) {
             mkdir($outputDir, 0777, true);
@@ -282,8 +282,17 @@ class PinxBuilder
         return ltrim($relativePath, '/');
     }
 
-    private function defaultOutputPath(string $package, PinxManifest $manifest): string
+    /**
+     * @param array{output_dir?: ?string} $build
+     */
+    private function defaultOutputPath(string $package, PinxManifest $manifest, array $build = []): string
     {
+        $outputDir = $build['output_dir'] ?? null;
+
+        if (is_string($outputDir) && $outputDir !== '') {
+            return rtrim($outputDir, '/\\') . '/' . PinxPaths::defaultReleaseFilename($package, $manifest);
+        }
+
         return PinxPaths::defaultReleasePath($package, $manifest);
     }
 

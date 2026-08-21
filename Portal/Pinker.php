@@ -91,6 +91,7 @@ class Pinker extends Portal
 		$corePath = defined('PINOOX_CORE_PATH') ? rtrim(self::ds(\PINOOX_CORE_PATH), '/') : $basePath . '/pincore';
 		$appsPath = rtrim(self::ds(SystemConfig::path('apps')), '/');
 		$testRuntimePath = self::testRuntimePath();
+		$coreRoots = self::pincoreBakeRoots($basePath, $corePath);
 
 		if ($appsPath !== '' && str_starts_with($sourceFile, $appsPath . '/')) {
 			$relative = 'apps/' . substr($sourceFile, strlen($appsPath) + 1);
@@ -98,10 +99,8 @@ class Pinker extends Portal
 			$relative = 'apps/' . substr($sourceFile, strlen($testRuntimePath . '/apps/'));
 		} elseif ($testRuntimePath !== null && str_starts_with($sourceFile, $testRuntimePath . '/')) {
 			$relative = 'runtime/' . substr($sourceFile, strlen($testRuntimePath) + 1);
-		} elseif (!empty($corePath) && str_starts_with($sourceFile, $corePath . '/config/')) {
-			$relative = 'platform' . substr($sourceFile, strlen($corePath . '/config'));
-		} elseif (!empty($corePath) && ($sourceFile === $corePath || str_starts_with($sourceFile, $corePath . '/'))) {
-			$relative = 'pincore' . substr($sourceFile, strlen($corePath));
+		} elseif (($fromCore = self::relativeFromPincoreRoots($sourceFile, $coreRoots)) !== null) {
+			$relative = $fromCore;
 		} elseif (!empty($basePath) && str_starts_with($sourceFile, $basePath . '/')) {
 			$relative = substr($sourceFile, strlen($basePath) + 1);
 		}
@@ -113,7 +112,55 @@ class Pinker extends Portal
 			}
 		}
 
-		return self::ds(SystemConfig::path('pinker') . '/' . ltrim($relative, '/'));
+		return self::ds(SystemConfig::path('pinker') . '/bake/' . ltrim($relative, '/'));
+	}
+
+	/**
+	 * Local path repo and Composer vendor copy both bake to platform/ / pincore/.
+	 *
+	 * @return list<string>
+	 */
+	private static function pincoreBakeRoots(string $basePath, string $corePath): array
+	{
+		$roots = [
+			$corePath,
+			rtrim($basePath, '/') . '/pincore',
+			rtrim($basePath, '/') . '/vendor/pinoox/pincore',
+		];
+
+		$unique = [];
+		foreach ($roots as $root) {
+			$root = rtrim(self::ds($root), '/');
+			if ($root !== '' && !in_array($root, $unique, true)) {
+				$unique[] = $root;
+			}
+		}
+
+		return $unique;
+	}
+
+	/**
+	 * @param list<string> $coreRoots
+	 */
+	private static function relativeFromPincoreRoots(string $sourceFile, array $coreRoots): ?string
+	{
+		foreach ($coreRoots as $coreRoot) {
+			if ($sourceFile === $coreRoot) {
+				return 'pincore';
+			}
+
+			if (!str_starts_with($sourceFile, $coreRoot . '/')) {
+				continue;
+			}
+
+			if (str_starts_with($sourceFile, $coreRoot . '/config/')) {
+				return 'platform' . substr($sourceFile, strlen($coreRoot . '/config'));
+			}
+
+			return 'pincore' . substr($sourceFile, strlen($coreRoot));
+		}
+
+		return null;
 	}
 
 	private static function externalAppRelative(string $sourceFile): ?string

@@ -194,8 +194,13 @@ function themeManifestPinkerOverrideFile(string $sourceFile): string
 {
     $baked = \Pinoox\Portal\Pinker::bakedFileFromSource($sourceFile);
     $pinkerRoot = rtrim(str_replace('\\', '/', \Pinoox\Support\SystemConfig::path('pinker')), '/');
+    $relative = substr(str_replace('\\', '/', $baked), strlen($pinkerRoot) + 1);
 
-    return $pinkerRoot . '/state/' . substr(str_replace('\\', '/', $baked), strlen($pinkerRoot) + 1);
+    if (str_starts_with($relative, 'bake/')) {
+        $relative = substr($relative, strlen('bake/'));
+    }
+
+    return $pinkerRoot . '/state/' . $relative;
 }
 
 function themeManifestDeletePinkerOverrideTree(string $sourceFile): void

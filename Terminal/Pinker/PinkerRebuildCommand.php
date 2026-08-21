@@ -43,11 +43,12 @@ class PinkerRebuildCommand extends Terminal
                 $entry['label'],
                 $status['env_sensitive'] ? 'runtime only' : 'rebuilt',
                 $status['override_exists'] ? 'kept' : '-',
+                $status['stable_exists'] ? 'kept' : '-',
             ];
         }
 
         $io->title('Pinker Rebuild');
-        $io->table(['Package', 'File', 'Cache', 'Override'], $rows);
+        $io->table(['Package', 'File', 'Cache', 'State', 'Stable'], $rows);
 
         return Command::SUCCESS;
     }

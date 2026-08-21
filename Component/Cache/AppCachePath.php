@@ -9,7 +9,7 @@ final class AppCachePath
     public static function root(string $package): string
     {
         return rtrim(str_replace('\\', '/', SystemConfig::path('pinker')), '/')
-            . '/apps/' . $package . '/cache';
+            . '/bake/apps/' . $package . '/cache';
     }
 
     public static function store(string $package, string $store): string
