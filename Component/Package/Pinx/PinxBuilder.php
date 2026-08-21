@@ -54,10 +54,10 @@ class PinxBuilder
         }
 
         $manifest = PinxManifest::fromAppConfig($appConfig, $build['type'], [
-        'target_app' => $build['target_app'],
-        'theme_name' => $build['theme_name'],
-        'minpin' => $build['minpin'],
-        'requirements' => $build['requirements'],
+            'target_app' => $build['target_app'],
+            'theme_name' => $build['theme_name'],
+            'minpin' => $build['minpin'],
+            'requirements' => $build['requirements'],
         ]);
 
         $packagePath = $this->engine->path($package);
