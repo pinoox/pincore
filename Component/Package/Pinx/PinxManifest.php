@@ -51,6 +51,8 @@ class PinxManifest
         $packageDescription = AppManifest::description($package);
         $packageLabels = AppManifest::labels($package);
         $requirements = PinxRequirements::normalize($pinxConfig['requirements'] ?? []);
+        $configuredMinpin = (int) ($pinxConfig['minpin'] ?? $appConfig['minpin'] ?? 0);
+        $minpin = PinxRequirements::effectiveMinpin($configuredMinpin, $requirements);
 
         return new self([
             'format' => self::FORMAT,
@@ -65,7 +67,7 @@ class PinxManifest
             'developer' => $themeManifest?->developer() ?: (string) ($appConfig['developer'] ?? ''),
             'version_name' => $themeManifest?->versionName() ?: (string) ($appConfig['version-name'] ?? '1.0'),
             'version_code' => $themeManifest?->versionCode() ?: (int) ($appConfig['version-code'] ?? 1),
-            'minpin' => (int) ($pinxConfig['minpin'] ?? $appConfig['minpin'] ?? 0),
+            'minpin' => $minpin,
             'requirements' => $requirements,
             'depends' => self::dependsForManifest($depends),
             'target_app' => $type === self::TYPE_THEME ? $targetApp : null,
