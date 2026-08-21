@@ -109,6 +109,7 @@ class PinxBuildConfig
      *     target_app: string,
      *     theme_name: string,
      *     minpin: int,
+     *     requirements: array<string, string>,
      *     gitignore: bool,
      *     exclude: list<string>,
      *     include: list<string>,
@@ -181,6 +182,7 @@ class PinxBuildConfig
             'target_app' => (string) ($pinx['target_app'] ?? $packageName),
             'theme_name' => $themeName,
             'minpin' => (int) ($pinx['minpin'] ?? $raw['minpin'] ?? $config->get('minpin', 0)),
+            'requirements' => PinxRequirements::normalize($pinx['requirements'] ?? []),
             'gitignore' => array_key_exists('gitignore', $build)
                 ? (bool) $build['gitignore']
                 : true,
