@@ -68,6 +68,19 @@ it('rejects non-object requirements and unknown keys', function () {
         ->toThrow(Exception::class, 'Unsupported package requirement: node');
 });
 
+it('rejects requirements below the capability minpin floor', function () {
+    $manifest = PinxManifest::fromArray([
+        'format' => PinxManifest::FORMAT,
+        'type' => PinxManifest::TYPE_APP,
+        'package' => PINX_REQUIREMENTS_TEST_PACKAGE,
+        'minpin' => PinxRequirements::MIN_KERNEL_CODE - 1,
+        'requirements' => ['php' => '>=8.0'],
+    ]);
+
+    expect(fn () => $manifest->validate())
+        ->toThrow(Exception::class, 'Pinx runtime requirements require minpin');
+});
+
 it('evaluates PHP requirements deterministically', function () {
     $manifest = PinxManifest::fromArray([
         'requirements' => ['php' => '>=8.3'],
