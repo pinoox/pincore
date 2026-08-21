@@ -46,6 +46,8 @@ class PinxInfoCommand extends Terminal
             $signature = $reader->signature();
             $fileCount = count($zip->getListFiles());
             $reader->close();
+            
+            $requirements = $manifest->requirements();
 
             $rows = [
                 ['Format', (string) ($manifest->toArray()['format'] ?? 'pinx')],
@@ -55,6 +57,7 @@ class PinxInfoCommand extends Terminal
                 ['Version', $manifest->versionName() . ' #' . $manifest->versionCode()],
                 ['Developer', $manifest->developer()],
                 ['Min Pinoox', (string) $manifest->minpin()],
+                ['PHP requirement', $requirements['php'] ?? 'none'],
                 ['Files in archive', (string) $fileCount],
             ];
 
