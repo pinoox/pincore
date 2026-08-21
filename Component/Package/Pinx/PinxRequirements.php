@@ -13,6 +13,11 @@ use Pinoox\Component\Kernel\Exception;
  */
 final class PinxRequirements
 {
+    /**
+     * First Pinoox kernel code that understands and enforces Pinx requirements.
+     */
+    public const MIN_KERNEL_CODE = 230;
+
     private const PHP_CONSTRAINT_PATTERN = '/^>=\s*(\d+\.\d+(?:\.\d+)?)$/';
 
     /**
@@ -63,6 +68,17 @@ final class PinxRequirements
         }
 
         return $normalized;
+    }
+
+    public static function effectiveMinpin(int $configuredMinpin, mixed $requirements): int
+    {
+        $normalized = self::normalize($requirements);
+
+        if ($normalized === []) {
+            return $configuredMinpin;
+        }
+
+        return max($configuredMinpin, self::MIN_KERNEL_CODE);
     }
 
     /**
