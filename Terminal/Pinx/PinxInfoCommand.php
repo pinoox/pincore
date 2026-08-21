@@ -46,7 +46,7 @@ class PinxInfoCommand extends Terminal
             $signature = $reader->signature();
             $fileCount = count($zip->getListFiles());
             $reader->close();
-            
+
             $requirements = $manifest->requirements();
 
             $rows = [
