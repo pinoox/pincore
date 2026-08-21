@@ -57,6 +57,7 @@ class PinxBuilder
             'target_app' => $build['target_app'],
             'theme_name' => $build['theme_name'],
             'minpin' => $build['minpin'],
+            'requirements' => $build['requirements'],
         ]);
 
         $packagePath = $this->engine->path($package);
@@ -113,6 +114,7 @@ class PinxBuilder
      *     target_app: string,
      *     theme_name: string,
      *     minpin: int,
+     *     requirements: array<string, string>,
      *     gitignore: bool,
      *     exclude: list<string>,
      *     include_themes: list<string>,
