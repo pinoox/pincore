@@ -122,6 +122,7 @@ final class PlatformUpdater
             $this->reportProgress($options, 'apply', 'Applying files to the project...', 45);
             $this->applyExtracted($stagingRoot, $projectRoot, $apps);
             $this->recordStep($steps, 'apply', 'ok', 'Project files updated (runtime data preserved).');
+            PlatformPinkerGuard::bakeMissingRuntimeConfigs($projectRoot);
 
             $refreshed = PlatformPinkerGuard::refreshOverrideTimestamps($projectRoot);
             if ($refreshed > 0) {
@@ -384,7 +385,7 @@ final class PlatformUpdater
             $absolutePath = str_replace('\\', '/', $item->getPathname());
             $relativePath = PlatformArchive::normalizeRelative(substr($absolutePath, strlen($extractedRoot)));
 
-            if ($relativePath === '' || PlatformArchive::shouldPreserve($relativePath)) {
+            if ($relativePath === '' || PlatformArchive::shouldPreserve($relativePath, $projectRoot)) {
                 continue;
             }
 

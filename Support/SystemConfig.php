@@ -381,6 +381,15 @@ class SystemConfig
             return;
         }
 
+        // Never plant an empty app-router on the host. That file is shipped in
+        // platform/app-router.config.php and must stay the zip source of truth.
+        if ($config === 'app-router') {
+            $stubData = include $stub;
+            if (!is_array($stubData) || $stubData === []) {
+                return;
+            }
+        }
+
         $directory = dirname($projectFile);
 
         if (!is_dir($directory)) {

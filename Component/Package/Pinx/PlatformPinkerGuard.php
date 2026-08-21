@@ -42,6 +42,106 @@ final class PlatformPinkerGuard
     }
 
     /**
+     * True when the host already has a non-empty runtime config (do not replace from zip).
+     * Missing or empty files (e.g. copied pincore stub `return [];`) are not locked.
+     */
+    public static function hostHasRuntimeConfig(string $projectRoot, string $relativePath): bool
+    {
+        $file = rtrim(str_replace('\\', '/', $projectRoot), '/')
+            . '/' . PlatformArchive::normalizeRelative($relativePath);
+
+        if (!is_file($file)) {
+            return false;
+        }
+
+        $data = include $file;
+
+        return self::runtimeConfigHasValues($data);
+    }
+
+    /**
+     * Write pinker/bake copies of runtime configs when bake is missing or empty.
+     * Does not overwrite a bake that already has values (live host routing).
+     */
+    public static function bakeMissingRuntimeConfigs(string $projectRoot): int
+    {
+        $projectRoot = rtrim(str_replace('\\', '/', $projectRoot), '/');
+        $written = 0;
+
+        foreach (self::runtimeConfigFiles() as $relative) {
+            $source = $projectRoot . '/' . $relative;
+            if (!is_file($source)) {
+                continue;
+            }
+
+            $data = include $source;
+            if (!is_array($data) || $data === []) {
+                continue;
+            }
+
+            $bake = $projectRoot . '/pinker/bake/' . $relative;
+            if (is_file($bake)) {
+                $existing = include $bake;
+                if (self::runtimeConfigHasValues($existing)) {
+                    continue;
+                }
+            }
+
+            $dir = dirname($bake);
+            if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
+                continue;
+            }
+
+            $mtime = (int) @filemtime($source);
+            $size = (int) @filesize($source);
+            $hash = @sha1_file($source);
+            $export = var_export($data, true);
+            $content = "<?php\n"
+                . "/**\n"
+                . " * Pinoox Baker\n"
+                . " * @time {$mtime}\n"
+                . " * @schema 2\n"
+                . " * @source {$source}\n"
+                . " * @source_hash {$hash}\n"
+                . " * @source_mtime {$mtime}\n"
+                . " * @source_size {$size}\n"
+                . " * @env_sensitive no\n"
+                . " */\n\n"
+                . "return {$export};\n";
+
+            if (@file_put_contents($bake, $content) !== false) {
+                $written++;
+            }
+        }
+
+        return $written;
+    }
+
+    private static function runtimeConfigHasValues(mixed $data): bool
+    {
+        if (!is_array($data) || $data === []) {
+            return false;
+        }
+
+        if (($data['__pinker_override__'] ?? false) === true) {
+            $inner = $data['data'] ?? [];
+
+            return is_array($inner) && $inner !== [];
+        }
+
+        foreach ($data as $value) {
+            if (is_string($value) && $value !== '') {
+                return true;
+            }
+            if (is_array($value) && $value !== []) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * @return array<string, string> relative app path => held directory
      */
     public static function holdAppPinkerDirs(string $projectRoot, array $apps, string $holdRoot): array

@@ -39,7 +39,11 @@ final class PlatformArchive
         ];
     }
 
-    public static function shouldPreserve(string $relativePath): bool
+    /**
+     * @param string|null $projectRoot When set, runtime configs (app-router, domain, apps)
+     *                                 are seeded from the zip if the host file is missing.
+     */
+    public static function shouldPreserve(string $relativePath, ?string $projectRoot = null): bool
     {
         $relativePath = self::normalizeRelative($relativePath);
 
@@ -52,11 +56,15 @@ final class PlatformArchive
         }
 
         if (PlatformPinkerGuard::shouldPreserveRuntimeConfig($relativePath)) {
-            return true;
+            if ($projectRoot === null || $projectRoot === '') {
+                return true;
+            }
+
+            return PlatformPinkerGuard::hostHasRuntimeConfig($projectRoot, $relativePath);
         }
 
         foreach (self::preservePrefixes() as $prefix) {
-            if ($prefix === '.env') {
+            if ($prefix === '.env' || PlatformPinkerGuard::shouldPreserveRuntimeConfig($prefix)) {
                 continue;
             }
 

@@ -15,6 +15,7 @@ it('preserves runtime paths and allows BUILD.json', function () {
         ->and(PlatformArchive::shouldPreserve('platform/app-router.config.php'))->toBeTrue()
         ->and(PlatformArchive::shouldPreserve('platform/domain.config.php'))->toBeTrue()
         ->and(PlatformArchive::shouldPreserve('platform/apps.config.php'))->toBeTrue()
+        ->and(PlatformArchive::shouldPreserve('platform/app-router.config.php', sys_get_temp_dir() . '/pinroll-missing-router-' . bin2hex(random_bytes(2))))->toBeFalse()
         ->and(PlatformArchive::shouldPreserve('platform/pinoox.config.php'))->toBeFalse()
         ->and(PlatformArchive::shouldPreserve('pinroll/pinroll.config.php'))->toBeTrue()
         ->and(PlatformArchive::shouldPreserve('.pinoox/pinroll.config.php'))->toBeTrue()
@@ -24,6 +25,22 @@ it('preserves runtime paths and allows BUILD.json', function () {
         ->and(PlatformArchive::shouldPreserve('index.php'))->toBeFalse()
         ->and(PlatformArchive::shouldPreserve('apps/com_pinoox_manager/app.php'))->toBeFalse()
         ->and(PlatformArchive::shouldPreserve('vendor/autoload.php'))->toBeFalse();
+});
+
+it('does not preserve an empty host app-router so the zip can seed it', function () {
+    $tmp = sys_get_temp_dir() . '/pincore-empty-router-' . bin2hex(random_bytes(3));
+    mkdir($tmp . '/platform', 0755, true);
+    file_put_contents($tmp . '/platform/app-router.config.php', "<?php\nreturn [];\n");
+
+    expect(PlatformArchive::shouldPreserve('platform/app-router.config.php', $tmp))->toBeFalse();
+
+    file_put_contents($tmp . '/platform/app-router.config.php', "<?php\nreturn ['/' => 'com_pinoox_installer'];\n");
+
+    expect(PlatformArchive::shouldPreserve('platform/app-router.config.php', $tmp))->toBeTrue();
+
+    @unlink($tmp . '/platform/app-router.config.php');
+    @rmdir($tmp . '/platform');
+    @rmdir($tmp);
 });
 
 it('lists apps from zip entry names', function () {
