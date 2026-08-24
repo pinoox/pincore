@@ -33,6 +33,7 @@ use League\Flysystem\PhpseclibV3\SftpConnectionProvider;
 use League\Flysystem\ReadOnly\ReadOnlyFilesystemAdapter;
 use League\Flysystem\UnixVisibility\PortableVisibilityConverter;
 use League\Flysystem\Visibility;
+use Pinoox\Component\File\FileConfig;
 use Pinoox\Component\Store\Config\ConfigInterface;
 use Pinoox\Portal\App\App;
 use Pinoox\Support\SystemConfig;
@@ -132,16 +133,18 @@ class FilesystemManager implements FactoryContract
         $baseConfig = $this->getConfig($disk);
 
         if (($baseConfig['driver'] ?? null) === 'local') {
-            if ($disk === 'public') {
+            $isPublic = FileConfig::isPublicDiskConfig((string) $disk, $baseConfig);
+
+            if ($isPublic) {
                 $baseUrl = rtrim((string) ($baseConfig['url'] ?? ''), '/');
                 $url = $baseUrl !== '' ? $baseUrl . '/' . $package : null;
 
                 return $this->disks[$cacheKey] = $this->build(array_filter([
                     'driver' => 'local',
-                    'root' => $this->publicPath($package),
+                    'root' => $this->packagePath($disk, $package),
                     'url' => $url,
                     'visibility' => $baseConfig['visibility'] ?? 'public',
-                    'protect' => $baseConfig['protect'] ?? 'lock',
+                    'protect' => $baseConfig['protect'] ?? 'unlock',
                     'throw' => $baseConfig['throw'] ?? $this->config->get('throw', false),
                 ], static fn ($value) => $value !== null && $value !== ''));
             }

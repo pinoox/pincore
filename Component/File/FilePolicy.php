@@ -18,7 +18,7 @@ class FilePolicy
         // Public web disk / public visibility → open
         $disk = FileStorage::resolveDisk($file);
         $access = strtolower((string) ($file->file_access ?? ''));
-        if ($disk === 'public' || $access === 'public') {
+        if (($disk !== null && $disk !== '' && FileConfig::isPublicDisk($disk)) || $access === 'public') {
             return true;
         }
 

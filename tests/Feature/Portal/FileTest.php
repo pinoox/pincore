@@ -35,6 +35,24 @@ it('derives default_access from disk only', function () {
         ->and(FileConfig::privateDiskName(['disk' => 's3']))->toBe('s3');
 });
 
+it('treats unlocked and url-public disks as public', function () {
+    expect(FileConfig::isPublicDiskConfig('media', ['protect' => 'unlock']))->toBeTrue()
+        ->and(FileConfig::isPublicDiskConfig('contracts', ['protect' => 'lock']))->toBeFalse()
+        ->and(FileConfig::isPublicDiskConfig('cdn', [
+            'visibility' => 'public',
+            'url' => 'https://cdn.example/files',
+        ]))->toBeTrue()
+        ->and(FileConfig::isPublicDiskConfig('s3', ['visibility' => 'private']))->toBeFalse()
+        ->and(FileConfig::isPublicDiskConfig('public', ['protect' => 'lock']))->toBeTrue();
+});
+
+it('exposes file download url helpers', function () {
+    expect(function_exists('file_url'))->toBeTrue()
+        ->and(function_exists('file_thumb'))->toBeTrue()
+        ->and(function_exists('file_temporary_url'))->toBeTrue()
+        ->and(function_exists('url_file'))->toBeTrue();
+});
+
 it('builds upload result objects', function () {
     $fail = UploadResult::fail('invalid_extension');
     $disk = UploadResult::disk('/tmp/sample.zip');
