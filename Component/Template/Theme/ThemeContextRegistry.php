@@ -112,6 +112,15 @@ final class ThemeContextRegistry
             $merged['path-theme'] = $ctx['path-theme'];
         }
 
+        if (array_key_exists('path', $ctx)) {
+            $merged['path'] = $ctx['path'];
+        }
+
+        if (isset($ctx['auth']) && is_array($ctx['auth'])) {
+            $baseAuth = is_array($config['auth'] ?? null) ? $config['auth'] : [];
+            $merged['auth'] = array_replace_recursive($baseAuth, $ctx['auth']);
+        }
+
         if (isset($ctx['frontend']) && is_array($ctx['frontend'])) {
             $baseFrontend = is_array($config['frontend'] ?? null) ? $config['frontend'] : [];
             $merged['frontend'] = array_replace_recursive($baseFrontend, $ctx['frontend']);
