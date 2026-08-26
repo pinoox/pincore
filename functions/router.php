@@ -44,6 +44,7 @@ function collection(
     array $data = [],
     array $flows = [],
     array $tags = [],
+    ?string $context = null,
 ): Collection {
     return RouteRegistrar::requireActiveRouter()->collection(
         path: $path,
@@ -57,6 +58,7 @@ function collection(
         data: $data,
         flows: $flows,
         tags: $tags,
+        context: $context,
     );
 }
 

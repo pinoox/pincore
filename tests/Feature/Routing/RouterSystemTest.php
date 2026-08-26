@@ -218,6 +218,61 @@ PHP);
     }
 });
 
+it('resolves collection path and theme flow from context', function () {
+    $basePath = testFixtures('router_context_collection_app');
+    routerSystemDeleteDirectory($basePath);
+
+    mkdir($basePath . '/routes', 0777, true);
+    file_put_contents($basePath . '/routes/web.php', <<<'PHP'
+<?php
+
+use function Pinoox\Router\{collection, get};
+
+collection(
+    context: 'panel',
+    routes: __DIR__ . '/panel.php',
+    prefixName: 'panel.',
+);
+PHP);
+    file_put_contents($basePath . '/routes/panel.php', <<<'PHP'
+<?php
+
+use function Pinoox\Router\get;
+
+get('/')->action(fn () => 'ok')->name('home');
+PHP);
+
+    try {
+        $app = test()->createMock(PackageApp::class);
+        $app->method('package')->willReturn('com_test_router');
+        $app->method('path')->willReturnCallback(
+            static fn(string $path = '') => rtrim($basePath, '/\\') . '/' . ltrim($path, '/\\')
+        );
+        $app->method('get')->willReturnCallback(static function (?string $value = null, $default = null) {
+            if ($value === 'theme-contexts') {
+                return [
+                    'site' => ['path' => '', 'theme' => 'default'],
+                    'panel' => ['path' => 'panel', 'theme' => 'panel'],
+                ];
+            }
+
+            return $default;
+        });
+
+        $router = new RouterComponent(new RouteName(), $app);
+        $router->collection(routes: $basePath . '/routes/web.php');
+
+        $home = $router->all()['panel.home'];
+        $pinooxRoute = $home->getDefault('_router');
+
+        expect($router->getAllPath()['panel.home'])->toBe('/panel')
+            ->and($pinooxRoute->flows)->toContain('theme.panel')
+            ->and($router->match('/panel')['_route'])->toBe('panel.home');
+    } finally {
+        routerSystemDeleteDirectory($basePath);
+    }
+});
+
 it('loads route manifest arrays from returned config', function () {
     $basePath = testFixtures('router_manifest_app');
     routerSystemDeleteDirectory($basePath);

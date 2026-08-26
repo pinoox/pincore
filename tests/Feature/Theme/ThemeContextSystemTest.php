@@ -1,10 +1,12 @@
 <?php
 
+use Pinoox\Component\Helpers\PinooxScriptHelper;
 use Pinoox\Component\Template\Theme\ThemeContext;
 use Pinoox\Component\Template\Theme\ThemeContextRegistry;
 use Pinoox\Component\Template\Theme\ThemeStack;
 use Pinoox\Component\Template\View;
 use Pinoox\Component\Test\AppTestKit;
+use Pinoox\Component\User\AuthConfig;
 use Pinoox\Flow\ThemeContextFlow;
 use Pinoox\Portal\App\AppEngine;
 
@@ -17,6 +19,7 @@ beforeEach(function () {
 
 afterEach(function () {
     ThemeContext::clearAll();
+    AuthConfig::reset();
     deleteThemeContextTestApp('com_test_theme_ctx');
     AppEngine::__rebuild();
 });
@@ -100,6 +103,82 @@ it('restores previous context after within_theme()', function () {
     }, 'com_test_theme_ctx');
 
     expect(ThemeContext::active('com_test_theme_ctx'))->toBe('site');
+});
+
+it('merges path and auth from theme context into effectiveConfig', function () {
+    $config = [
+        'theme' => 'default',
+        'auth' => [
+            'mode' => 'jwt',
+            'client' => true,
+        ],
+        'theme-contexts' => [
+            'panel' => [
+                'theme' => 'panel',
+                'path' => 'panel',
+                'auth' => [
+                    'client' => ['loginUrl' => '/panel/auth/login'],
+                ],
+            ],
+        ],
+    ];
+
+    $merged = ThemeContextRegistry::effectiveConfig($config, 'panel');
+
+    expect($merged['theme'])->toBe('panel')
+        ->and($merged['path'])->toBe('panel')
+        ->and($merged['auth']['mode'])->toBe('jwt')
+        ->and($merged['auth']['client'])->toBe(['loginUrl' => '/panel/auth/login']);
+});
+
+it('exposes context loginUrl via AuthConfig and context path for bootstrap', function () {
+    writeThemeContextTestApp([
+        'theme-context' => 'site',
+        'auth' => [
+            'mode' => 'jwt',
+            'key' => 'theme_ctx_test',
+            'client' => true,
+        ],
+        'theme-contexts' => [
+            'site' => [
+                'path' => '',
+                'theme' => 'site',
+                'auth' => [
+                    'client' => ['loginUrl' => '/login'],
+                ],
+            ],
+            'panel' => [
+                'path' => 'panel',
+                'theme' => 'panel',
+                'auth' => [
+                    'client' => ['loginUrl' => '/panel/auth/login'],
+                ],
+            ],
+        ],
+    ]);
+    AppEngine::__rebuild();
+
+    \Pinoox\Portal\App\App::___()->setLayer(
+        new \Pinoox\Component\Package\AppLayer('/', 'com_test_theme_ctx')
+    );
+    AuthConfig::reset();
+
+    ThemeContext::activate('panel', 'com_test_theme_ctx');
+
+    $auth = AuthConfig::forClient();
+    expect($auth)->not->toBeNull()
+        ->and($auth['loginUrl'] ?? null)->toBe('/panel/auth/login')
+        ->and($auth['mode'])->toBe('jwt');
+
+    $pathMethod = new ReflectionMethod(PinooxScriptHelper::class, 'activeContextPath');
+    expect($pathMethod->invoke(null))->toBe('panel');
+
+    ThemeContext::activate('site', 'com_test_theme_ctx');
+    AuthConfig::reset();
+
+    $siteAuth = AuthConfig::forClient();
+    expect($siteAuth['loginUrl'] ?? null)->toBe('/login')
+        ->and($pathMethod->invoke(null))->toBeNull();
 });
 
 function writeThemeContextTestApp(array $config, array $themeFiles = []): void

@@ -2,6 +2,9 @@
 
 namespace Pinoox\Component\User;
 
+use Pinoox\Component\Package\AppManifest;
+use Pinoox\Component\Template\Theme\ThemeContext;
+use Pinoox\Component\Template\Theme\ThemeContextRegistry;
 use Pinoox\Component\Transport\TransportConfig;
 use Pinoox\Component\Transport\TransportScenario;
 use Pinoox\Portal\App\App;
@@ -110,6 +113,9 @@ class AuthConfig
      * - list: whitelist of those base fields, e.g. ['mode', 'key']
      * - map: merge extras onto the base (strategy, loginUrl, baseUrl, endpoints, …)
      *
+     * When a theme context is active, `theme-contexts[active].auth.client`
+     * overlays the app-level client flag (e.g. loginUrl per environment).
+     *
      * @return array<string, mixed>|null
      */
     public static function forClient(): ?array
@@ -127,6 +133,8 @@ class AuthConfig
                 break;
             }
         }
+
+        $flag = self::mergeContextClientFlag($flag, (string) $package);
 
         if ($flag === false) {
             return null;
@@ -160,6 +168,47 @@ class AuthConfig
         }
 
         return array_replace($base, $flag);
+    }
+
+    /**
+     * Overlay theme-context auth.client onto the app-level client flag.
+     */
+    private static function mergeContextClientFlag(mixed $flag, string $package): mixed
+    {
+        try {
+            $active = ThemeContext::active($package);
+            if ($active === null || $active === '') {
+                return $flag;
+            }
+
+            $manifest = AppManifest::load($package);
+            $ctx = ThemeContextRegistry::context($manifest, $active);
+            $contextClient = $ctx['auth']['client'] ?? null;
+
+            if ($contextClient === null) {
+                return $flag;
+            }
+
+            if ($flag === false) {
+                return false;
+            }
+
+            if (is_array($contextClient) && !array_is_list($contextClient)) {
+                if ($flag === null || $flag === true) {
+                    return $contextClient;
+                }
+
+                if (is_array($flag) && !array_is_list($flag)) {
+                    return array_replace($flag, $contextClient);
+                }
+
+                return $contextClient;
+            }
+
+            return $contextClient;
+        } catch (\Throwable) {
+            return $flag;
+        }
     }
 
     /**

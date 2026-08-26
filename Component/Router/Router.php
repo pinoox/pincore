@@ -29,6 +29,7 @@ use Pinoox\Component\Router\RouteSourceRegistry;
 use Pinoox\Component\Runtime\RuntimeMode;
 use Pinoox\Component\Server\WebServerFix;
 use Pinoox\Component\Server\WebServerFixRegistry;
+use Pinoox\Component\Template\Theme\ThemeContextRegistry;
 use Pinoox\Portal\Mode;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Routing\Matcher\RequestMatcherInterface;
@@ -471,8 +472,10 @@ class Router
      * @param array $tags
      * @return Collection
      */
-    public function collection(string $path = '', Router|string|array|callable|null $routes = null, mixed $controller = null, array|string $methods = [], array|string|Closure $action = '', array $defaults = [], array $filters = [], string $prefixName = '', array $data = [], array $flows = [], array $tags = []): Collection
+    public function collection(string $path = '', Router|string|array|callable|null $routes = null, mixed $controller = null, array|string $methods = [], array|string|Closure $action = '', array $defaults = [], array $filters = [], string $prefixName = '', array $data = [], array $flows = [], array $tags = [], ?string $context = null): Collection
     {
+        [$path, $flows] = $this->applyThemeContextToCollection($path, $flows, $context);
+
         $cast = $this->current;
         $prefixName = $this->buildPrefixNameCollection($prefixName);
         $defaults = $this->buildDefaultsCollection($defaults);
@@ -747,6 +750,53 @@ class Router
      * @param array $flows
      * @return array
      */
+    /**
+     * Resolve path + theme flow from app.php theme-contexts when context is set.
+     *
+     * @param list<string>|array<int, string> $flows
+     * @return array{0: string, 1: array}
+     */
+    private function applyThemeContextToCollection(string $path, array $flows, ?string $context): array
+    {
+        if ($context === null || trim($context) === '') {
+            return [$path, $flows];
+        }
+
+        $context = trim($context);
+        $contexts = null;
+        try {
+            $contexts = $this->app->get('theme-contexts');
+        } catch (\Throwable) {
+            $contexts = null;
+        }
+
+        $config = ['theme-contexts' => is_array($contexts) ? $contexts : []];
+
+        if (ThemeContextRegistry::hasContexts($config)) {
+            if (!in_array($context, ThemeContextRegistry::names($config), true)) {
+                throw new \InvalidArgumentException(sprintf(
+                    'Unknown theme context "%s" for package "%s".',
+                    $context,
+                    (string) ($this->app->package() ?? ''),
+                ));
+            }
+
+            if ($path === '') {
+                $ctx = ThemeContextRegistry::context($config, $context);
+                if (array_key_exists('path', $ctx)) {
+                    $path = is_string($ctx['path']) ? $ctx['path'] : '';
+                }
+            }
+        }
+
+        $flowAlias = 'theme.' . ltrim($context, '.');
+        if (!in_array($flowAlias, $flows, true)) {
+            $flows[] = $flowAlias;
+        }
+
+        return [$path, $flows];
+    }
+
     private function buildFlowsCollection(array $flows): array
     {
         if ($this->current > -1) {
