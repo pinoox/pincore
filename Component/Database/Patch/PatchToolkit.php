@@ -5,6 +5,7 @@ namespace Pinoox\Component\Database\Patch;
 use Pinoox\Component\Migration\MigrationQuery;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\Database\DB;
+use Pinoox\Support\PackageContext;
 use Pinoox\Support\SystemConfig;
 use Pinoox\Model\HistoryModel;
 use Pinoox\Model\Table;
@@ -235,6 +236,7 @@ class PatchToolkit
 
         $finder->in($this->patchPath)->files()->name('*.php')->sortByName();
 
+        $previous = PackageContext::runtime();
         PatchBase::usePackage($this->package);
 
         try {
@@ -267,7 +269,7 @@ class PatchToolkit
                 }
             }
         } finally {
-            PatchBase::usePackage(null);
+            PatchBase::usePackage($previous);
         }
     }
 

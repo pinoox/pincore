@@ -6,10 +6,12 @@ use Pinoox\Support\PackageContext;
 
 beforeEach(function () {
     PackageContext::use(null);
+    \Pinoox\Component\Transport\TransportRuntime::clear();
 });
 
 afterEach(function () {
     PackageContext::use(null);
+    \Pinoox\Component\Transport\TransportRuntime::clear();
     AppTestKit::cleanupTransientArtifacts(false);
 });
 
@@ -54,4 +56,21 @@ it('resolves package from data file path when runtime package is not set', funct
     $seedFile = AppTestKit::path($package) . '/database/seeders/DemoSeeder.php';
 
     expect(PackageContext::resolve(null, $seedFile))->toBe($package);
+});
+
+it('scopes transport runtime while running as a data-layer package', function () {
+    PackageContext::use('com_outer');
+    \Pinoox\Component\Transport\TransportRuntime::use('com_outer');
+
+    $seen = PackageContext::runAs('com_inner', function () {
+        return [
+            'context' => PackageContext::runtime(),
+            'transport' => \Pinoox\Component\Transport\TransportRuntime::active(),
+        ];
+    });
+
+    expect($seen['context'])->toBe('com_inner')
+        ->and($seen['transport'])->toBe('com_inner')
+        ->and(PackageContext::runtime())->toBe('com_outer')
+        ->and(\Pinoox\Component\Transport\TransportRuntime::active())->toBe('com_outer');
 });

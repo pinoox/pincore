@@ -40,27 +40,26 @@ class SeederRunner
         }
 
         if ($this->isSeederClass($name)) {
-            SeederBase::usePackage($package);
-            try {
+            return PackageContext::runAs($package, function () use ($name, $package): int {
                 /** @var SeederBase $instance */
                 $instance = new $name($package);
                 $instance->run();
-            } finally {
-                SeederBase::usePackage(null);
-            }
 
-            return 1;
+                return 1;
+            });
         }
 
         $seeders = $this->resolve($name, $package);
 
-        $count = 0;
-        foreach ($seeders as $seeder) {
-            $seeder['instance']->run();
-            $count++;
-        }
+        return PackageContext::runAs($package, function () use ($seeders): int {
+            $count = 0;
+            foreach ($seeders as $seeder) {
+                $seeder['instance']->run();
+                $count++;
+            }
 
-        return $count;
+            return $count;
+        });
     }
 
     /**
@@ -73,13 +72,15 @@ class SeederRunner
         $package = PackageContext::resolve($package);
         $seeders = $this->resolve(null, $package);
 
-        $count = 0;
-        foreach ($seeders as $seeder) {
-            $seeder['instance']->run();
-            $count++;
-        }
+        return PackageContext::runAs($package, function () use ($seeders): int {
+            $count = 0;
+            foreach ($seeders as $seeder) {
+                $seeder['instance']->run();
+                $count++;
+            }
 
-        return $count;
+            return $count;
+        });
     }
 
     /**
