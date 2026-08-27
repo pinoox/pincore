@@ -20,6 +20,7 @@ it('builds __PINOOX__ with framework url defaults', function () {
     expect($data)
         ->toHaveKey('url')
         ->and($data['url']['BASE'])->not->toBe('')
+        ->and($data['url']['AREA'])->toBe($data['url']['APP'])
         ->and($data['url']['API'])->toContain('api')
         ->and($data['url']['MANAGER'])->toBe('/manager')
         ->and($data['locale'])->toBe('fa');
