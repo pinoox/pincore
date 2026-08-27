@@ -131,7 +131,7 @@ it('merges path and auth from theme context into effectiveConfig', function () {
         ->and($merged['auth']['client'])->toBe(['loginUrl' => '/panel/auth/login']);
 });
 
-it('exposes context loginUrl via AuthConfig and context path for bootstrap', function () {
+it('exposes context loginUrl via AuthConfig and context path for bootstrap AREA/BASE', function () {
     writeThemeContextTestApp([
         'theme-context' => 'site',
         'auth' => [

@@ -20,8 +20,10 @@ final class PinooxScriptHelper
      * (default true; legacy: via, expose, bootstrap), also includes `auth`
      * from AuthConfig::forClient(). Pass `$page['auth']` from Flow to override.
      *
-     * When a theme context with a non-empty `path` is active, `url.BASE` is
-     * the app path joined with that context path (path-only).
+     * When a theme context with a non-empty `path` is active:
+     * - `url.BASE` = app path + context path (path-only)
+     * - `url.AREA` = absolute app URL + context path (e.g. https://domain.com/panel)
+     * Otherwise `url.AREA` equals `url.APP`.
      *
      * @param array<string, mixed> $page
      * @return array<string, mixed>
@@ -34,6 +36,7 @@ final class PinooxScriptHelper
             'url' => [
                 'APP' => $url['app'],
                 'BASE' => $url['appPath'],
+                'AREA' => $url['app'],
                 'API' => $url['api'],
                 'SITE' => $url['site'],
                 'DOMAIN' => $url['domain'],
@@ -48,6 +51,7 @@ final class PinooxScriptHelper
         $contextPath = self::activeContextPath();
         if ($contextPath !== null && $contextPath !== '') {
             $defaults['url']['BASE'] = Url::to($contextPath, Url::APP_PATH);
+            $defaults['url']['AREA'] = rtrim(Url::to($contextPath, Url::APP), '/');
         }
 
         $auth = self::resolveAuthClient();
