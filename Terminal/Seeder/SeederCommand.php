@@ -4,6 +4,7 @@ namespace Pinoox\Terminal\Seeder;
 
 use Pinoox\Component\Database\Seeder\SeederRunner;
 use Pinoox\Component\Terminal;
+use Pinoox\Support\PackageContext;
 use Pinoox\Terminal\Concerns\SelectsPackage;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
@@ -79,7 +80,7 @@ HELP
 
                 try {
                     $this->info('  Running: ' . $seederName . '...');
-                    $seeder['instance']->run();
+                    PackageContext::runAs($package, fn () => $seeder['instance']->run());
                     $this->success('  ✓ ' . $seederName . ' completed successfully');
                     $this->newLine();
                     $successCount++;

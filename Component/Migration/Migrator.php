@@ -20,6 +20,7 @@ use Pinoox\Portal\Database\DB;
 use Pinoox\Portal\Logger;
 use Pinoox\Model\HistoryModel;
 use Pinoox\Model\Table;
+use Pinoox\Support\PackageContext;
 
 /**
  * Enhanced Migrator class with comprehensive migration management
@@ -575,19 +576,19 @@ class Migrator
 
                 try {
                     $this->log("Executing migration: {$migrationName}");
-                    
-                    // Keep package context for the full up() — $this->table() resolves
-                    // via PackageContext::runtime(); clearing before up() falls back to
-                    // App::package() (often installer) and corrupts logical table names.
-                    MigrationBase::usePackage($this->package);
-                    $migrationInstance = require $migration['migrationFile'];
-                    $migrationInstance->up();
-                    
-                    // Record that this migration has been run
-                    $this->recordMigration($migrationName);
-                    
-                    $executed[] = $migrationName;
-                    $this->log("Successfully executed migration: {$migrationName}");
+
+                    // Keep package + transport scope for the full up() so $this->table()
+                    // and UserModel/RoleModel `app` columns resolve to this package —
+                    // not App::package() (often the host default route app).
+                    PackageContext::runAs($this->package, function () use ($migration, $migrationName, &$executed): void {
+                        $migrationInstance = require $migration['migrationFile'];
+                        $migrationInstance->up();
+
+                        $this->recordMigration($migrationName);
+
+                        $executed[] = $migrationName;
+                        $this->log("Successfully executed migration: {$migrationName}");
+                    });
                     
                 } catch (Exception $e) {
                     if ($e instanceof QueryException && $this->isTableAlreadyExistsError($e)) {
@@ -600,8 +601,6 @@ class Migrator
 
                     $this->log("Failed to execute migration {$migrationName}: " . $e->getMessage(), 'error');
                     throw new Exception("Migration {$migrationName} failed: " . $e->getMessage());
-                } finally {
-                    MigrationBase::usePackage(null);
                 }
             }
             
@@ -848,27 +847,25 @@ class Migrator
             // Set execution timeout
             set_time_limit($this->timeout);
 
-            // Keep package context through up() so $this->table() resolves correctly.
-            MigrationBase::usePackage($this->package);
-            $migrationClass = require_once $migration['migrationFile'];
+            // Keep package + transport scope through up() so $this->table() and
+            // UserModel/RoleModel `app` columns resolve to this package.
+            PackageContext::runAs($this->package, function () use ($migration, $batch): void {
+                $migrationClass = require_once $migration['migrationFile'];
 
-            if (!is_object($migrationClass) || !method_exists($migrationClass, 'up')) {
-                throw new Exception("Migration {$migration['fileName']} does not have a valid 'up' method");
-            }
+                if (!is_object($migrationClass) || !method_exists($migrationClass, 'up')) {
+                    throw new Exception("Migration {$migration['fileName']} does not have a valid 'up' method");
+                }
 
-            // Execute the migration
-            $migrationClass->up();
+                $migrationClass->up();
 
-            // Only record the migration if it was successful
-            MigrationQuery::insert($migration['fileName'], $migration['packageName'], $batch);
+                MigrationQuery::insert($migration['fileName'], $migration['packageName'], $batch);
+            });
 
             $executionTime = microtime(true) - $startTime;
             $this->log("Executed {$migration['fileName']} in " . round($executionTime, 2) . "s");
 
         } catch (Exception $e) {
             throw $e;
-        } finally {
-            MigrationBase::usePackage(null);
         }
     }
 
@@ -889,21 +886,23 @@ class Migrator
                 throw new Exception("Migration file not found for: {$migration['migration']}");
             }
 
-            // Keep package context through down() so $this->table() resolves correctly.
-            MigrationBase::usePackage($this->package);
-            $migrationClass = include $migrationFile;
+            // Keep package + transport scope through down() so $this->table()
+            // and UserModel/RoleModel `app` columns resolve to this package.
+            PackageContext::runAs($this->package, function () use ($migrationFile, $migration): void {
+                $migrationClass = include $migrationFile;
 
-            if (!is_object($migrationClass)) {
-                throw new Exception("Migration {$migration['migration']} does not return a valid class instance");
-            }
+                if (!is_object($migrationClass)) {
+                    throw new Exception("Migration {$migration['migration']} does not return a valid class instance");
+                }
 
-            if (method_exists($migrationClass, 'down')) {
-                $migrationClass->down();
-            } else {
-                $this->log("Warning: Migration {$migration['migration']} does not have a 'down' method", 'warning');
-            }
+                if (method_exists($migrationClass, 'down')) {
+                    $migrationClass->down();
+                } else {
+                    $this->log("Warning: Migration {$migration['migration']} does not have a 'down' method", 'warning');
+                }
 
-            MigrationQuery::delete($migration['migration'], $this->package);
+                MigrationQuery::delete($migration['migration'], $this->package);
+            });
 
             if ($useTransactions) {
                 DB::commit();
@@ -914,8 +913,6 @@ class Migrator
                 DB::rollback();
             }
             throw $e;
-        } finally {
-            MigrationBase::usePackage(null);
         }
     }
 

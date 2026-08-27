@@ -14,6 +14,7 @@
 namespace Pinoox\Component\Database\Factories;
 
 use Pinoox\Portal\App\AppEngine;
+use Pinoox\Support\PackageContext;
 use Pinoox\Support\SystemConfig;
 use Symfony\Component\Finder\Finder;
 
@@ -106,6 +107,7 @@ class FactoryToolkit
         $finder = new Finder();
         $finder->in([$this->factoryPath])->files()->name('*.php');
 
+        $previous = PackageContext::runtime();
         FactoryBase::usePackage($this->package);
 
         try {
@@ -127,7 +129,7 @@ class FactoryToolkit
                 }
             }
         } finally {
-            FactoryBase::usePackage(null);
+            FactoryBase::usePackage($previous);
         }
     }
 

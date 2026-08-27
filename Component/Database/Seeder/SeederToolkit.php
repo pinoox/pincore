@@ -14,6 +14,7 @@
 namespace Pinoox\Component\Database\Seeder;
 
 use Pinoox\Portal\App\AppEngine;
+use Pinoox\Support\PackageContext;
 use Pinoox\Support\SystemConfig;
 use Symfony\Component\Finder\Finder;
 
@@ -83,6 +84,7 @@ class SeederToolkit
 
         $finder->in($this->seederSearchPaths())->files()->name('*.php');
 
+        $previous = PackageContext::runtime();
         SeederBase::usePackage($this->package);
 
         try {
@@ -100,7 +102,7 @@ class SeederToolkit
                 }
             }
         } finally {
-            SeederBase::usePackage(null);
+            SeederBase::usePackage($previous);
         }
     }
 
