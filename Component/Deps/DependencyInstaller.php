@@ -3,6 +3,7 @@
 namespace Pinoox\Component\Deps;
 
 use Pinoox\Component\Package\AppComposerVendor;
+use Pinoox\Component\Template\Frontend\FrontendPackageManager;
 use Symfony\Component\Process\Process;
 
 final class DependencyInstaller
@@ -64,11 +65,11 @@ final class DependencyInstaller
         DependencyInstallOptions $options,
         ?callable $onOutput,
     ): DependencyRunResult {
-        $lockFile = $target->path . '/package-lock.json';
         $warnings = [];
+        $install = FrontendPackageManager::installCommand($target->path, $options->npmCi);
 
-        if ($options->npmCi && is_file($lockFile)) {
-            $command = [$this->npmBinary(), 'ci'];
+        if ($install === ['ci']) {
+            $command = [FrontendPackageManager::binary($target->path), 'ci'];
             $result = $this->runProcess($target, 'install', $this->formatCommandLine($command), $command, $target->path, $onOutput);
 
             if ($result->succeeded()) {
@@ -85,9 +86,11 @@ final class DependencyInstaller
                     $onOutput($line);
                 }
             }
+
+            $install = ['install'];
         }
 
-        $command = [$this->npmBinary(), 'install'];
+        $command = array_merge([FrontendPackageManager::binary($target->path)], $install);
         $result = $this->runProcess($target, 'install', $this->formatCommandLine($command), $command, $target->path, $onOutput);
 
         return $warnings === [] ? $result : $result->withWarnings($warnings);
@@ -103,7 +106,7 @@ final class DependencyInstaller
         string $label,
         ?callable $onOutput,
     ): DependencyRunResult {
-        $fullCommand = array_merge([$this->npmBinary()], $command);
+        $fullCommand = array_merge([FrontendPackageManager::binary($target->path)], $command);
 
         return $this->runProcess($target, 'update', $this->formatCommandLine($fullCommand), $fullCommand, $target->path, $onOutput);
     }
@@ -227,10 +230,5 @@ final class DependencyInstaller
             exitCode: $exitCode,
             durationSeconds: $duration,
         );
-    }
-
-    private function npmBinary(): string
-    {
-        return PHP_OS_FAMILY === 'Windows' ? 'npm.cmd' : 'npm';
     }
 }
