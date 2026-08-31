@@ -26,6 +26,10 @@ class ThemeFrontend
 
     private bool $fixViteOnSync = false;
 
+    private bool $syncDevEnv = false;
+
+    private bool $initDevEnv = false;
+
   /** @var list<string> */
     private array $forceDevEnvKeys = [];
 
@@ -294,6 +298,16 @@ class ThemeFrontend
         $this->fixViteOnSync = $fix;
     }
 
+    public function setSyncDevEnv(bool $sync): void
+    {
+        $this->syncDevEnv = $sync;
+    }
+
+    public function setInitDevEnv(bool $init): void
+    {
+        $this->initDevEnv = $init;
+    }
+
     /**
      * @param list<string> $keys
      */
@@ -311,7 +325,7 @@ class ThemeFrontend
 
     public function devEnvFile(): string
     {
-        return $this->devEnvFile ?? FrontendDevSync::DEFAULT_ENV_FILE;
+        return $this->devEnvFile ?? FrontendDevSync::DEFAULT_LOCAL_ENV_FILE;
     }
 
     /**
@@ -597,6 +611,8 @@ class ThemeFrontend
             $this->devSession,
             $this->fixViteOnSync,
             $this->devEnvFile(),
+            $this->syncDevEnv,
+            $this->initDevEnv,
         );
     }
 
@@ -654,7 +670,7 @@ class ThemeFrontend
             'package_json' => $this->hasPackageJson(),
             'dev_enabled' => FrontendConfig::isDevEnabled($this->config),
             'dev_url' => $this->config['dev']['url'] ?? null,
-            'dev_state_path' => FrontendDevState::relativePath(),
+            'dev_state_path' => FrontendDevState::projectRegistryRelativePath(),
             'dev_active' => FrontendDevState::isActive($this->themePath),
             'dev_port' => FrontendConfig::devPort($this->config, $this->themePath),
             'vite_plugin' => FrontendDevSync::hasVitePluginDependency($this->themePath)

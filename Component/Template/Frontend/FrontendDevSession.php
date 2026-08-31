@@ -312,7 +312,7 @@ final class FrontendDevSession
         $lines = [
             ['level' => 'info', 'message' => 'PHP app URL: ' . $this->phpAppUrl],
             ['level' => 'info', 'message' => 'Vite dev server: ' . $this->viteDevServerUrl()],
-            ['level' => 'info', 'message' => 'Dev state: .pinoox/dev.json (written when Vite starts)'],
+            ['level' => 'info', 'message' => 'Dev state: ' . FrontendDevState::projectRegistryRelativePath() . ' (theme-local ' . FrontendDevState::relativePath() . ' written when Vite starts)'],
         ];
 
         if ($this->platformServe) {
