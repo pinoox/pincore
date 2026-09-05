@@ -173,6 +173,38 @@ it('loads relations between models that belong to different app databases', func
         ->and($user->notifications->first()->title)->toBe('Manager notification');
 });
 
+it('keeps Eloquent models after whereIn so toArray still works', function () {
+    writeTestApp('com_test_relation_manager', [
+        'database' => testDevDbConnection(''),
+    ]);
+    AppEngine::__rebuild();
+
+    DB::registerCoreConnection(testDevDbConnection(''));
+    DB::setAsGlobal();
+    DB::bootEloquent();
+
+    $connection = DB::app('com_test_relation_manager');
+    $connection->getSchemaBuilder()->create('notifications', function ($table) {
+        $table->integer('notification_id')->primary();
+        $table->integer('user_id');
+        $table->string('title');
+    });
+    $connection->table('notifications')->insert([
+        'notification_id' => 99,
+        'user_id' => 10,
+        'title' => 'Manager notification',
+    ]);
+
+    $query = App\com_test_relation_manager\Model\NotificationModel::where('user_id', 10)
+        ->whereIn('notification_id', [99, 100]);
+
+    $row = $query->orderBy('notification_id', 'desc')->first();
+
+    expect($query)->toBeInstanceOf(\Pinoox\Component\Database\Eloquent\Builder::class)
+        ->and($row)->toBeInstanceOf(App\com_test_relation_manager\Model\NotificationModel::class)
+        ->and($row->toArray()['title'])->toBe('Manager notification');
+});
+
 it('resolves table names using core, shared app, dedicated app, and explicit prefixes', function () {
     $manager = new DatabaseManager(new Illuminate\Container\Container());
     $manager->registerCoreConnection(testDevDbConnection(''));

@@ -195,6 +195,33 @@ class Url implements UrlInterface
     }
 
     /**
+     * Download URL for a stored file (auto public disk vs private dispatcher).
+     */
+    public function file(int|string|\Pinoox\Model\FileModel|null $file): ?string
+    {
+        return \Pinoox\Portal\File::url($file);
+    }
+
+    /**
+     * Thumbnail URL for a stored image file.
+     */
+    public function fileThumb(int|string|\Pinoox\Model\FileModel|null $file): ?string
+    {
+        return \Pinoox\Portal\File::thumb($file);
+    }
+
+    /**
+     * Signed temporary URL for a stored file.
+     */
+    public function temporaryFile(
+        int|string|\Pinoox\Model\FileModel|null $file,
+        \DateTimeInterface|\DateInterval|int $expiration,
+        bool $thumb = false,
+    ): ?string {
+        return \Pinoox\Portal\File::temporaryUrl($file, $expiration, $thumb);
+    }
+
+    /**
      * Fluent URL accessor for the active request and app route.
      */
     public function accessor(?string $package = null): UrlAccessor

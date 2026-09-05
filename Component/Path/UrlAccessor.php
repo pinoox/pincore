@@ -105,6 +105,40 @@ final class UrlAccessor
     }
 
     /**
+     * Download URL for a stored file. Public disks get a direct URL;
+     * locked disks use the owning app dispatcher (`{app}/file/{hash}`).
+     *
+     * @example url()->file($fileId)
+     */
+    public function file(int|string|\Pinoox\Model\FileModel|null $file): ?string
+    {
+        return $this->url->file($file);
+    }
+
+    /**
+     * Thumbnail URL for a stored image file.
+     *
+     * @example url()->fileThumb($fileId)
+     */
+    public function fileThumb(int|string|\Pinoox\Model\FileModel|null $file): ?string
+    {
+        return $this->url->fileThumb($file);
+    }
+
+    /**
+     * Signed temporary URL for a stored file.
+     *
+     * @example url()->temporaryFile($fileId, 1800)
+     */
+    public function temporaryFile(
+        int|string|\Pinoox\Model\FileModel|null $file,
+        \DateTimeInterface|\DateInterval|int $expiration,
+        bool $thumb = false,
+    ): ?string {
+        return $this->url->temporaryFile($file, $expiration, $thumb);
+    }
+
+    /**
      * Public file URL under the active app route (resources, uploads, …).
      *
      * @example url()->resource('resources/avatar.png') → …/apps/com_pinoox_manager/resources/avatar.png

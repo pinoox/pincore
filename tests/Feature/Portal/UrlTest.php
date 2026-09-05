@@ -14,3 +14,9 @@ it('exposes the standard url scopes', function () {
         ->and(Url::SCOPE_APP_PATH)->toBe('app-path');
 });
 
+it('declares file download url methods on the Url component', function () {
+    expect(method_exists(Url::class, 'file'))->toBeTrue()
+        ->and(method_exists(Url::class, 'fileThumb'))->toBeTrue()
+        ->and(method_exists(Url::class, 'temporaryFile'))->toBeTrue();
+});
+

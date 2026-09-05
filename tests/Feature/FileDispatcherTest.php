@@ -119,6 +119,41 @@ it('scopes public disk packages under storage/public', function () {
     fileDispatcherDeleteDir($root);
 });
 
+it('scopes custom unlocked disks under storage/{disk} with a public url', function () {
+    $root = str_replace('\\', '/', testFixtures('storage_media_apps'));
+
+    $manager = new FilesystemManager(new FileDispatcherArrayConfig([
+        'default' => 'local',
+        'app_disk' => 'local',
+        'app_root' => testFixturesProjectRelative('storage_local'),
+        'public_root' => testFixturesProjectRelative('storage_public_apps'),
+        'disks' => [
+            'media' => [
+                'driver' => 'local',
+                'root' => testFixturesProjectRelative('storage_media_apps'),
+                'url' => 'http://example.test/storage/media',
+                'visibility' => 'public',
+                'protect' => 'unlock',
+                'throw' => true,
+            ],
+            'local' => [
+                'driver' => 'local',
+                'root' => testFixturesProjectRelative('storage_local'),
+                'protect' => 'lock',
+                'throw' => true,
+            ],
+        ],
+    ]));
+
+    $disk = $manager->app('com_demo', 'media');
+    $disk->put('banners/a.txt', 'ok');
+
+    expect(is_file($root . '/com_demo/banners/a.txt'))->toBeTrue()
+        ->and($disk->url('banners/a.txt'))->toContain('/storage/media/com_demo/banners/a.txt');
+
+    fileDispatcherDeleteDir($root);
+});
+
 it('allows public files without auth callback', function () {
     $dispatcher = new FileDispatcher();
     $file = new FileModel();

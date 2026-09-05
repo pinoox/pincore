@@ -43,8 +43,8 @@ class FileConfig
             ?? Storage::getDefaultDriver());
         $disk = $disk !== '' ? $disk : 'local';
 
-        // Mode comes from disk only: public disk ⇒ public uploads; anything else ⇒ private.
-        $access = $disk === 'public' ? 'public' : 'private';
+        // Mode comes from disk config: unlocked/public web disk ⇒ public uploads; anything else ⇒ private.
+        $access = self::isPublicDiskConfig($disk, self::diskSettings($disk)) ? 'public' : 'private';
 
         return [
             'package' => TransportConfig::package(TransportScenario::FILE_STORAGE),
@@ -224,15 +224,74 @@ class FileConfig
     {
         $config ??= self::resolve();
         $disk = (string) $config['disk'];
+        if ($disk === '') {
+            return 'local';
+        }
 
-        return $disk === 'public' || $disk === '' ? 'local' : $disk;
+        return self::isPublicDiskConfig($disk, self::diskSettings($disk)) ? 'local' : $disk;
     }
 
     public static function isPublicDisk(?string $disk = null): bool
     {
-        $disk ??= self::resolve()['disk'];
+        $disk = trim((string) ($disk ?? ''));
+        if ($disk === '') {
+            $disk = (string) (App::get('filesystem.disk')
+                ?? App::get('filesystem.default_disk')
+                ?? Storage::getDefaultDriver()
+                ?? 'local');
+            $disk = $disk !== '' ? $disk : 'local';
+        }
 
-        return $disk === 'public';
+        return self::isPublicDiskConfig($disk, self::diskSettings($disk));
+    }
+
+    /**
+     * Whether a disk is web-reachable (direct URL) rather than dispatcher-gated.
+     *
+     * True when the name is `public`, `protect` is `unlock`, or visibility is
+     * public and a base `url` is configured (custom media disks, public S3, …).
+     *
+     * @param array<string, mixed> $config
+     */
+    public static function isPublicDiskConfig(string $disk, array $config = []): bool
+    {
+        $disk = trim($disk);
+        if ($disk === '') {
+            return false;
+        }
+
+        if ($disk === 'public') {
+            return true;
+        }
+
+        $protect = strtolower(trim((string) ($config['protect'] ?? 'lock')));
+        if ($protect === 'unlock') {
+            return true;
+        }
+
+        $visibility = strtolower(trim((string) ($config['visibility'] ?? '')));
+        $url = trim((string) ($config['url'] ?? ''));
+
+        return $visibility === 'public' && $url !== '';
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    public static function diskSettings(string $disk): array
+    {
+        $disk = trim($disk);
+        if ($disk === '') {
+            return [];
+        }
+
+        try {
+            $config = \Pinoox\Portal\Config::name('~filesystems')->get('disks.' . $disk);
+
+            return is_array($config) ? $config : [];
+        } catch (\Throwable) {
+            return [];
+        }
     }
 
     public static function normalizePolicy(mixed $value): string

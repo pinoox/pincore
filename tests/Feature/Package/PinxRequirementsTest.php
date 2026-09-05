@@ -115,6 +115,50 @@ it('keeps legacy minpin unchanged when requirements are empty', function () {
     $reader->close();
 });
 
+it('falls back to composer.json php requirement when app.php declares none', function () {
+    pinxRequirementsWriteApp([
+        'pinx' => ['type' => 'app'],
+    ]);
+
+    $appPath = AppTestKit::path(PINX_REQUIREMENTS_TEST_PACKAGE);
+    file_put_contents($appPath . '/composer.json', json_encode([
+        'name' => 'test/' . PINX_REQUIREMENTS_TEST_PACKAGE,
+        'require' => ['php' => '^8.3'],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+    $buildConfig = PinxBuildConfig::resolve(AppEngine::___(), PINX_REQUIREMENTS_TEST_PACKAGE);
+
+    expect($buildConfig['requirements'])->toBe(['php' => '>=8.3.0']);
+
+    $build = pinxRequirementsBuild();
+    $reader = new PinxReader();
+    $reader->open($build['path']);
+    $manifest = $reader->manifest();
+
+    expect($manifest->requirements())->toBe(['php' => '>=8.3.0']);
+
+    $reader->close();
+});
+
+it('prefers app.php requirements over composer.json', function () {
+    pinxRequirementsWriteApp([
+        'pinx' => [
+            'type' => 'app',
+            'requirements' => ['php' => '>=8.4'],
+        ],
+    ]);
+
+    $appPath = AppTestKit::path(PINX_REQUIREMENTS_TEST_PACKAGE);
+    file_put_contents($appPath . '/composer.json', json_encode([
+        'name' => 'test/' . PINX_REQUIREMENTS_TEST_PACKAGE,
+        'require' => ['php' => '>=8.2'],
+    ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+
+    $buildConfig = PinxBuildConfig::resolve(AppEngine::___(), PINX_REQUIREMENTS_TEST_PACKAGE);
+
+    expect($buildConfig['requirements'])->toBe(['php' => '>=8.4']);
+});
+
 it('raises effective minpin to the requirements capability floor', function () {
     pinxRequirementsWriteApp([
         'pinx' => [

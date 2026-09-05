@@ -15,8 +15,12 @@ final class PinxRequirements
 {
     /**
      * First Pinoox kernel code that understands and enforces Pinx requirements.
+     *
+     * Tracks the current pincore kernel code shipping this contract
+     * (config/pincore.config.php), so older kernels never silently
+     * ignore a requirements-bearing package.
      */
-    public const MIN_KERNEL_CODE = 230;
+    public const MIN_KERNEL_CODE = 236;
 
     private const PHP_CONSTRAINT_PATTERN = '/^>=\s*(\d+\.\d+(?:\.\d+)?)$/';
 
@@ -79,6 +83,93 @@ final class PinxRequirements
         }
 
         return max($configuredMinpin, self::MIN_KERNEL_CODE);
+    }
+
+    /**
+     * Resolve the PHP requirement declared by an app, preferring an explicit
+     * declaration in app.php (top-level "requirements" or under "pinx") and
+     * falling back to the app's composer.json "require.php" constraint when
+     * nothing is declared explicitly.
+     *
+     * @param array<string, string> $explicit
+     * @return array<string, string>
+     */
+    public static function resolve(array $explicit, string $composerJsonPath): array
+    {
+        if ($explicit !== []) {
+            return $explicit;
+        }
+
+        $composer = self::fromComposerJson($composerJsonPath);
+
+        return $composer !== [] ? $composer : [];
+    }
+
+    /**
+     * Build a requirements map from an app composer.json "require.php".
+     *
+     * Composer-style constraints (^8.2, ~8.1.0, 8.2.*, >=8.1.2 <8.5, ...)
+     * are reduced to their numeric floor, mirroring the launcher
+     * pinoox_normalize_php_constraint() semantics. Only the minimum bound
+     * is enforceable; that is intentional for this first contract version.
+     *
+     * @return array<string, string>
+     */
+    public static function fromComposerJson(string $composerJsonPath): array
+    {
+        if (!is_file($composerJsonPath)) {
+            return [];
+        }
+
+        $raw = file_get_contents($composerJsonPath);
+
+        if (!is_string($raw)) {
+            return [];
+        }
+
+        $composer = json_decode($raw, true);
+
+        if (!is_array($composer)) {
+            return [];
+        }
+
+        $constraint = $composer['require']['php'] ?? null;
+
+        if (!is_string($constraint) || trim($constraint) === '') {
+            return [];
+        }
+
+        $floor = self::composerFloor($constraint);
+
+        if ($floor === null) {
+            return [];
+        }
+
+        return ['php' => '>=' . $floor];
+    }
+
+    /**
+     * Extract the numeric floor from a composer-style PHP constraint.
+     */
+    private static function composerFloor(string $constraint): ?string
+    {
+        $constraint = trim($constraint);
+
+        if ($constraint === '') {
+            return null;
+        }
+
+        if (preg_match('/(\d+\.\d+(?:\.\d+)?)/', $constraint, $matches) !== 1) {
+            return null;
+        }
+
+        $version = $matches[1];
+
+        if (substr_count($version, '.') === 1) {
+            $version .= '.0';
+        }
+
+        return $version;
     }
 
     /**

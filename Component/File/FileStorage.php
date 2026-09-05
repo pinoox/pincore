@@ -55,14 +55,20 @@ class FileStorage
             return null;
         }
 
-        $package = is_string($file->app ?? null) ? $file->app : null;
+        $package = is_string($file->app ?? null) && $file->app !== '' ? $file->app : null;
         $path = FileConfig::buildDispatcherPath(
             FileConfig::dispatcherPath($package),
             $hash,
             $thumb,
         );
 
-        return Url::link($path, Url::SCOPE_SITE, Url::MODE_CLEAN);
+        try {
+            $base = rtrim(Url::forApp($package), '/');
+
+            return $base . '/' . ltrim($path, '/');
+        } catch (\Throwable) {
+            return Url::link($path, Url::SCOPE_SITE, Url::MODE_CLEAN);
+        }
     }
 
     public static function url(FileModel $file): ?string
@@ -73,10 +79,10 @@ class FileStorage
 
         $diskName = self::resolveDisk($file);
 
-        // Model B: public disk → direct /storage URL.
-        if ($diskName === 'public') {
+        // Unlocked / public web disk → direct URL (`/storage/{disk}/…` or remote).
+        if ($diskName && FileConfig::isPublicDisk($diskName)) {
             $key = self::key($file->file_path, $file->file_name);
-            $url = self::publicUrl($file->app, $key);
+            $url = self::webUrl($file->app, $diskName, $key);
             if ($url !== null) {
                 return $url;
             }
@@ -106,9 +112,9 @@ class FileStorage
 
         $diskName = self::resolveDisk($file);
 
-        if ($diskName === 'public') {
+        if ($diskName && FileConfig::isPublicDisk($diskName)) {
             $key = self::thumbKey($file->file_path, $file->file_name);
-            $url = self::publicUrl($file->app, $key);
+            $url = self::webUrl($file->app, $diskName, $key);
             if ($url !== null) {
                 return $url;
             }
@@ -144,12 +150,15 @@ class FileStorage
     }
 
     /**
-     * Build a public-disk URL without probing disk existence (list/API hot path).
+     * Direct disk URL without probing file existence (list/API hot path).
      */
-    private static function publicUrl(?string $package, string $key): ?string
+    private static function webUrl(?string $package, string $diskName, string $key): ?string
     {
         try {
-            $disk = self::disk($package, 'public');
+            $disk = self::disk($package, $diskName);
+            if (!method_exists($disk, 'url')) {
+                return null;
+            }
             $url = $disk->url($key);
 
             return is_string($url) && $url !== '' ? $url : null;

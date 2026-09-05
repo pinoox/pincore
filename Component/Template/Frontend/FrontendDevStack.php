@@ -379,7 +379,8 @@ final class FrontendDevStack
 
         $frontend->prepareDev();
 
-        $binary = PHP_OS_FAMILY === 'Windows' ? 'npm.cmd' : 'npm';
+        $themePath = $frontend->themePath();
+        $binary = FrontendPackageManager::binary($themePath);
 
         $env = $frontend->devNpmEnvironment();
 
@@ -423,7 +424,13 @@ final class FrontendDevStack
 
 
 
-        $process = new Process([$binary, 'run', 'dev'], $frontend->themePath(), $base, null, null);
+        $process = new Process(
+            array_merge([$binary], FrontendPackageManager::runScriptCommand('dev')),
+            $themePath,
+            $base,
+            null,
+            null,
+        );
 
         $process->setTimeout(null);
 

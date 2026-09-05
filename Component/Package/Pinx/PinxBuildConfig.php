@@ -177,12 +177,14 @@ class PinxBuildConfig
 
         $outputDir = trim((string) ($build['output_dir'] ?? ''));
 
+        $explicitRequirements = PinxRequirements::normalize($raw['requirements'] ?? $pinx['requirements'] ?? []);
+
         return [
             'type' => $type,
             'target_app' => (string) ($pinx['target_app'] ?? $packageName),
             'theme_name' => $themeName,
             'minpin' => (int) ($pinx['minpin'] ?? $raw['minpin'] ?? $config->get('minpin', 0)),
-            'requirements' => PinxRequirements::normalize($pinx['requirements'] ?? []),
+            'requirements' => PinxRequirements::resolve($explicitRequirements, $engine->path($package) . '/composer.json'),
             'gitignore' => array_key_exists('gitignore', $build)
                 ? (bool) $build['gitignore']
                 : true,

@@ -26,6 +26,10 @@ class ThemeFrontend
 
     private bool $fixViteOnSync = false;
 
+    private bool $syncDevEnv = false;
+
+    private bool $initDevEnv = false;
+
   /** @var list<string> */
     private array $forceDevEnvKeys = [];
 
@@ -294,6 +298,16 @@ class ThemeFrontend
         $this->fixViteOnSync = $fix;
     }
 
+    public function setSyncDevEnv(bool $sync): void
+    {
+        $this->syncDevEnv = $sync;
+    }
+
+    public function setInitDevEnv(bool $init): void
+    {
+        $this->initDevEnv = $init;
+    }
+
     /**
      * @param list<string> $keys
      */
@@ -311,7 +325,7 @@ class ThemeFrontend
 
     public function devEnvFile(): string
     {
-        return $this->devEnvFile ?? FrontendDevSync::DEFAULT_ENV_FILE;
+        return $this->devEnvFile ?? FrontendDevSync::DEFAULT_LOCAL_ENV_FILE;
     }
 
     /**
@@ -383,7 +397,7 @@ class ThemeFrontend
 
         $stamp = $this->nodeModulesStamp($nodeModules);
 
-        foreach (['package-lock.json', 'npm-shrinkwrap.json', 'package.json'] as $file) {
+        foreach (FrontendPackageManager::installStampFiles($this->themePath) as $file) {
             $path = $this->themePath . '/' . $file;
             if (is_file($path) && filemtime($path) > $stamp) {
                 return true;
@@ -428,9 +442,15 @@ class ThemeFrontend
     {
         $this->prepareDev($installMode);
 
-        $binary = $this->npmBinary();
+        $binary = $this->packageManagerBinary();
         $env = $this->inheritedEnvironment($this->npmRunEnvironment());
-        $process = new Process([$binary, 'run', 'dev'], $this->themePath, $env, null, null);
+        $process = new Process(
+            array_merge([$binary], FrontendPackageManager::runScriptCommand('dev')),
+            $this->themePath,
+            $env,
+            null,
+            null,
+        );
 
         $this->attachLongRunningProcess($process);
         $process->start(function ($type, $buffer): void {
@@ -591,6 +611,8 @@ class ThemeFrontend
             $this->devSession,
             $this->fixViteOnSync,
             $this->devEnvFile(),
+            $this->syncDevEnv,
+            $this->initDevEnv,
         );
     }
 
@@ -648,7 +670,7 @@ class ThemeFrontend
             'package_json' => $this->hasPackageJson(),
             'dev_enabled' => FrontendConfig::isDevEnabled($this->config),
             'dev_url' => $this->config['dev']['url'] ?? null,
-            'dev_state_path' => FrontendDevState::relativePath(),
+            'dev_state_path' => FrontendDevState::projectRegistryRelativePath(),
             'dev_active' => FrontendDevState::isActive($this->themePath),
             'dev_port' => FrontendConfig::devPort($this->config, $this->themePath),
             'vite_plugin' => FrontendDevSync::hasVitePluginDependency($this->themePath)
@@ -733,12 +755,13 @@ class ThemeFrontend
 
     private function runNpmInstall(): int
     {
-        $lock = $this->themePath . '/package-lock.json';
-        if (is_file($lock)) {
+        $install = FrontendPackageManager::installCommand($this->themePath);
+
+        if ($install === ['ci']) {
             return $this->runNpm(['ci'], fallback: ['install']);
         }
 
-        return $this->runNpm(['install']);
+        return $this->runNpm($install);
     }
 
     private function assertFrontendProject(): void
@@ -781,7 +804,7 @@ class ThemeFrontend
         ?array $fallback = null,
         array $extraEnv = [],
     ): int {
-        $binary = $this->npmBinary();
+        $binary = $this->packageManagerBinary();
         $env = $extraEnv === [] ? null : $this->inheritedEnvironment($extraEnv);
         $process = new Process(array_merge([$binary], $command), $this->themePath, $env, null, null);
 
@@ -893,9 +916,9 @@ class ThemeFrontend
         echo $buffer;
     }
 
-    private function npmBinary(): string
+    private function packageManagerBinary(): string
     {
-        return PHP_OS_FAMILY === 'Windows' ? 'npm.cmd' : 'npm';
+        return FrontendPackageManager::binary($this->themePath);
     }
 
     private function copyStubTree(string $source, string $destination): void

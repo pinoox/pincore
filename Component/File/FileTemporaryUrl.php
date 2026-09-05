@@ -13,8 +13,8 @@ class FileTemporaryUrl
     {
         $diskName = FileStorage::resolveDisk($file) ?: 'local';
 
-        // Public disk already has a stable public URL.
-        if ($diskName === 'public') {
+        // Unlocked / public web disk already has a stable public URL.
+        if (FileConfig::isPublicDisk($diskName)) {
             return $thumb ? FileStorage::thumbUrl($file) : FileStorage::url($file);
         }
 

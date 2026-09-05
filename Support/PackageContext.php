@@ -2,6 +2,7 @@
 
 namespace Pinoox\Support;
 
+use Pinoox\Component\Transport\TransportRuntime;
 use Pinoox\Portal\App\App;
 
 /**
@@ -21,6 +22,32 @@ final class PackageContext
     public static function runtime(): ?string
     {
         return self::$runtimePackage;
+    }
+
+    /**
+     * Run a callback as a data-layer package.
+     *
+     * Also sets TransportRuntime so UserModel/RoleModel/FileModel `app` columns
+     * resolve to this package (or its transport.* override), not App::package()
+     * — which on a host CLI/install is often the default route app (welcome).
+     *
+     * @template T
+     * @param callable(): T $callback
+     * @return T
+     */
+    public static function runAs(string $package, callable $callback): mixed
+    {
+        $previous = self::$runtimePackage;
+        $previousTransport = TransportRuntime::active();
+        self::use($package);
+        TransportRuntime::use($package);
+
+        try {
+            return $callback();
+        } finally {
+            self::$runtimePackage = $previous;
+            TransportRuntime::use($previousTransport);
+        }
     }
 
     public static function resolve(?string $explicit = null, ?string $sourceFile = null): string

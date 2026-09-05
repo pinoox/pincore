@@ -80,40 +80,49 @@ class Builder extends EloquentBuilder
 
     public function whereIn($column, $values, $boolean = 'and', $not = false)
     {
-        return $this->query->whereIn(
+        $this->query->whereIn(
             $this->normalizeColumn($column),
             $values,
             $boolean,
             $not,
         );
+
+        // Query Builder returns itself; keep this Eloquent builder so first() hydrates models.
+        return $this;
     }
 
     public function whereNotIn($column, $values, $boolean = 'and')
     {
-        return $this->query->whereNotIn(
+        $this->query->whereNotIn(
             $this->normalizeColumn($column),
             $values,
             $boolean,
         );
+
+        return $this;
     }
 
     public function whereIntegerInRaw($column, $values, $boolean = 'and', $not = false)
     {
-        return $this->query->whereIntegerInRaw(
+        $this->query->whereIntegerInRaw(
             $this->normalizeColumn($column),
             $values,
             $boolean,
             $not,
         );
+
+        return $this;
     }
 
     public function whereIntegerNotInRaw($column, $values, $boolean = 'and')
     {
-        return $this->query->whereIntegerNotInRaw(
+        $this->query->whereIntegerNotInRaw(
             $this->normalizeColumn($column),
             $values,
             $boolean,
         );
+
+        return $this;
     }
 
     /**
