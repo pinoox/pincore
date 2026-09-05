@@ -50,6 +50,9 @@ class PinxManifest
         $packageLabel = AppManifest::displayName($package);
         $packageDescription = AppManifest::description($package);
         $packageLabels = AppManifest::labels($package);
+        $requirements = PinxRequirements::normalize($pinxConfig['requirements'] ?? []);
+        $configuredMinpin = (int) ($pinxConfig['minpin'] ?? $appConfig['minpin'] ?? 0);
+        $minpin = PinxRequirements::effectiveMinpin($configuredMinpin, $requirements);
 
         return new self([
             'format' => self::FORMAT,
@@ -64,7 +67,8 @@ class PinxManifest
             'developer' => $themeManifest?->developer() ?: (string) ($appConfig['developer'] ?? ''),
             'version_name' => $themeManifest?->versionName() ?: (string) ($appConfig['version-name'] ?? '1.0'),
             'version_code' => $themeManifest?->versionCode() ?: (int) ($appConfig['version-code'] ?? 1),
-            'minpin' => (int) ($pinxConfig['minpin'] ?? $appConfig['minpin'] ?? 0),
+            'minpin' => $minpin,
+            ...($requirements !== [] ? ['requirements' => $requirements] : []),
             'depends' => self::dependsForManifest($depends),
             'target_app' => $type === self::TYPE_THEME ? $targetApp : null,
             'theme_name' => $type === self::TYPE_THEME ? $themeName : null,
@@ -108,6 +112,15 @@ class PinxManifest
 
         if ($this->package() === '') {
             throw new Exception('Manifest is missing package name.');
+        }
+
+        $requirements = PinxRequirements::normalize($this->requirementsRaw());
+
+        if ($requirements !== [] && $this->minpin() < PinxRequirements::MIN_KERNEL_CODE) {
+            throw new Exception(sprintf(
+                'Pinx runtime requirements require minpin %d or higher.',
+                PinxRequirements::MIN_KERNEL_CODE,
+            ));
         }
 
         if ($type === self::TYPE_THEME) {
@@ -216,6 +229,19 @@ class PinxManifest
     public function minpin(): int
     {
         return (int) ($this->data['minpin'] ?? 0);
+    }
+
+    public function requirementsRaw(): mixed
+    {
+        return $this->data['requirements'] ?? [];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function requirements(): array
+    {
+        return PinxRequirements::normalize($this->requirementsRaw());
     }
 
     /**
@@ -331,4 +357,3 @@ class PinxManifest
         return $depends;
     }
 }
-
