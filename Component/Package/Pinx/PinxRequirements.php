@@ -20,7 +20,7 @@ final class PinxRequirements
      * (config/pincore.config.php), so older kernels never silently
      * ignore a requirements-bearing package.
      */
-    public const MIN_KERNEL_CODE = 236;
+    public const MIN_KERNEL_CODE = 237;
 
     private const PHP_CONSTRAINT_PATTERN = '/^>=\s*(\d+\.\d+(?:\.\d+)?)$/';
 
