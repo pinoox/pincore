@@ -96,6 +96,25 @@ class PinxInstaller
             }
             $this->recordStep($steps, 'minpin', 'ok', 'Minimum Pinoox version satisfied.');
 
+            $requirements = $manifest->requirements();
+
+            if (isset($requirements['php'])) {
+                PinxRequirements::assertSatisfied($manifest);
+
+                $this->recordStep(
+                    $steps,
+                    'php',
+                    'ok',
+                    sprintf(
+                        'PHP %s satisfies requirement %s.',
+                        PHP_VERSION,
+                        $requirements['php'],
+                    ),
+                );
+            } else {
+                $this->recordStep($steps, 'php', 'skipped', 'No PHP requirement declared.');
+            }
+
             $depends = $manifest->depends();
             if ($depends !== []) {
                 AppDependency::assertSatisfied($depends, $this->engine);
@@ -599,4 +618,3 @@ class PinxInstaller
         }
     }
 }
-

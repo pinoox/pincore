@@ -153,6 +153,9 @@ return [
         'target_app' => null,
         'theme_name' => null,
         'minpin' => 0,
+        'requirements' => [
+            // 'php' => '>=8.3',
+        ],
         'sign' => [
             'enabled' => false,
             'key' => null,

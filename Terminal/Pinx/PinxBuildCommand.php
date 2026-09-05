@@ -87,10 +87,12 @@ class PinxBuildCommand extends Terminal
                 $build,
             );
             $previewManifest->validate();
+            $previewRequirements = $previewManifest->requirements();
             $io->text([
                 'Package: <info>' . $package . '</info>',
                 'Name: <info>' . $previewManifest->title($localeArg) . '</info>',
                 'Description: <info>' . ($previewManifest->description($localeArg) ?: '—') . '</info>',
+                'PHP requirement: <info>' . ($previewRequirements['php'] ?? 'none') . '</info>',
                 'Output: <info>' . ($outputPath ?: '(auto in ~/pinx/export/{package}/)') . '</info>',
             ]);
 
@@ -130,6 +132,7 @@ class PinxBuildCommand extends Terminal
             $output->writeln('');
 
             $manifest = $result['manifest'];
+            $requirements = $manifest->requirements();
             $io->success('Pinx package created successfully.');
             $rows = [
                 ['File', $result['path']],
@@ -137,6 +140,8 @@ class PinxBuildCommand extends Terminal
                 ['Package', $manifest->package()],
                 ...PinxCliManifest::summaryRows($manifest, $localeArg),
                 ['Version', $manifest->versionName() . ' #' . $manifest->versionCode()],
+                ['Min Pinoox', (string) $manifest->minpin()],
+                ['PHP requirement', $requirements['php'] ?? 'none'],
                 ['Files', (string) $result['files']],
                 ['Signed', $result['signed'] ? 'yes' : 'no'],
             ];
