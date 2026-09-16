@@ -61,3 +61,22 @@ if (!function_exists('app_env')) {
     }
 }
 
+
+
+if (!function_exists("app_portal")) {
+    function app_portal(string $package, string $portal = "App"): string
+    {
+        return use_app($package)->portal($portal);
+    }
+}
+
+if (!function_exists("has_portal_method")) {
+    /**
+     * Check if a method is available on a portal class or its underlying service.
+     */
+    function has_portal_method(string|object $portal, string $method): bool
+    {
+        return \Pinoox\Component\Source\Portal::hasMethod($portal, $method);
+    }
+}
+

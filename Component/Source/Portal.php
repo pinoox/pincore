@@ -241,9 +241,160 @@ abstract class Portal
      * @param array $args
      * @return mixed
      */
+    /**
+     * Check if a method is available on a portal class or its underlying service.
+     */
+    public static function hasMethod(string|object $portalOrMethod, ?string $method = null): bool
+    {
+        if ($method === null) {
+            return static::__hasMethod((string) $portalOrMethod);
+        }
+
+        $portal = is_object($portalOrMethod) ? get_class($portalOrMethod) : (string) $portalOrMethod;
+        if (!class_exists($portal)) {
+            $parts = explode('\\', $portal);
+            if (count($parts) >= 3 && $parts[0] === 'App' && class_exists(\Pinoox\Portal\App\App::class)) {
+                try {
+                    \Pinoox\Portal\App\App::autoloader($parts[1]);
+                } catch (\Throwable) {
+                }
+            }
+        }
+
+        if (!class_exists($portal) || !is_subclass_of($portal, self::class)) {
+            return method_exists($portal, $method) || is_callable([$portal, $method]);
+        }
+
+        return $portal::__hasMethod($method);
+    }
+
+    /**
+     * Check if a method is available on this portal (direct, replacement, or underlying service instance).
+     */
+    final public static function __hasMethod(string $method): bool
+    {
+        if (method_exists(static::class, $method)) {
+            $ref = new \ReflectionMethod(static::class, $method);
+            if ($ref->isPublic() && !$ref->isConstructor()) {
+                return true;
+            }
+        }
+
+        $replaces = static::__compileReplaces();
+        if (isset($replaces[$method])) {
+            return true;
+        }
+
+        if (static::checkMethodHasExclude($method)) {
+            return false;
+        }
+
+        try {
+            $class = static::__class();
+            if ($class && class_exists($class) && method_exists($class, $method)) {
+                $ref = new \ReflectionMethod($class, $method);
+                if ($ref->isPublic() && !$ref->isConstructor()) {
+                    return true;
+                }
+            }
+
+            $instance = static::__instance();
+            if ($instance !== null && method_exists($instance, $method)) {
+                $ref = new \ReflectionMethod($instance, $method);
+                if ($ref->isPublic() && !$ref->isConstructor()) {
+                    return true;
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        return false;
+    }
+
+    /**
+     * Get all callable public methods on this portal.
+     *
+     * @return string[]
+     */
+    final public static function __methods(): array
+    {
+        $methods = [];
+
+        try {
+            $refClass = new \ReflectionClass(static::class);
+            foreach ($refClass->getMethods(\ReflectionMethod::IS_PUBLIC) as $m) {
+                if (!str_starts_with($m->getName(), '__')) {
+                    $methods[] = $m->getName();
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        foreach (array_keys(static::__compileReplaces()) as $m) {
+            $methods[] = $m;
+        }
+
+        try {
+            $targetClass = static::__class();
+            if ($targetClass && class_exists($targetClass)) {
+                $refTarget = new \ReflectionClass($targetClass);
+                foreach ($refTarget->getMethods(\ReflectionMethod::IS_PUBLIC) as $m) {
+                    if (!str_starts_with($m->getName(), '__')) {
+                        $methods[] = $m->getName();
+                    }
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        $excludes = static::__exclude();
+        $methods = array_diff(array_unique($methods), $excludes);
+
+        return array_values($methods);
+    }
+
+    /**
+     * Get the package name this portal belongs to, if it is an app-scoped portal.
+     */
+    public static function __package(): ?string
+    {
+        $parts = explode('\\', static::class);
+        if (count($parts) >= 3 && $parts[0] === 'App' && $parts[2] === 'Portal') {
+            return $parts[1];
+        }
+
+        return null;
+    }
+
     protected static function callMethod(string $method, array $args): mixed
     {
         PortalCallSite::capture(static::class, $method, $args, debug_backtrace(\DEBUG_BACKTRACE_IGNORE_ARGS, 18));
+
+        $targetPackage = static::__package();
+        if ($targetPackage !== null && class_exists(\Pinoox\Portal\App\App::class)) {
+            $currentPackage = \Pinoox\Portal\App\App::package();
+            if ($currentPackage !== null && $currentPackage !== $targetPackage) {
+                if (!\Pinoox\Portal\App\App::exists($targetPackage)) {
+                    try {
+                        $ref = new \ReflectionClass(static::class);
+                        $file = $ref->getFileName();
+                        if ($file) {
+                            $dir = dirname($file, 2);
+                            if (is_file($dir . '/app.php')) {
+                                \Pinoox\Portal\App\App::addPackage($targetPackage, $dir);
+                            }
+                        }
+                    } catch (\Throwable) {
+                    }
+                }
+
+                if (\Pinoox\Portal\App\App::exists($targetPackage)) {
+                    return \Pinoox\Portal\App\App::meeting($targetPackage, function () use ($method, $args) {
+                        return static::callMethod($method, $args);
+                    });
+                }
+            }
+        }
 
         $instance = static::__instance();
 

@@ -30,6 +30,7 @@ final class AppResource
             AppResourceReference::TYPE_LANG => $app->lang($parsed->value),
             AppResourceReference::TYPE_PATH => $app->path($parsed->value),
             AppResourceReference::TYPE_CLASS => $app->class($parsed->value),
+            AppResourceReference::TYPE_PORTAL => $app->portal($parsed->value),
             AppResourceReference::TYPE_ACTION => $app->actionUrl($parsed->value),
             default => $default,
         };
