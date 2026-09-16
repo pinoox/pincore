@@ -340,8 +340,13 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
         }
     }
 
-    private function autoloader($packageName, $dir): void
+    public function autoloader(string $packageName, ?string $dir = null): void
     {
+        $dir ??= $this->appEngine->path($packageName);
+        if (empty($dir) || !is_dir($dir)) {
+            return;
+        }
+
         $dir = rtrim(str_replace('\\', '/', $dir), '/');
 
         if (isset($this->autoloadedPackages[$packageName])) {

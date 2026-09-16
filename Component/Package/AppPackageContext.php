@@ -138,6 +138,75 @@ final class AppPackageContext
         return 'App\\' . $this->package . '\\' . $root . ($segments !== [] ? '\\' . implode('\\', $segments) : '');
     }
 
+    
+    /**
+     * Resolve a portal class name inside this app namespace.
+     *
+     * Examples:
+     *   portal("Sms") => App\com_pinoox_sms\Portal\Sms
+     *   portal()      => App\com_pinoox_sms\Portal\App
+     */
+        public function ensureAutoloader(): void
+    {
+        if (class_exists(App::class)) {
+            try {
+                App::autoloader($this->package);
+            } catch (\Throwable) {
+            }
+        }
+    }
+
+    public function portal(string $name = "App"): string
+    {
+        $this->assertExists();
+        $this->ensureAutoloader();
+
+        $name = trim(str_replace("/", "\\", $name), "\\");
+        if (str_starts_with($name, "App\\")) {
+            return $name;
+        }
+
+        if (str_starts_with($name, "Portal\\")) {
+            $name = substr($name, 7);
+        }
+
+        return "App\\" . $this->package . "\\Portal\\" . $name;
+    }
+
+    /**
+     * Check if a portal exists and has a callable method.
+     */
+    public function hasPortalMethod(string $portalName, string $method): bool
+    {
+        if (!$this->exists()) {
+            return false;
+        }
+
+        $portalClass = $this->portal($portalName);
+        if (!class_exists($portalClass)) {
+            return false;
+        }
+
+        return \Pinoox\Component\Source\Portal::hasMethod($portalClass, $method);
+    }
+
+    /**
+     * Call a method on a portal within this app package context.
+     */
+    public function call(string $portalName, string $method, array $args = []): mixed
+    {
+        $this->assertExists();
+
+        $portalClass = $this->portal($portalName);
+        if (!class_exists($portalClass)) {
+            throw new Exception("Portal class [{$portalClass}] does not exist in package [{$this->package}].");
+        }
+
+        return App::meeting($this->package, static function () use ($portalClass, $method, $args) {
+            return $portalClass::$method(...$args);
+        });
+    }
+
     public function hasAction(string $name): bool
     {
         if (!$this->exists()) {

@@ -27,6 +27,8 @@ final class AppResourceReference
 
     public const TYPE_CLASS = 'class';
 
+    public const TYPE_PORTAL = 'portal';
+
     public function __construct(
         public readonly string $package,
         public readonly string $type,
@@ -61,6 +63,7 @@ final class AppResourceReference
                 self::TYPE_ACTION => 'action.',
                 self::TYPE_PATH => 'path.',
                 self::TYPE_CLASS => 'class.',
+                self::TYPE_PORTAL => 'portal.',
             ] as $type => $prefix) {
                 if (str_starts_with($rest, $prefix)) {
                     return new self($package, $type, substr($rest, strlen($prefix)));
