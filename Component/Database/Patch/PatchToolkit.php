@@ -95,7 +95,16 @@ class PatchToolkit
 
     public function recordSkipped(string $patch, ?string $checksum = null, ?int $durationMs = null, array $metadata = []): void
     {
+        if ($this->hasSkipped($patch)) {
+            return;
+        }
+
         $this->recordHistory($patch, self::STATUS_SKIPPED, $checksum, $durationMs, null, $metadata);
+    }
+
+    public function hasSkipped(string $patch): bool
+    {
+        return ($this->latestRecord($patch)['status'] ?? null) === self::STATUS_SKIPPED;
     }
 
     public function recordFailed(string $patch, \Throwable $error, ?string $checksum = null, ?int $durationMs = null, array $metadata = []): void
@@ -112,7 +121,7 @@ class PatchToolkit
     {
         HistoryModel::where('type', MigrationQuery::TYPE_PATCH)
             ->where('app', $this->package)
-            ->where('migration', $this->recordName($patch))
+            ->whereIn('migration', [$this->recordName($patch), 'patch:' . $patch])
             ->where('status', self::STATUS_SUCCESS)
             ->delete();
     }

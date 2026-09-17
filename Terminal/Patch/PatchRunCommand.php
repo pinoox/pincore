@@ -63,8 +63,17 @@ class PatchRunCommand extends Terminal
             $skippedCount = 0;
             $failCount = 0;
 
+            if ($class) {
+                $matched = array_filter($patches, fn (array $p): bool => $this->matches($p, $class));
+                if (empty($matched)) {
+                    $this->warning('No patch found matching: ' . $class);
+
+                    return Command::SUCCESS;
+                }
+            }
+
             foreach ($patches as $patch) {
-                if ($class && $patch['class'] !== $class && basename(str_replace('\\', '/', $patch['class'])) !== $class) {
+                if ($class && !$this->matches($patch, $class)) {
                     continue;
                 }
 
@@ -107,6 +116,28 @@ class PatchRunCommand extends Terminal
 
             return Command::FAILURE;
         }
+    }
+
+    public function matches(array $patch, string $target): bool
+    {
+        $normalizedTarget = $this->normalizePatchName($target);
+        $normalizedPatch = $this->normalizePatchName($patch['name'] ?? '');
+
+        return ($patch['name'] ?? '') === $target
+            || ($patch['class'] ?? '') === $target
+            || basename(str_replace('\\', '/', $patch['class'] ?? '')) === $target
+            || ($normalizedPatch !== '' && $normalizedPatch === $normalizedTarget);
+    }
+
+    private function normalizePatchName(string $patch): string
+    {
+        $patch = pathinfo($patch, PATHINFO_FILENAME);
+
+        if (preg_match('/^\d{4}_\d{2}_\d{2}_\d{6}_(.+)$/', $patch, $matches)) {
+            return $matches[1];
+        }
+
+        return $patch;
     }
 
     private function durationMs(float $startedAt): int

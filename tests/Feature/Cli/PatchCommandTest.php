@@ -91,3 +91,119 @@ it('lets CLI commands select a package interactively by number', function () {
         ->and($tester->getDisplay())->toContain('platform');
 });
 
+it('matches timestamped patch files in PatchRunCommand by short name and full name', function () {
+    $command = new PatchRunCommand();
+
+    expect($command->matches([
+        'name' => '2026_06_10_143000_fix_contact_status',
+        'class' => 'App\\com_acme_shop\\patches\\class@anonymous',
+    ], 'fix_contact_status'))->toBeTrue()
+        ->and($command->matches([
+            'name' => '2026_06_10_143000_fix_contact_status',
+            'class' => 'App\\com_acme_shop\\patches\\class@anonymous',
+        ], '2026_06_10_143000_fix_contact_status'))->toBeTrue()
+        ->and($command->matches([
+            'name' => '2026_06_10_143000_fix_contact_status',
+            'class' => 'App\\com_acme_shop\\patches\\class@anonymous',
+        ], 'different_patch'))->toBeFalse();
+});
+
+it('verifies that hasRun only considers successful patches and prevents multiple runs', function () {
+    $toolkit = new \Pinoox\Component\Database\Patch\PatchToolkit();
+    $toolkit->package('platform');
+
+    (new \Pinoox\Component\Migration\Migrator('platform'))->run();
+
+    \Pinoox\Model\HistoryModel::where('type', \Pinoox\Component\Migration\MigrationQuery::TYPE_PATCH)
+        ->where('app', 'platform')
+        ->where('migration', 'test_patch_unique_run')
+        ->delete();
+
+    expect($toolkit->hasRun('test_patch_unique_run'))->toBeFalse();
+
+    // 1. Failed patch record -> hasRun must be FALSE
+    $toolkit->recordFailed('test_patch_unique_run', new \Exception('Failed test'));
+    expect($toolkit->hasRun('test_patch_unique_run'))->toBeFalse();
+
+    // 2. Skipped patch record -> hasRun must be FALSE
+    $toolkit->recordSkipped('test_patch_unique_run');
+    expect($toolkit->hasRun('test_patch_unique_run'))->toBeFalse();
+
+    // 3. Success patch record -> hasRun must be TRUE (strictly preventing re-run)
+    $toolkit->recordSuccess('test_patch_unique_run');
+    expect($toolkit->hasRun('test_patch_unique_run'))->toBeTrue();
+
+    // Clean up after test
+    \Pinoox\Model\HistoryModel::where('type', \Pinoox\Component\Migration\MigrationQuery::TYPE_PATCH)
+        ->where('app', 'platform')
+        ->where('migration', 'test_patch_unique_run')
+        ->delete();
+});
+
+it('prevents duplicate skipped records in history', function () {
+    $toolkit = new \Pinoox\Component\Database\Patch\PatchToolkit();
+    $toolkit->package('platform');
+
+    \Pinoox\Model\HistoryModel::where('type', \Pinoox\Component\Migration\MigrationQuery::TYPE_PATCH)
+        ->where('app', 'platform')
+        ->where('migration', 'test_patch_skip_idempotent')
+        ->delete();
+
+    $toolkit->recordSkipped('test_patch_skip_idempotent');
+    $count1 = \Pinoox\Model\HistoryModel::where('type', \Pinoox\Component\Migration\MigrationQuery::TYPE_PATCH)
+        ->where('app', 'platform')
+        ->where('migration', 'test_patch_skip_idempotent')
+        ->count();
+
+    expect($count1)->toBe(1);
+
+    // Calling recordSkipped again should be a no-op
+    $toolkit->recordSkipped('test_patch_skip_idempotent');
+    $count2 = \Pinoox\Model\HistoryModel::where('type', \Pinoox\Component\Migration\MigrationQuery::TYPE_PATCH)
+        ->where('app', 'platform')
+        ->where('migration', 'test_patch_skip_idempotent')
+        ->count();
+
+    expect($count2)->toBe(1);
+
+    // Clean up
+    \Pinoox\Model\HistoryModel::where('type', \Pinoox\Component\Migration\MigrationQuery::TYPE_PATCH)
+        ->where('app', 'platform')
+        ->where('migration', 'test_patch_skip_idempotent')
+        ->delete();
+});
+
+it('allows re-running patch after rollback by deleting success record', function () {
+    $toolkit = new \Pinoox\Component\Database\Patch\PatchToolkit();
+    $toolkit->package('platform');
+
+    (new \Pinoox\Component\Migration\Migrator('platform'))->run();
+
+    \Pinoox\Model\HistoryModel::where('type', \Pinoox\Component\Migration\MigrationQuery::TYPE_PATCH)
+        ->where('app', 'platform')
+        ->where('migration', 'test_patch_rollback_flow')
+        ->delete();
+
+    // 1. Initial state: has not run
+    expect($toolkit->hasRun('test_patch_rollback_flow'))->toBeFalse();
+
+    // 2. Patch succeeds: recorded as success
+    $toolkit->recordSuccess('test_patch_rollback_flow');
+    expect($toolkit->hasRun('test_patch_rollback_flow'))->toBeTrue();
+
+    // 3. Patch is rolled back: deleteSuccessRecord is called and rolled_back recorded
+    $toolkit->deleteSuccessRecord('test_patch_rollback_flow');
+    $toolkit->recordRolledBack('test_patch_rollback_flow');
+
+    // hasRun is now FALSE again, allowing the patch to run again if needed
+    expect($toolkit->hasRun('test_patch_rollback_flow'))->toBeFalse();
+
+    // Clean up
+    \Pinoox\Model\HistoryModel::where('type', \Pinoox\Component\Migration\MigrationQuery::TYPE_PATCH)
+        ->where('app', 'platform')
+        ->where('migration', 'test_patch_rollback_flow')
+        ->delete();
+});
+
+
+
