@@ -53,3 +53,37 @@ it('keeps a custom non-empty id already stored on disk', function () {
         cleanupIdentityTestFile($file);
     }
 });
+
+it('points default identity file to pinker/stable/identity.php', function () {
+    $identity = new Identity();
+    expect($identity->file())->toContain('pinker/stable/identity.php')
+        ->and(\Pinoox\Support\SystemConfig::identityFile())->toContain('pinker/stable/identity.php');
+});
+
+it('migrates legacy pinker/state/identity.php to pinker/stable/identity.php seamlessly', function () {
+    $stableFile = \Pinoox\Support\SystemConfig::identityFile();
+    $legacyFile = \Pinoox\Support\SystemConfig::legacyIdentityFile();
+
+    @unlink($stableFile);
+    if (function_exists('opcache_invalidate')) {
+        @opcache_invalidate($stableFile, true);
+        @opcache_invalidate($legacyFile, true);
+    }
+    @mkdir(dirname($legacyFile), 0777, true);
+    file_put_contents($legacyFile, "<?php\n\nreturn ['pinoox_id' => 'px_legacy1234567890abcdef12345678', 'created_at' => '2026-01-01T00:00:00+00:00'];\n");
+    if (function_exists('opcache_invalidate')) {
+        @opcache_invalidate($legacyFile, true);
+    }
+
+    try {
+        $identity = new Identity();
+        expect($identity->id())->toBe('px_legacy1234567890abcdef12345678')
+            ->and(is_file($stableFile))->toBeTrue();
+
+        $content = file_get_contents($stableFile);
+        expect($content)->toContain('px_legacy1234567890abcdef12345678');
+    } finally {
+        @unlink($legacyFile);
+        @unlink($stableFile);
+    }
+});

@@ -421,6 +421,11 @@ class SystemConfig
      */
     public static function identityFile(): string
     {
+        return self::join(self::path('pinker'), 'stable/identity.php');
+    }
+
+    public static function legacyIdentityFile(): string
+    {
         return self::join(self::path('pinker'), 'state/identity.php');
     }
 
