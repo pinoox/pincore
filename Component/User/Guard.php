@@ -21,11 +21,21 @@ class Guard
     {
     }
 
-    public function boot(): void
+    public function boot(bool $refresh = false): void
     {
         $package = App::package();
-        AuthConfig::reset();
-        $config = AuthConfig::resolve(refresh: true);
+
+        if (!$refresh
+            && $this->booted
+            && $this->bootedPackage === $package) {
+            return;
+        }
+
+        if ($refresh) {
+            AuthConfig::reset();
+        }
+
+        $config = AuthConfig::resolve(refresh: $refresh);
         $fingerprint = AuthConfig::fingerprint($config);
 
         if ($this->booted
@@ -137,6 +147,7 @@ class Guard
 
     public function id(): ?int
     {
+        $this->boot();
         $id = AuthSession::get('user_id');
 
         return $id !== null ? (int) $id : null;
@@ -144,7 +155,22 @@ class Guard
 
     public function token(): ?string
     {
-        return AuthSession::$login_key;
+        $this->boot();
+
+        if (!empty(AuthSession::$login_key)) {
+            return AuthSession::$login_key;
+        }
+
+        if (AuthSession::getType() === AuthSession::JWT) {
+            $bearer = AuthSession::resolveBearerToken();
+            if (!empty($bearer)) {
+                return $bearer;
+            }
+        }
+
+        $key = AuthSession::getTokenKey();
+
+        return ($key !== false && !empty($key)) ? (string) $key : null;
     }
 
     public function reset(): void
@@ -208,6 +234,7 @@ class Guard
 
     public function refresh(): void
     {
+        $this->boot();
         $tokenKey = AuthSession::getTokenKey();
         if ($tokenKey) {
             \Pinoox\Component\Token::updateLifetime($tokenKey);

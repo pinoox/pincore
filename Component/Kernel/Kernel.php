@@ -53,10 +53,15 @@ class Kernel extends HttpKernel
             return parent::handle($request, $type, $catch);
         };
 
-        if ($type === HttpKernelInterface::MAIN_REQUEST && $this->flowManager !== null) {
-            $this->addRouteFlows($request);
-            $this->flowManager->setRequestEvent($event);
-            $response = $this->flowManager->handle($request, $next);
+        if ($this->flowManager !== null) {
+            $baseFlows = $this->flowManager->getFlows();
+            try {
+                $this->addRouteFlows($request);
+                $this->flowManager->setRequestEvent($event);
+                $response = $this->flowManager->handle($request, $next);
+            } finally {
+                $this->flowManager->setFlows($baseFlows);
+            }
             if (!($response instanceof ResponseSymfony)) {
                 $event = new ViewEvent($this, $request, $type, $response);
                 $this->dispatcher->dispatch($event, self::HANDLE_AFTER);
