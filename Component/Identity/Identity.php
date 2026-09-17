@@ -108,6 +108,21 @@ class Identity
     {
         $file = $this->file();
         if (!is_file($file)) {
+            if ($this->file === null) {
+                $legacy = SystemConfig::legacyIdentityFile();
+                if (is_file($legacy)) {
+                    try {
+                        $data = $this->handler()->retrieve($legacy);
+                        $normalized = $this->normalize($data);
+                        if ($normalized !== null) {
+                            $this->persistExistingTo($file, $normalized);
+                            return $normalized;
+                        }
+                    } catch (Throwable) {
+                    }
+                }
+            }
+
             return null;
         }
 
@@ -118,6 +133,17 @@ class Identity
         }
 
         return $this->normalize($data);
+    }
+
+    /**
+     * @param array{pinoox_id: string, created_at?: string} $data
+     */
+    private function persistExistingTo(string $targetFile, array $data): void
+    {
+        try {
+            $this->handler()->store($targetFile, $this->export($data));
+        } catch (Throwable) {
+        }
     }
 
     /**

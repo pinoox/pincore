@@ -93,6 +93,27 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
     {
         $this->appLayer->setPath($appLayer->getPath());
         $this->appLayer->setPackageName($appLayer->getPackageName());
+        $this->appLayer->setContext($appLayer->context());
+    }
+
+    public function context(?string $key = null, mixed $default = null): mixed
+    {
+        return $this->appLayer?->context($key, $default) ?? $default;
+    }
+
+    public function isSubApp(): bool
+    {
+        return SubApp::isSubApp();
+    }
+
+    public function parent(): ?string
+    {
+        return SubApp::parent();
+    }
+
+    public function isSubAppOf(string|array $packages): bool
+    {
+        return SubApp::isSubAppOf($packages);
     }
 
     /**
@@ -107,11 +128,16 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
         if (!$this->exists($packageName))
             throw new Exception('package `' . $packageName . '` not found!');
 
-        $mainLayer = new AppLayer($this->appLayer->getPath(), $this->appLayer->getPackageName());
+        $mainLayer = new AppLayer($this->appLayer->getPath(), $this->appLayer->getPackageName(), $this->appLayer->context());
 
         $hostPackage = $this->appLayer->getPackageName();
 
-        $this->setLayer(new AppLayer($path, $packageName));
+        $meetingContext = array_merge($this->appLayer->context(), [
+            'is_sub_app' => true,
+            'parent_app' => $hostPackage,
+        ]);
+
+        $this->setLayer(new AppLayer($path, $packageName, $meetingContext));
         if (!is_callable($closure))
             throw new Exception('the value must be of function type');
 

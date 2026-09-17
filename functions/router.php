@@ -123,6 +123,25 @@ function any(string $path, array|string|Closure $action = ''): RouteBuilder|Rout
 }
 
 /**
+ * Mount an app as a sub-app under a URL prefix.
+ *
+ * subApp('/pay', 'com_pinoox_payment');
+ * subApp('/pay', 'com_pinoox_payment')->config(['theme' => 'dark']);
+ */
+function subApp(string $path, string $package, array $options = []): \Pinoox\Component\Router\SubAppRouteBuilder
+{
+    return RouteFacade::subApp($path, $package, $options);
+}
+
+/**
+ * Alias of subApp().
+ */
+function mountApp(string $path, string $package, array $options = []): \Pinoox\Component\Router\SubAppRouteBuilder
+{
+    return RouteFacade::subApp($path, $package, $options);
+}
+
+/**
  * @param array|string|Closure|class-string $action
  */
 function fallback(array|string|Closure $action = ''): RouteBuilder|RouteEntryBuilder

@@ -101,6 +101,11 @@ class Route extends Portal
         return self::registrar()->any($path, $action);
     }
 
+    public static function subApp(string $path, string $package, array $options = []): \Pinoox\Component\Router\SubAppRouteBuilder
+    {
+        return self::registrar()->subApp($path, $package, $options);
+    }
+
     /**
      * Register a catch-all for the current group / collection prefix.
      *

@@ -23,6 +23,8 @@ use Pinoox\Component\Path\Manager\PathManager;
 use Pinoox\Component\Path\Manager\UrlManager;
 use Pinoox\Component\Router\QueryRouteResolver;
 use Pinoox\Component\Router\RouteNaming;
+use Pinoox\Component\Package\Routing\Domain;
+use Pinoox\Component\Server\AppDevRegistry;
 use Pinoox\Support\AppPublicPath;
 
 class Url implements UrlInterface
@@ -153,6 +155,23 @@ class Url implements UrlInterface
     public function forApp(?string $package = null): string
     {
         $package = $package ?? $this->app->package();
+
+        if ($package !== null && $package !== '' && $package !== $this->app->package()) {
+            if (class_exists(AppDevRegistry::class)) {
+                $devUrl = AppDevRegistry::url($package);
+                if ($devUrl !== null) {
+                    return rtrim($devUrl, '/');
+                }
+            }
+
+            if (class_exists(Domain::class)) {
+                $domainUrl = Domain::urlForPackage($package, $this->isSecure());
+                if ($domainUrl !== null) {
+                    return rtrim($domainUrl, '/');
+                }
+            }
+        }
+
         $route = $this->routeSegmentForPackage($package);
 
         if ($route === '') {
@@ -246,6 +265,10 @@ class Url implements UrlInterface
      */
     public function link(string $link = '', string $scope = self::SCOPE_APP, string $mode = self::MODE_AUTO): string
     {
+        if ($link !== '' && str_starts_with($link, '@')) {
+            return $this->linkForPackage($link);
+        }
+
         if ($link !== '' && str_starts_with($link, '~')) {
             return $this->reference($link);
         }
@@ -272,11 +295,31 @@ class Url implements UrlInterface
         }
 
         return !str_starts_with($link, '~')
+            && !str_starts_with($link, '@')
             && !str_starts_with($link, '?')
             && !str_starts_with($link, 'http://')
             && !str_starts_with($link, 'https://')
             && !str_starts_with($link, '//')
             && !str_starts_with($link, '#');
+    }
+
+    /**
+     * Resolve cross-package link syntax: @package/path or @package.
+     */
+    public function linkForPackage(string $link): string
+    {
+        $rest = substr($link, 1);
+        if ($rest === '') {
+            return $this->forApp();
+        }
+
+        $parts = explode('/', $rest, 2);
+        $package = $parts[0];
+        $path = $parts[1] ?? '';
+
+        $base = $this->forApp($package);
+
+        return $path !== '' ? rtrim($base, '/') . '/' . ltrim($path, '/') : $base;
     }
 
     /**

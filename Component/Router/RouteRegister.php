@@ -100,6 +100,15 @@ class RouteRegister
         return $builder;
     }
 
+    public function subApp(string $path, string $package, array $options = []): SubAppRouteBuilder
+    {
+        if ($this->router !== null) {
+            return $this->router->subApp($path, $package, $options);
+        }
+
+        return new SubAppRouteBuilder($this, $path, $package, $options);
+    }
+
     /**
      * Catch-all for the current collection / group prefix (nearest fallback by priority).
      *

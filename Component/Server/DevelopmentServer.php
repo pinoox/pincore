@@ -4,6 +4,7 @@ namespace Pinoox\Component\Server;
 
 use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\FrontendDevSession;
+use Pinoox\Component\Server\AppDevRegistry;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
 
@@ -383,6 +384,19 @@ class DevelopmentServer
                     $this->output->writeln('');
                     $this->renderStartupBanner();
 
+                    // Register this server instance in the dev registry
+                    if ($this->serveApp !== null && $this->serveApp !== '') {
+                        $package = $this->serveApp;
+                        $host = $this->host;
+                        $port = $this->port();
+                        $domain = $this->domain;
+                        $path = $this->resolveAppPath($package);
+                        AppDevRegistry::register($package, $host, $port, null, $domain, false, $path);
+                        register_shutdown_function(static function () use ($package): void {
+                            AppDevRegistry::unregister($package);
+                        });
+                    }
+
                     $this->output->writeln('<comment>Press Ctrl+C to stop</comment>');
                     $this->output->writeln('');
                 }
@@ -501,6 +515,36 @@ class DevelopmentServer
         $env[FrontendConfig::VITE_HMR_ENV] = '1';
 
         return $env;
+    }
+
+    private function resolveAppPath(string $package): ?string
+    {
+        if (str_contains($package, '@')) {
+            $package = explode('@', $package, 2)[0];
+        }
+
+        if (class_exists(\Pinoox\Portal\App\AppEngine::class)) {
+            try {
+                if (\Pinoox\Portal\App\AppEngine::exists($package)) {
+                    $p = \Pinoox\Portal\App\AppEngine::path($package);
+                    if (is_dir($p)) {
+                        return $p;
+                    }
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        if (is_file($this->documentRoot . '/app.php')) {
+            return $this->documentRoot;
+        }
+
+        $inApps = $this->documentRoot . '/apps/' . $package;
+        if (is_dir($inApps) && is_file($inApps . '/app.php')) {
+            return $inApps;
+        }
+
+        return is_dir($this->documentRoot) ? $this->documentRoot : null;
     }
 }
 

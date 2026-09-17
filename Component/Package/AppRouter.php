@@ -133,7 +133,7 @@ class AppRouter
 
     public function host(): string
     {
-        return Domain::normalizeHost($this->request->getHost());
+        return Domain::normalizeHost($this->request->getHttpHost());
     }
 
     public function subdomain(): ?string
@@ -153,7 +153,17 @@ class AppRouter
         }
 
         try {
-            return (bool)$this->appEngine->config($packageName)->get('enable');
+            $config = $this->appEngine->config($packageName);
+            if (!(bool)$config->get('enable')) {
+                return false;
+            }
+
+            // Apps configured as subapp-only cannot be routed directly as standalone apps
+            if ((bool)$config->get('subapp_only', false) || $config->get('standalone') === false) {
+                return false;
+            }
+
+            return true;
         } catch (Exception) {
         }
 

@@ -25,6 +25,7 @@ use Pinoox\Support\AppRegistry;
 use Pinoox\Support\DevApp;
 use Pinoox\Support\SystemConfig;
 use Pinoox\Support\SystemApp;
+use Pinoox\Component\Server\AppDevRegistry;
 
 /**
  * @method static array getDefaultData()
@@ -42,6 +43,8 @@ use Pinoox\Support\SystemApp;
  * @method static array all()
  * @method static array packagePaths()
  * @method static array registeredPackages()
+ * @method static string getPathApps()
+ * @method static string getAppFile()
  * @method static \Pinoox\Component\Package\Engine\AppEngine ___()
  *
  * @see \Pinoox\Component\Package\Engine\AppEngine
@@ -71,6 +74,17 @@ class AppEngine extends Portal
 		$devPackage = DevApp::package((string)Loader::getBasePath());
 		if ($devPackage !== null && !isset($packages[$devPackage])) {
 			$packages[$devPackage] = (string)Loader::getBasePath();
+		}
+
+		if (class_exists(AppDevRegistry::class)) {
+			foreach (AppDevRegistry::all() as $pkg => $entry) {
+				if (!isset($packages[$pkg]) && ($devPackage === null || $pkg !== $devPackage)) {
+					$path = $entry['path'] ?? null;
+					if (is_string($path) && $path !== '' && is_dir($path)) {
+						$packages[$pkg] = $path;
+					}
+				}
+			}
 		}
 
 		return $packages;

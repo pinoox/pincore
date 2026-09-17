@@ -138,6 +138,27 @@ class View implements ViewInterface
         $this->twigEngine->addCallableFunction('route_name', static function (string $name, ?string $package = null): string {
             return \Pinoox\Router\route_name($name, $package);
         });
+        $this->twigEngine->addCallableFunction('is_sub_app', static function (): bool {
+            return \Pinoox\Component\Package\SubApp::isSubApp();
+        });
+        $this->twigEngine->addCallableFunction('sub_app_parent', static function (): ?string {
+            return \Pinoox\Component\Package\SubApp::parent();
+        });
+        $this->twigEngine->addCallableFunction('sub_app_host', static function (): ?string {
+            return \Pinoox\Component\Package\SubApp::parent();
+        });
+        $this->twigEngine->addCallableFunction('is_sub_app_of', static function (string|array $packages): bool {
+            return \Pinoox\Component\Package\SubApp::isSubAppOf($packages);
+        });
+        $this->twigEngine->addCallableFunction('sub_app_context', static function (?string $key = null, mixed $default = null): mixed {
+            return \Pinoox\Component\Package\SubApp::context($key, $default);
+        });
+        $this->twigEngine->addCallableFunction('sub_app_path', static function (?string $package = null, string $path = ''): string {
+            if ($package === null || $package === '') {
+                return \Pinoox\Portal\App\App::path($path);
+            }
+            return \Pinoox\Component\Package\SubApp::path($package, $path);
+        });
 
         foreach ($this->twigOption('app_function_files', []) as $functions) {
             $this->twigEngine->addFunctionsFile($functions);
@@ -239,6 +260,11 @@ class View implements ViewInterface
     {
         $data = new DataManager($this->twigOptions);
         return $data->get($key, $default);
+    }
+
+    public function getTwigEngine(): TwigEngine
+    {
+        return $this->twigEngine;
     }
 
     public function changeTheme(string|array $folders, string $pathTheme = ''): static

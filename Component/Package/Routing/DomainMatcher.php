@@ -88,11 +88,24 @@ class DomainMatcher
             return $this->buildMatch($host, $map[$host], $host);
         }
 
+        // If host has a port and exact match failed, try matching host-only
+        if (str_contains($host, ':')) {
+            $hostOnly = explode(':', $host, 2)[0];
+            if (array_key_exists($hostOnly, $map)) {
+                return $this->buildMatch($host, $map[$hostOnly], $hostOnly);
+            }
+        }
+
         $patterns = array_filter(array_keys($map), static fn(string $pattern): bool => str_contains($pattern, '*'));
         usort($patterns, static fn(string $a, string $b): int => strlen($b) <=> strlen($a));
 
         foreach ($patterns as $pattern) {
             $subdomain = self::matchWildcard($pattern, $host);
+            if ($subdomain === false && str_contains($host, ':')) {
+                if (!str_contains($pattern, ':')) {
+                    $subdomain = self::matchWildcard($pattern, explode(':', $host, 2)[0]);
+                }
+            }
             if ($subdomain === false) {
                 continue;
             }
@@ -101,6 +114,43 @@ class DomainMatcher
         }
 
         return null;
+    }
+
+    /**
+     * Find dedicated host/origin for a package (reverse host lookup).
+     */
+    public function hostForPackage(string $packageName): ?string
+    {
+        $packageName = trim($packageName);
+        if ($packageName === '') {
+            return null;
+        }
+
+        foreach ($this->hostMap() as $host => $target) {
+            $targetPackage = is_string($target) ? $target : ($target['package'] ?? $target['app'] ?? null);
+            if (is_string($targetPackage) && $targetPackage === $packageName) {
+                if (!str_contains($host, '*')) {
+                    return $host;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Build full URL for a package mapped in domain.config.php.
+     */
+    public function urlForPackage(string $packageName, bool $secure = false): ?string
+    {
+        $host = $this->hostForPackage($packageName);
+        if ($host === null) {
+            return null;
+        }
+
+        $scheme = $secure ? 'https://' : 'http://';
+
+        return $scheme . $host;
     }
 
     /**
@@ -158,15 +208,34 @@ class DomainMatcher
             return '';
         }
 
+        $port = null;
+
         if (str_contains($host, '://')) {
-            $host = (string)(parse_url($host, PHP_URL_HOST) ?: $host);
+            $parsedHost = parse_url($host, PHP_URL_HOST);
+            $parsedPort = parse_url($host, PHP_URL_PORT);
+            if (is_string($parsedHost) && $parsedHost !== '') {
+                $host = $parsedHost;
+            }
+            if (is_int($parsedPort) && $parsedPort !== 80 && $parsedPort !== 443) {
+                $port = $parsedPort;
+            }
         }
 
-        if (str_contains($host, ':')) {
-            $host = (string)(parse_url('http://' . $host, PHP_URL_HOST) ?: explode(':', $host, 2)[0]);
+        if ($port === null && str_contains($host, ':')) {
+            $parts = explode(':', $host, 2);
+            $host = $parts[0];
+            $portPart = $parts[1] ?? '';
+            if (is_numeric($portPart)) {
+                $p = (int) $portPart;
+                if ($p !== 80 && $p !== 443) {
+                    $port = $p;
+                }
+            }
         }
 
-        return rtrim($host, '.');
+        $normalized = rtrim($host, '.');
+
+        return $port !== null ? $normalized . ':' . $port : $normalized;
     }
 
     private function buildMatch(
