@@ -115,16 +115,21 @@ final class WebServerFixCache
     {
         $packages = [];
 
-        $appsRoot = rtrim(str_replace('\\', '/', SystemConfig::path('pinker')), '/') . '/apps';
+        $roots = [
+            rtrim(str_replace('\\', '/', SystemConfig::path('pinker')), '/') . '/bake/apps',
+            rtrim(str_replace('\\', '/', SystemConfig::path('pinker')), '/') . '/apps',
+        ];
 
-        if (is_dir($appsRoot)) {
-            foreach (scandir($appsRoot) ?: [] as $entry) {
-                if ($entry === '.' || $entry === '..') {
-                    continue;
-                }
+        foreach ($roots as $appsRoot) {
+            if (is_dir($appsRoot)) {
+                foreach (scandir($appsRoot) ?: [] as $entry) {
+                    if ($entry === '.' || $entry === '..') {
+                        continue;
+                    }
 
-                if (PhpCacheFile::exists(self::path($entry))) {
-                    $packages[$entry] = $entry;
+                    if (PhpCacheFile::exists(self::path($entry))) {
+                        $packages[$entry] = $entry;
+                    }
                 }
             }
         }

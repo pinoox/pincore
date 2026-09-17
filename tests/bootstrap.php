@@ -67,7 +67,6 @@ require_once __DIR__ . '/Support/FilesystemTestHelpers.php';
 require_once __DIR__ . '/Support/TestSandbox.php';
 require_once __DIR__ . '/Support/TestRuntime.php';
 require_once __DIR__ . '/TestCase.php';
-require_once __DIR__ . '/Pest.php';
 
 Pinoox\Tests\Support\TestRuntime::bootstrap($platformRoot);
 

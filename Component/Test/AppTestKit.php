@@ -257,7 +257,9 @@ class AppTestKit
         $registry = self::fixturesRoot() . '/app_registry.config.php';
         Filesystem::removeFile($registry);
 
+        $pinkerBakeApps = rtrim(str_replace('\\', '/', SystemConfig::path('pinker') . '/bake/apps'), '/');
         self::cleanupWebServerFixCaches($pinkerApps);
+        self::cleanupWebServerFixCaches($pinkerBakeApps);
 
         ActionRegistry::reset();
         AppRouteRegistry::reset();
