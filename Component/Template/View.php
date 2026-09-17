@@ -153,6 +153,12 @@ class View implements ViewInterface
         $this->twigEngine->addCallableFunction('sub_app_context', static function (?string $key = null, mixed $default = null): mixed {
             return \Pinoox\Component\Package\SubApp::context($key, $default);
         });
+        $this->twigEngine->addCallableFunction('sub_app_path', static function (?string $package = null, string $path = ''): string {
+            if ($package === null || $package === '') {
+                return \Pinoox\Portal\App\App::path($path);
+            }
+            return \Pinoox\Component\Package\SubApp::path($package, $path);
+        });
 
         foreach ($this->twigOption('app_function_files', []) as $functions) {
             $this->twigEngine->addFunctionsFile($functions);

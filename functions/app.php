@@ -112,3 +112,14 @@ if (!function_exists('sub_app_context')) {
         return \Pinoox\Component\Package\SubApp::context($key, $default);
     }
 }
+
+if (!function_exists('sub_app_path')) {
+    function sub_app_path(?string $package = null, string $path = ''): string
+    {
+        if ($package === null || $package === '') {
+            return \Pinoox\Portal\App\App::path($path);
+        }
+
+        return \Pinoox\Component\Package\SubApp::path($package, $path);
+    }
+}

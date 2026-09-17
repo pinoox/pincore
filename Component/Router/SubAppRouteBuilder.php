@@ -91,6 +91,24 @@ class SubAppRouteBuilder
         return $this;
     }
 
+    /**
+     * Set a custom filesystem path for the sub-app.
+     */
+    public function path(string $path): self
+    {
+        $this->options['path'] = $path;
+
+        return $this;
+    }
+
+    /**
+     * Alias of path() to explicitly set the sub-app directory path.
+     */
+    public function appPath(string $path): self
+    {
+        return $this->path($path);
+    }
+
     public function register(): void
     {
         if ($this->registered) {
@@ -99,7 +117,7 @@ class SubAppRouteBuilder
 
         $this->registered = true;
 
-        $package = $this->package;
+        $package = SubApp::resolvePackage($this->package, $this->options);
         $mountPath = $this->path;
         $options = $this->options;
 

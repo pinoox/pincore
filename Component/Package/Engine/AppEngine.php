@@ -360,7 +360,25 @@ class AppEngine implements EngineInterface
      */
     public function add(string $packageName, string $path): void
     {
+        $packageName = $this->resolvePackageKey($packageName);
         $this->arrayLoader->add($packageName, $path);
+        unset(
+            $this->pathManager[$packageName],
+            $this->appConfig[$packageName],
+            $this->appLang[$packageName],
+            $this->router[$packageName],
+            $this->appManager[$packageName]
+        );
+    }
+
+    public function getPathApps(): string
+    {
+        return $this->pathApp;
+    }
+
+    public function getAppFile(): string
+    {
+        return $this->appFile;
     }
 
     public function registeredPackages(): array

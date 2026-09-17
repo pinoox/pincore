@@ -42,6 +42,8 @@ use Pinoox\Support\SystemApp;
  * @method static array all()
  * @method static array packagePaths()
  * @method static array registeredPackages()
+ * @method static string getPathApps()
+ * @method static string getAppFile()
  * @method static \Pinoox\Component\Package\Engine\AppEngine ___()
  *
  * @see \Pinoox\Component\Package\Engine\AppEngine
