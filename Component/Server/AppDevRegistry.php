@@ -79,6 +79,11 @@ class AppDevRegistry
         ?string $domain = null,
         bool $secure = false,
     ): void {
+        // Normalize: strip optional "@path" suffix (e.g. "com_pinoox_pay@/" → "com_pinoox_pay")
+        if (str_contains($package, '@')) {
+            $package = explode('@', $package, 2)[0];
+        }
+
         $package = trim($package);
         if ($package === '') {
             return;
