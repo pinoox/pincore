@@ -133,7 +133,7 @@ class AppRouter
 
     public function host(): string
     {
-        return Domain::normalizeHost($this->request->getHost());
+        return Domain::normalizeHost($this->request->getHttpHost());
     }
 
     public function subdomain(): ?string

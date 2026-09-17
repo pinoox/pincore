@@ -4,6 +4,7 @@ namespace Pinoox\Component\Server;
 
 use Pinoox\Component\Template\Frontend\FrontendConfig;
 use Pinoox\Component\Template\Frontend\FrontendDevSession;
+use Pinoox\Component\Server\AppDevRegistry;
 use Symfony\Component\Console\Output\OutputInterface;
 use Symfony\Component\Process\Process;
 
@@ -382,6 +383,18 @@ class DevelopmentServer
                     $this->bannerShown = true;
                     $this->output->writeln('');
                     $this->renderStartupBanner();
+
+                    // Register this server instance in the dev registry
+                    if ($this->serveApp !== null && $this->serveApp !== '') {
+                        $package = $this->serveApp;
+                        $host = $this->host;
+                        $port = $this->port();
+                        $domain = $this->domain;
+                        AppDevRegistry::register($package, $host, $port, null, $domain);
+                        register_shutdown_function(static function () use ($package): void {
+                            AppDevRegistry::unregister($package);
+                        });
+                    }
 
                     $this->output->writeln('<comment>Press Ctrl+C to stop</comment>');
                     $this->output->writeln('');

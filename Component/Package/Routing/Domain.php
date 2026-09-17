@@ -67,5 +67,15 @@ final class Domain
     {
         return DomainMatcher::normalizeHost($host);
     }
+
+    public static function hostForPackage(string $packageName): ?string
+    {
+        return self::matcher()->hostForPackage($packageName);
+    }
+
+    public static function urlForPackage(string $packageName, bool $secure = false): ?string
+    {
+        return self::matcher()->urlForPackage($packageName, $secure);
+    }
 }
 
