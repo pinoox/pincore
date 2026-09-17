@@ -31,13 +31,41 @@ class AppDevRegistry
             return trim($fromEnv);
         }
 
-        if (defined('PINOOX_BASE_PATH') && \PINOOX_BASE_PATH !== '') {
-            $root = rtrim(str_replace('\\', '/', (string) \PINOOX_BASE_PATH), '/');
-
-            return $root . '/.pinoox/dev_apps.json';
+        // Use a globally shared path so apps in different project directories
+        // can discover each other's dev server entries.
+        $home = self::userHomeDir();
+        if ($home !== null) {
+            return $home . DIRECTORY_SEPARATOR . '.pinoox' . DIRECTORY_SEPARATOR . 'dev_apps.json';
         }
 
         return rtrim(sys_get_temp_dir(), '/\\') . DIRECTORY_SEPARATOR . 'pinoox_dev_apps.json';
+    }
+
+    /**
+     * Resolve the current user's home directory in a cross-platform way.
+     */
+    private static function userHomeDir(): ?string
+    {
+        // Unix / macOS
+        $home = getenv('HOME');
+        if (is_string($home) && $home !== '') {
+            return rtrim(str_replace('\\', '/', $home), '/');
+        }
+
+        // Windows: USERPROFILE is the standard home directory variable
+        $userProfile = getenv('USERPROFILE');
+        if (is_string($userProfile) && $userProfile !== '') {
+            return rtrim(str_replace('/', '\\', $userProfile), '\\');
+        }
+
+        // Windows fallback: combine HOMEDRIVE + HOMEPATH
+        $homeDrive = getenv('HOMEDRIVE');
+        $homePath = getenv('HOMEPATH');
+        if (is_string($homeDrive) && is_string($homePath) && $homeDrive !== '') {
+            return rtrim($homeDrive . $homePath, '/\\');
+        }
+
+        return null;
     }
 
     /**
