@@ -53,6 +53,15 @@ class RateLimiter extends Portal
 {
     public static function __register(): void
     {
+        // Symfony DI setFactory() rejects Closures — use a callable reference.
+        self::__bind(RateLimiterComponent::class)->setFactory([self::class, 'createRateLimiter']);
+    }
+
+    /**
+     * Container factory for RateLimiterComponent (must be a public static callable).
+     */
+    public static function createRateLimiter(): RateLimiterComponent
+    {
         $prefix = 'pinoox_rate:';
 
         try {
@@ -64,12 +73,10 @@ class RateLimiter extends Portal
             // Use default prefix when config is unavailable.
         }
 
-        self::__bind(RateLimiterComponent::class)->setFactory(static function () use ($prefix) {
-            /** @var CacheInterface $cache */
-            $cache = Cache::___();
+        /** @var CacheInterface $cache */
+        $cache = Cache::___();
 
-            return new RateLimiterComponent($cache, $prefix);
-        });
+        return new RateLimiterComponent($cache, $prefix);
     }
 
     public static function __name(): string

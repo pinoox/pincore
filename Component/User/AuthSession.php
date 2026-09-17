@@ -123,6 +123,11 @@ class AuthSession
         self::reset();
     }
 
+    public static function getType(): string
+    {
+        return self::$type;
+    }
+
     public static function reset(): void
     {
         self::$token = null;
@@ -131,6 +136,7 @@ class AuthSession
         self::$requestToken = null;
         self::$forcedUser = null;
         self::$appliedFingerprint = null;
+        self::$login_key = null;
     }
 
     public static function setRequestToken(?string $token): void
@@ -228,6 +234,11 @@ class AuthSession
         }
 
         if (self::$requestToken !== null && self::$requestToken !== '') {
+            if (self::$type === self::JWT) {
+                $claim = self::authToken(self::$requestToken);
+                return $claim !== false ? $claim : self::$requestToken;
+            }
+
             return self::$requestToken;
         }
 
@@ -460,7 +471,7 @@ class AuthSession
         self::$token = null;
     }
 
-    private static function resolveBearerToken(): ?string
+    public static function resolveBearerToken(): ?string
     {
         $header = self::authorizationHeader();
         if (!empty($header)) {
@@ -492,6 +503,11 @@ class AuthSession
         return null;
     }
 
+    public static function getBearerToken(): ?string
+    {
+        return self::resolveBearerToken();
+    }
+
     /**
      * Return the session-token claim for the current auth key only.
      */
@@ -519,6 +535,46 @@ class AuthSession
 
     private static function authorizationHeader(): ?string
     {
+        if (class_exists(\Pinoox\Portal\App\AppProvider::class)) {
+            try {
+                $request = \Pinoox\Portal\App\AppProvider::getRequest();
+                if ($request) {
+                    $header = $request->headers->get('Authorization') ?? $request->headers->get('authorization');
+                    if (!empty($header)) {
+                        return $header;
+                    }
+                    $serverAuth = $request->server->get('HTTP_AUTHORIZATION')
+                        ?? $request->server->get('REDIRECT_HTTP_AUTHORIZATION')
+                        ?? $request->server->get('Authorization');
+                    if (!empty($serverAuth)) {
+                        return $serverAuth;
+                    }
+                }
+            } catch (\Throwable) {
+                // Ignore if request context is unavailable
+            }
+        }
+
+        if (class_exists(\Pinoox\Portal\Url::class)) {
+            try {
+                $request = \Pinoox\Portal\Url::request();
+                if ($request && isset($request->headers)) {
+                    $header = $request->headers->get('Authorization') ?? $request->headers->get('authorization');
+                    if (!empty($header)) {
+                        return $header;
+                    }
+                    $serverAuth = $request->server->get('HTTP_AUTHORIZATION')
+                        ?? $request->server->get('REDIRECT_HTTP_AUTHORIZATION')
+                        ?? $request->server->get('Authorization');
+                    if (!empty($serverAuth)) {
+                        return $serverAuth;
+                    }
+                }
+            } catch (\Throwable) {
+                // Ignore if request context is unavailable
+            }
+        }
+
         if (function_exists('apache_request_headers')) {
             $headers = apache_request_headers();
             $token = $headers['Authorization'] ?? $headers['authorization'] ?? null;
@@ -527,7 +583,10 @@ class AuthSession
             }
         }
 
-        return $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['Authorization'] ?? null;
+        return $_SERVER['HTTP_AUTHORIZATION']
+            ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION']
+            ?? $_SERVER['Authorization']
+            ?? null;
     }
 
     private static function normalizeBearerToken(string $token): string

@@ -202,7 +202,7 @@ class HelperHeader
         {
             $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
         } else {
-            $ip = $_SERVER['REMOTE_ADDR'];
+            $ip = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
         }
         return $ip;
     }
@@ -216,7 +216,7 @@ class HelperHeader
     {
         $whitelist = array('127.0.0.1', "::1");
 
-        if (in_array($_SERVER['REMOTE_ADDR'], $whitelist)) {
+        if (in_array($_SERVER['REMOTE_ADDR'] ?? '127.0.0.1', $whitelist)) {
             return true;
         }
         return false;
