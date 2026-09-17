@@ -95,11 +95,20 @@ class RateLimiterStore
 
     private function attemptsKey(string $key): string
     {
-        return $this->prefix . $key . ':attempts';
+        return $this->buildCacheKey($key, 'attempts');
     }
 
     private function timerKey(string $key): string
     {
-        return $this->prefix . $key . ':timer';
+        return $this->buildCacheKey($key, 'timer');
+    }
+
+    /**
+     * Build a PSR-16 compliant cache key free from reserved characters ({}()/\@:).
+     */
+    private function buildCacheKey(string $key, string $suffix): string
+    {
+        $safePrefix = preg_replace('/[^a-zA-Z0-9_\.]/', '_', $this->prefix);
+        return $safePrefix . sha1($key) . '_' . $suffix;
     }
 }
