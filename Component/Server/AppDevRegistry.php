@@ -78,6 +78,7 @@ class AppDevRegistry
         ?int $pid = null,
         ?string $domain = null,
         bool $secure = false,
+        ?string $path = null,
     ): void {
         // Normalize: strip optional "@path" suffix (e.g. "com_pinoox_pay@/" → "com_pinoox_pay")
         if (str_contains($package, '@')) {
@@ -98,6 +99,7 @@ class AppDevRegistry
             'port' => $port,
             'domain' => $domain,
             'url' => $url,
+            'path' => $path !== null ? rtrim(str_replace('\\', '/', $path), '/') : null,
             'pid' => $pid ?? (int) getmypid(),
             'updated_at' => time(),
         ];
@@ -145,6 +147,16 @@ class AppDevRegistry
         $entry = self::get($package);
 
         return $entry['url'] ?? null;
+    }
+
+    /**
+     * Get the live directory path for a package if registered and alive.
+     */
+    public static function path(string $package): ?string
+    {
+        $entry = self::get($package);
+
+        return $entry['path'] ?? null;
     }
 
     /**

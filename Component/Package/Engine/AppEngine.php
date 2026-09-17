@@ -42,6 +42,8 @@ use Symfony\Component\Finder\Exception\DirectoryNotFoundException;
 use Symfony\Component\Finder\SplFileInfo;
 use Pinoox\Component\Store\Config\ConfigInterface;
 use Pinoox\Component\Store\Config\LayeredConfig;
+use Pinoox\Component\Server\AppDevRegistry;
+use Pinoox\Support\DevApp;
 
 class AppEngine implements EngineInterface
 {
@@ -349,7 +351,13 @@ class AppEngine implements EngineInterface
      */
     public function exists(ReferenceInterface|string $packageName): bool
     {
-        return $this->loader->exists($this->resolvePackageKey($packageName));
+        $packageName = $this->resolvePackageKey($packageName);
+
+        if ($this->loader->exists($packageName)) {
+            return true;
+        }
+
+        return $this->autoRegisterDevApp($packageName);
     }
 
     /**
@@ -440,6 +448,9 @@ class AppEngine implements EngineInterface
         $packageName = $this->resolvePackageKey($packageName);
 
         if (empty($this->pathManager[$packageName])) {
+            if (!$this->loader->exists($packageName)) {
+                $this->autoRegisterDevApp($packageName);
+            }
             $basePath = $this->pathPackage($packageName);
             $this->pathManager[$packageName] = new PathManager($basePath);
         }
@@ -504,6 +515,65 @@ class AppEngine implements EngineInterface
             }
         }
         return $result;
+    }
+
+    /**
+     * Auto-register a running dev app if active on pinx dev and not registered locally.
+     */
+    public function autoRegisterDevApp(string $packageName): bool
+    {
+        $packageName = $this->resolvePackageKey($packageName);
+
+        // 1. If it already exists in the loader, keep existing
+        if ($this->loader->exists($packageName)) {
+            return true;
+        }
+
+        // 2. If it is the current app package itself, do nothing
+        $current = $this->currentAppPackage();
+        if ($current !== null && $packageName === $current) {
+            return false;
+        }
+
+        // 3. Check AppDevRegistry
+        if (!class_exists(AppDevRegistry::class)) {
+            return false;
+        }
+
+        $entry = AppDevRegistry::get($packageName);
+        if ($entry === null) {
+            return false;
+        }
+
+        $path = $entry['path'] ?? null;
+        if (!is_string($path) || trim($path) === '' || !is_dir($path)) {
+            return false;
+        }
+
+        // 4. Temporarily register in memory for this runtime/request
+        $this->add($packageName, $path);
+
+        return $this->loader->exists($packageName);
+    }
+
+    private function currentAppPackage(): ?string
+    {
+        if (class_exists(DevApp::class)) {
+            $dev = DevApp::package();
+            if ($dev !== null && $dev !== '') {
+                return $dev;
+            }
+        }
+
+        $serveApp = getenv('PINOOX_SERVE_APP') ?: getenv('PINX_PACKAGE') ?: null;
+        if (is_string($serveApp) && $serveApp !== '') {
+            if (str_contains($serveApp, '@')) {
+                $serveApp = explode('@', $serveApp, 2)[0];
+            }
+            return trim($serveApp);
+        }
+
+        return null;
     }
 }
 
