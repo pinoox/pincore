@@ -47,6 +47,14 @@ class AppLayer
     }
 
     /**
+     * @param array<string, mixed> $context
+     */
+    public function setContext(array $context): void
+    {
+        $this->context = $context;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     public function context(?string $key = null, mixed $default = null): mixed

@@ -41,6 +41,7 @@ use Symfony\Component\Finder\Finder;
 use Symfony\Component\Finder\Exception\DirectoryNotFoundException;
 use Symfony\Component\Finder\SplFileInfo;
 use Pinoox\Component\Store\Config\ConfigInterface;
+use Pinoox\Component\Store\Config\LayeredConfig;
 
 class AppEngine implements EngineInterface
 {
@@ -60,6 +61,12 @@ class AppEngine implements EngineInterface
      * @var ConfigInterface[]
      */
     private array $appConfig;
+
+    /**
+     * Stack of dynamic config overlays per package.
+     * @var array<string, list<array<string, mixed>>>
+     */
+    private array $configOverlays = [];
 
     /**
      * @var Translator[]
@@ -287,7 +294,51 @@ class AppEngine implements EngineInterface
             AppEnvBridge::apply($config, $packageName, $this->path($packageName));
             $this->appConfig[$packageName] = $config;
         }
-        return $this->appConfig[$packageName];
+
+        $baseConfig = $this->appConfig[$packageName];
+
+        if (!empty($this->configOverlays[$packageName])) {
+            return new LayeredConfig($baseConfig, $this->activeConfigOverlay($packageName));
+        }
+
+        return $baseConfig;
+    }
+
+    public function pushConfig(string|ReferenceInterface $packageName, array $overrides): void
+    {
+        $packageName = $this->resolvePackageKey($packageName);
+        $this->configOverlays[$packageName][] = $overrides;
+    }
+
+    public function popConfig(string|ReferenceInterface $packageName): ?array
+    {
+        $packageName = $this->resolvePackageKey($packageName);
+        if (empty($this->configOverlays[$packageName])) {
+            return null;
+        }
+
+        $popped = array_pop($this->configOverlays[$packageName]);
+        if (empty($this->configOverlays[$packageName])) {
+            unset($this->configOverlays[$packageName]);
+        }
+
+        return $popped;
+    }
+
+    public function hasConfigOverlay(string|ReferenceInterface $packageName): bool
+    {
+        $packageName = $this->resolvePackageKey($packageName);
+        return !empty($this->configOverlays[$packageName]);
+    }
+
+    public function activeConfigOverlay(string|ReferenceInterface $packageName): array
+    {
+        $packageName = $this->resolvePackageKey($packageName);
+        if (empty($this->configOverlays[$packageName])) {
+            return [];
+        }
+
+        return array_replace_recursive(...$this->configOverlays[$packageName]);
     }
 
     /**

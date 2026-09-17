@@ -117,6 +117,11 @@ class RouteRegistrar
         return $this->register()->any($path, $action);
     }
 
+    public function subApp(string $path, string $package, array $options = []): SubAppRouteBuilder
+    {
+        return $this->register()->subApp($path, $package, $options);
+    }
+
     /**
      * @param array|string|Closure|class-string $action
      */

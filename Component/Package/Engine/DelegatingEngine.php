@@ -40,7 +40,7 @@ class DelegatingEngine implements EngineInterface
         return $this->getEngine($packageName)->exists($packageName);
     }
 
-    public function config(ReferenceInterface|string $packageName): Config
+    public function config(ReferenceInterface|string $packageName): \Pinoox\Component\Store\Config\ConfigInterface
     {
         return $this->getEngine($packageName)->config($packageName);
     }
@@ -96,5 +96,20 @@ class DelegatingEngine implements EngineInterface
     public function stable(ReferenceInterface|string $packageName): bool
     {
         return $this->getEngine($packageName)->stable($packageName);
+    }
+
+    public function pushConfig(string|ReferenceInterface $packageName, array $overrides): void
+    {
+        $this->getEngine($packageName)->pushConfig($packageName, $overrides);
+    }
+
+    public function popConfig(string|ReferenceInterface $packageName): ?array
+    {
+        return $this->getEngine($packageName)->popConfig($packageName);
+    }
+
+    public function hasConfigOverlay(string|ReferenceInterface $packageName): bool
+    {
+        return $this->getEngine($packageName)->hasConfigOverlay($packageName);
     }
 }

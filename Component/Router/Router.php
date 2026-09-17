@@ -69,6 +69,7 @@ class Router
         $this->actionMeta = [];
         $this->collections = [];
         $this->current = -1;
+        $this->collection();
         $this->appMountPath = '/';
     }
 
@@ -293,6 +294,11 @@ class Router
         });
 
         return null;
+    }
+
+    public function subApp(string $path, string $package, array $options = []): SubAppRouteBuilder
+    {
+        return new SubAppRouteBuilder($this, $path, $package, $options);
     }
 
     /**
@@ -697,6 +703,10 @@ class Router
      */
     public function currentCollection(): Collection
     {
+        if ($this->current === -1 || !isset($this->collections[$this->current])) {
+            $this->collection();
+        }
+
         return $this->collections[$this->current];
     }
 

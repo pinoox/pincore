@@ -1,0 +1,45 @@
+<?php
+
+/**
+ * ***  *  *     *  ****  ****  *    *
+ *   *  *  * *   *  *  *  *  *   *  *
+ * ***  *  *  *  *  *  *  *  *    *
+ *      *  *   * *  *  *  *  *   *  *
+ *      *  *    **  ****  ****  *    *
+ *
+ * @author   Pinoox
+ * @link https://www.pinoox.com
+ * @license  https://opensource.org/licenses/MIT MIT License
+ */
+
+namespace Pinoox\Portal;
+
+use Pinoox\Component\Http\Request;
+use Pinoox\Component\Http\Response;
+use Pinoox\Component\Source\Portal;
+
+/**
+ * @method static Response run(string $package, string $mountPath = '/', ?Request $request = NULL, array $options = [])
+ * @method static bool isSubApp()
+ * @method static ?string parent()
+ * @method static ?string host()
+ * @method static bool isSubAppOf(string|array $packages)
+ * @method static bool canMount(string $guestPackage, ?string $hostPackage = NULL)
+ * @method static bool isSubAppOnly(string $packageName)
+ * @method static mixed context(?string $key = NULL, mixed $default = NULL)
+ * @method static \Pinoox\Component\Package\SubApp ___()
+ *
+ * @see \Pinoox\Component\Package\SubApp
+ */
+class SubApp extends Portal
+{
+    public static function __register(): void
+    {
+        self::__bind(\Pinoox\Component\Package\SubApp::class);
+    }
+
+    public static function __name(): string
+    {
+        return 'sub_app';
+    }
+}

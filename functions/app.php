@@ -61,8 +61,6 @@ if (!function_exists('app_env')) {
     }
 }
 
-
-
 if (!function_exists("app_portal")) {
     function app_portal(string $package, string $portal = "App"): string
     {
@@ -80,3 +78,37 @@ if (!function_exists("has_portal_method")) {
     }
 }
 
+if (!function_exists('is_sub_app')) {
+    function is_sub_app(): bool
+    {
+        return \Pinoox\Component\Package\SubApp::isSubApp();
+    }
+}
+
+if (!function_exists('sub_app_parent')) {
+    function sub_app_parent(): ?string
+    {
+        return \Pinoox\Component\Package\SubApp::parent();
+    }
+}
+
+if (!function_exists('sub_app_host')) {
+    function sub_app_host(): ?string
+    {
+        return \Pinoox\Component\Package\SubApp::parent();
+    }
+}
+
+if (!function_exists('is_sub_app_of')) {
+    function is_sub_app_of(string|array $packages): bool
+    {
+        return \Pinoox\Component\Package\SubApp::isSubAppOf($packages);
+    }
+}
+
+if (!function_exists('sub_app_context')) {
+    function sub_app_context(?string $key = null, mixed $default = null): mixed
+    {
+        return \Pinoox\Component\Package\SubApp::context($key, $default);
+    }
+}
