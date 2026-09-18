@@ -162,6 +162,8 @@ final class FrontendDevStack
 
         string $shareProvider = 'auto',
 
+        ?int $workers = null,
+
     ): int {
 
         if ($frontends === [] || $sessions === [] || count($frontends) !== count($sessions)) {
@@ -171,15 +173,8 @@ final class FrontendDevStack
         }
 
         $this->serveBinding = trim($serveBinding) !== '' ? trim($serveBinding) : FrontendDevSession::SERVE_PLATFORM;
-
-
-
         $this->renderBanner($io, $frontends, $sessions, $stackTargets);
-
-
-
-        $serveProcess = $this->startServeProcess($output, $io, $serveHost, $servePort, $serveDomain, $share, $sharePassword, $shareExpire, $shareProvider);
-
+        $serveProcess = $this->startServeProcess($output, $io, $serveHost, $servePort, $serveDomain, $share, $sharePassword, $shareExpire, $shareProvider, $workers);
         $viteProcesses = [];
 
 
@@ -259,6 +254,8 @@ final class FrontendDevStack
 
         string $shareProvider = 'auto',
 
+        ?int $workers = null,
+
     ): Process {
 
         $basePath = ProjectCli::root();
@@ -276,6 +273,12 @@ final class FrontendDevStack
         if (!$platformServe) {
 
             $command[] = '--app=' . ServeAppBinding::devServeBinding($this->serveBinding);
+
+        }
+
+        if ($workers !== null && $workers > 0) {
+
+            $command[] = '--workers=' . (int) $workers;
 
         }
 
