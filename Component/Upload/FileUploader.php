@@ -52,7 +52,7 @@ class FileUploader
 
     public function __construct(
         string $destination = '',
-        UploadedFile|string $fileKey = null,
+        UploadedFile|string|null $fileKey = null,
         string $access = 'public',
         ?string $package = null,
         ?string $disk = null,

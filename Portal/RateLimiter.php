@@ -64,12 +64,30 @@ class RateLimiter extends Portal
             // Use default prefix when config is unavailable.
         }
 
-        self::__bind(RateLimiterComponent::class)->setFactory(static function () use ($prefix) {
-            /** @var CacheInterface $cache */
-            $cache = Cache::___();
+        // Symfony DI setFactory() rejects Closures — use a callable reference.
+        self::__bind(RateLimiterComponent::class)->setFactory([self::class, 'createRateLimiter']);
+    }
 
-            return new RateLimiterComponent($cache, $prefix);
-        });
+    /**
+     * Container factory for RateLimiterComponent (must be a public static callable).
+     */
+    public static function createRateLimiter(): RateLimiterComponent
+    {
+        $prefix = 'pinoox_rate:';
+
+        try {
+            $config = Config::name('~rate_limiter')->get() ?? [];
+            if (is_array($config) && isset($config['prefix'])) {
+                $prefix = (string) $config['prefix'];
+            }
+        } catch (\Throwable) {
+            // Use default prefix when config is unavailable.
+        }
+
+        /** @var CacheInterface $cache */
+        $cache = Cache::___();
+
+        return new RateLimiterComponent($cache, $prefix);
     }
 
     public static function __name(): string
@@ -79,7 +97,9 @@ class RateLimiter extends Portal
 
     public static function __exclude(): array
     {
-        return [];
+        return [
+            'createRateLimiter',
+        ];
     }
 
     public static function __callback(): array

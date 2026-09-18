@@ -100,7 +100,7 @@ abstract class FormRequest
         return data_get($this->validator->validate(), $key, $default);
     }
 
-    public function safe(array $keys = null): ValidatedInput|array
+    public function safe(?array $keys = null): ValidatedInput|array
     {
         return $this->validator->safe($keys);
     }

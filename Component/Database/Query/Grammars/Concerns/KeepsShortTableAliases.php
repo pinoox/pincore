@@ -36,11 +36,13 @@ trait KeepsShortTableAliases
      * qualifies pivot columns with that name, so prefixed joins need "AS user_role".
      *
      * @param  \Illuminate\Contracts\Database\Query\Expression|string  $table
+     * @param  string|null  $prefix
+     * @return string
      */
-    public function wrapTable($table, $prefix = null)
+    public function wrapTable($table, $prefix = null): string
     {
         if ($this->isExpression($table)) {
-            return $this->getValue($table);
+            return (string) $this->getValue($table);
         }
 
         if (stripos($table, ' as ') !== false) {
@@ -50,15 +52,15 @@ trait KeepsShortTableAliases
         $prefix ??= $this->connection->getTablePrefix();
 
         if (!$this->aliasPrefixedTables) {
-            return parent::wrapTable($table, $prefix);
+            return (string) parent::wrapTable($table, $prefix);
         }
 
         if (str_contains($table, '.')) {
-            return parent::wrapTable($table, $prefix);
+            return (string) parent::wrapTable($table, $prefix);
         }
 
         if ($prefix === '') {
-            return parent::wrapTable($table, $prefix);
+            return (string) parent::wrapTable($table, $prefix);
         }
 
         if (str_starts_with($table, $prefix)) {
@@ -91,7 +93,12 @@ trait KeepsShortTableAliases
         }
     }
 
-    protected function wrapAliasedTable($value, $prefix = null)
+    /**
+     * @param  string  $value
+     * @param  string|null  $prefix
+     * @return string
+     */
+    protected function wrapAliasedTable($value, $prefix = null): string
     {
         $segments = preg_split('/\s+as\s+/i', $value);
         $prefix ??= $this->connection->getTablePrefix();
@@ -104,57 +111,105 @@ trait KeepsShortTableAliases
         return $this->wrapValue($table) . ' as ' . $this->wrapValue($segments[1]);
     }
 
-    protected function wrapAliasedValue($value, $prefixAlias = false)
+    /**
+     * @param  string  $value
+     * @param  bool  $prefixAlias
+     * @return string
+     */
+    protected function wrapAliasedValue($value, $prefixAlias = false): string
     {
         $segments = preg_split('/\s+as\s+/i', $value);
 
         return $this->wrap($segments[0]) . ' as ' . $this->wrapValue($segments[1]);
     }
 
-    protected function wrapSegments($segments)
+    /**
+     * @param  array  $segments
+     * @return string
+     */
+    protected function wrapSegments($segments): string
     {
         if (count($segments) > 1) {
             return collect($segments)->map(fn ($segment) => $this->wrapValue($segment))->implode('.');
         }
 
-        return parent::wrapSegments($segments);
+        return (string) parent::wrapSegments($segments);
     }
 
-    public function compileInsert(Builder $query, array $values)
+    /**
+     * @param  Builder  $query
+     * @param  array  $values
+     * @return string
+     */
+    public function compileInsert(Builder $query, array $values): string
     {
-        return $this->withoutTableAliases(fn () => parent::compileInsert($query, $values));
+        return (string) $this->withoutTableAliases(fn () => parent::compileInsert($query, $values));
     }
 
-    public function compileInsertGetId(Builder $query, $values, $sequence)
+    /**
+     * @param  Builder  $query
+     * @param  array  $values
+     * @param  string  $sequence
+     * @return string
+     */
+    public function compileInsertGetId(Builder $query, $values, $sequence): string
     {
-        return $this->withoutTableAliases(fn () => parent::compileInsertGetId($query, $values, $sequence));
+        return (string) $this->withoutTableAliases(fn () => parent::compileInsertGetId($query, $values, $sequence));
     }
 
-    public function compileInsertUsing(Builder $query, array $columns, string $sql)
+    /**
+     * @param  Builder  $query
+     * @param  array  $columns
+     * @param  string  $sql
+     * @return string
+     */
+    public function compileInsertUsing(Builder $query, array $columns, string $sql): string
     {
-        return $this->withoutTableAliases(fn () => parent::compileInsertUsing($query, $columns, $sql));
+        return (string) $this->withoutTableAliases(fn () => parent::compileInsertUsing($query, $columns, $sql));
     }
 
-    public function compileInsertOrIgnore(Builder $query, array $values)
+    /**
+     * @param  Builder  $query
+     * @param  array  $values
+     * @return string
+     */
+    public function compileInsertOrIgnore(Builder $query, array $values): string
     {
-        return $this->withoutTableAliases(fn () => parent::compileInsertOrIgnore($query, $values));
+        return (string) $this->withoutTableAliases(fn () => parent::compileInsertOrIgnore($query, $values));
     }
 
-    public function compileInsertOrIgnoreUsing(Builder $query, array $columns, string $sql)
+    /**
+     * @param  Builder  $query
+     * @param  array  $columns
+     * @param  string  $sql
+     * @return string
+     */
+    public function compileInsertOrIgnoreUsing(Builder $query, array $columns, string $sql): string
     {
-        return $this->withoutTableAliases(fn () => parent::compileInsertOrIgnoreUsing($query, $columns, $sql));
+        return (string) $this->withoutTableAliases(fn () => parent::compileInsertOrIgnoreUsing($query, $columns, $sql));
     }
 
-    public function compileUpsert(Builder $query, array $values, array $uniqueBy, array $update)
+    /**
+     * @param  Builder  $query
+     * @param  array  $values
+     * @param  array  $uniqueBy
+     * @param  array  $update
+     * @return string
+     */
+    public function compileUpsert(Builder $query, array $values, array $uniqueBy, array $update): string
     {
-        return $this->withoutTableAliases(
+        return (string) $this->withoutTableAliases(
             fn () => parent::compileUpsert($query, $values, $uniqueBy, $update)
         );
     }
 
-    public function compileTruncate(Builder $query)
+    /**
+     * @param  Builder  $query
+     * @return array
+     */
+    public function compileTruncate(Builder $query): array
     {
-        return $this->withoutTableAliases(fn () => parent::compileTruncate($query));
+        return (array) $this->withoutTableAliases(fn () => parent::compileTruncate($query));
     }
 
     /**
@@ -163,12 +218,15 @@ trait KeepsShortTableAliases
      * MySQL form but accept `DELETE FROM physical AS logical` — keep aliases so
      * Eloquent WHERE clauses that qualify columns with the logical name
      * (`history.type`) still resolve after wrapTable() emits `pinx_history AS history`.
+     *
+     * @param  Builder  $query
+     * @return string
      */
-    public function compileDelete(Builder $query)
+    public function compileDelete(Builder $query): string
     {
         if (!$this->usesMysqlDeleteAliasForm()) {
             // Keep short aliases: DELETE FROM "pinx_history" AS "history" WHERE ...
-            return parent::compileDelete($query);
+            return (string) parent::compileDelete($query);
         }
 
         $table = $this->wrapTable($query->from);
@@ -188,7 +246,7 @@ trait KeepsShortTableAliases
             return $sql;
         }
 
-        return parent::compileDelete($query);
+        return (string) parent::compileDelete($query);
     }
 
     protected function usesMysqlDeleteAliasForm(): bool

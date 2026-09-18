@@ -36,7 +36,12 @@ class Builder extends EloquentBuilder
 
     /**
      * @param  \Closure|string|array|\Illuminate\Contracts\Database\Query\Expression  $column
+     * @param  mixed  $operator
+     * @param  mixed  $value
+     * @param  string  $boolean
+     * @return $this
      */
+    #[\ReturnTypeWillChange]
     public function where($column, $operator = null, $value = null, $boolean = 'and')
     {
         if ($column instanceof Closure && is_null($operator)) {
@@ -52,7 +57,11 @@ class Builder extends EloquentBuilder
 
     /**
      * @param  string|array<int, string>|\Illuminate\Contracts\Database\Query\Expression  $columns
+     * @param  string  $boolean
+     * @param  bool  $not
+     * @return $this
      */
+    #[\ReturnTypeWillChange]
     public function whereNull($columns, $boolean = 'and', $not = false)
     {
         if (is_array($columns)) {
@@ -66,7 +75,10 @@ class Builder extends EloquentBuilder
 
     /**
      * @param  string|array<int, string>|\Illuminate\Contracts\Database\Query\Expression  $columns
+     * @param  string  $boolean
+     * @return $this
      */
+    #[\ReturnTypeWillChange]
     public function whereNotNull($columns, $boolean = 'and')
     {
         if (is_array($columns)) {
@@ -78,6 +90,14 @@ class Builder extends EloquentBuilder
         return parent::whereNotNull($columns, $boolean);
     }
 
+    /**
+     * @param  string  $column
+     * @param  mixed  $values
+     * @param  string  $boolean
+     * @param  bool  $not
+     * @return $this
+     */
+    #[\ReturnTypeWillChange]
     public function whereIn($column, $values, $boolean = 'and', $not = false)
     {
         $this->query->whereIn(
@@ -91,6 +111,13 @@ class Builder extends EloquentBuilder
         return $this;
     }
 
+    /**
+     * @param  string  $column
+     * @param  mixed  $values
+     * @param  string  $boolean
+     * @return $this
+     */
+    #[\ReturnTypeWillChange]
     public function whereNotIn($column, $values, $boolean = 'and')
     {
         $this->query->whereNotIn(
@@ -102,6 +129,14 @@ class Builder extends EloquentBuilder
         return $this;
     }
 
+    /**
+     * @param  string  $column
+     * @param  mixed  $values
+     * @param  string  $boolean
+     * @param  bool  $not
+     * @return $this
+     */
+    #[\ReturnTypeWillChange]
     public function whereIntegerInRaw($column, $values, $boolean = 'and', $not = false)
     {
         $this->query->whereIntegerInRaw(
@@ -114,6 +149,13 @@ class Builder extends EloquentBuilder
         return $this;
     }
 
+    /**
+     * @param  string  $column
+     * @param  mixed  $values
+     * @param  string  $boolean
+     * @return $this
+     */
+    #[\ReturnTypeWillChange]
     public function whereIntegerNotInRaw($column, $values, $boolean = 'and')
     {
         $this->query->whereIntegerNotInRaw(
@@ -127,19 +169,20 @@ class Builder extends EloquentBuilder
 
     /**
      * @param  array<string, mixed>  $values
+     * @return int
      */
-    public function update(array $values)
+    public function update(array $values): int
     {
         $values = $this->addUpdatedAtColumn($values);
 
-        return $this->toBase()->update($this->normalizeUpdateValues($values));
+        return (int) $this->toBase()->update($this->normalizeUpdateValues($values));
     }
 
     /**
      * @param  array<string, mixed>  $values
      * @return array<string, mixed>
      */
-    protected function addUpdatedAtColumn(array $values)
+    protected function addUpdatedAtColumn(array $values): array
     {
         return $this->normalizeUpdateValues(parent::addUpdatedAtColumn($values));
     }

@@ -22,9 +22,27 @@ class SQLiteConnection extends BaseConnection
 {
     use CreatesQueryGrammar;
 
-    public function query()
+    /**
+     * Get a new query builder instance.
+     *
+     * @return \Illuminate\Database\Query\Builder
+     */
+    public function query(): Builder
     {
         return new Builder($this, $this->getQueryGrammar(), $this->getPostProcessor());
+    }
+
+    /**
+     * Get the default query grammar instance.
+     *
+     * @return \Illuminate\Database\Query\Grammars\SQLiteGrammar
+     */
+    protected function getDefaultQueryGrammar(): \Illuminate\Database\Query\Grammars\SQLiteGrammar
+    {
+        /** @var \Illuminate\Database\Query\Grammars\SQLiteGrammar $grammar */
+        $grammar = $this->createQueryGrammar();
+
+        return $grammar;
     }
 
     public function statement($query, $bindings = [])

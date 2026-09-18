@@ -120,6 +120,16 @@ class Route extends Portal
     }
 
     /**
+     * Group routes under a theme context (site, panel, ...).
+     *
+     * Route::context('site', fn () => ...);
+     */
+    public static function context(string $context, ?callable $callback = null): ?RouteGroupBuilder
+    {
+        return self::registrar()->context($context, $callback);
+    }
+
+    /**
      * Group under a path prefix.
      *
      * Route::prefix('/admin', fn () => ...);

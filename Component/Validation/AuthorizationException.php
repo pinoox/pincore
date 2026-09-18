@@ -23,7 +23,7 @@ class AuthorizationException extends Exception
 
     protected $status;
 
-    public function __construct($message = null, $code = null, Throwable $previous = null)
+    public function __construct($message = null, $code = null, ?Throwable $previous = null)
     {
         parent::__construct($message ?? 'This action is unauthorized.', 0, $previous);
 

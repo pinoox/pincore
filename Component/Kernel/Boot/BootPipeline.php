@@ -91,9 +91,24 @@ class BootPipeline
     private function loadComposer(): void
     {
         $dir = $this->context->path();
-        if (is_file($file = $dir . '/vendor/autoload.php')) {
-            require $file;
+        $file = $dir . '/vendor/autoload.php';
+        if (!is_file($file)) {
+            return;
         }
+
+        // Prevent "Cannot redeclare class ComposerAutoloaderInit<hash>" if the app vendor
+        // shares the same composer autoloader class hash as platform root or another loaded vendor.
+        $realFile = $dir . '/vendor/composer/autoload_real.php';
+        if (is_file($realFile)) {
+            $content = @file_get_contents($realFile, false, null, 0, 500);
+            if ($content && preg_match('/class\s+(ComposerAutoloaderInit[a-zA-Z0-9_]+)/', $content, $matches)) {
+                if (class_exists($matches[1], false)) {
+                    return;
+                }
+            }
+        }
+
+        require_once $file;
     }
 
     private function loadAppLoader(): void
