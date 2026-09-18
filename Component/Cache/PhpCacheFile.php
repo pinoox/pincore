@@ -2,6 +2,8 @@
 
 namespace Pinoox\Component\Cache;
 
+use Pinoox\Portal\OpcodeCache;
+
 /**
  * Read/write Pinker-style PHP cache files (return array).
  */
@@ -25,6 +27,7 @@ final class PhpCacheFile
         self::unlinkLegacy($path);
 
         file_put_contents($path, "<?php\n\nreturn " . self::export($data) . ";\n");
+        OpcodeCache::invalidateFile($path, true);
     }
 
     /**
@@ -68,6 +71,7 @@ final class PhpCacheFile
     public static function unlink(string $path): void
     {
         if (is_file($path)) {
+            OpcodeCache::invalidateFile($path, true);
             @unlink($path);
         }
 

@@ -10,6 +10,7 @@ use Pinoox\Component\Package\Engine\AppEngine;
 use Pinoox\Component\Package\Lifecycle\AppLifecycle;
 use Pinoox\Component\Package\Lifecycle\AppLifecycleRunner;
 use Pinoox\Component\Package\PackageName;
+use Pinoox\Portal\OpcodeCache;
 
 /**
  * Reset app data (keep files), then re-run migrate + patch + install lifecycle.
@@ -120,6 +121,13 @@ final class AppResetter
 
             if (!($options['skip_lifecycle'] ?? false)) {
                 $runner->dispatchAfter($package, AppLifecycle::RESET, $lifeContext);
+            }
+
+            $invalidated = OpcodeCache::invalidateApp($package);
+            if (OpcodeCache::isAvailable()) {
+                $this->recordStep($steps, 'opcache', 'ok', sprintf('Targeted OPcache invalidated (%d file(s)) for %s.', $invalidated, $package));
+            } else {
+                $this->recordStep($steps, 'opcache', 'skipped', 'OPcache is not enabled or unavailable.');
             }
 
             $message = sprintf('App "%s" reset successfully.', $package);

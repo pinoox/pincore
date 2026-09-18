@@ -10,6 +10,7 @@ use Pinoox\Component\Package\AppDependency;
 use Pinoox\Component\Package\Engine\AppEngine;
 use Pinoox\Component\Package\Lifecycle\AppLifecycle;
 use Pinoox\Component\Package\Lifecycle\AppLifecycleRunner;
+use Pinoox\Portal\OpcodeCache;
 
 /**
  * Provisions apps that already exist on disk (project setup / bulk bootstrap).
@@ -250,6 +251,8 @@ final class AppProvisioner
         if (!($options['skip_cache'] ?? false)) {
             AppCacheManager::build($package, null, true);
         }
+
+        OpcodeCache::invalidateApp($package);
 
         $this->applyDefaultLang($package, $options['lang'] ?? null);
     }

@@ -9,6 +9,7 @@ use Pinoox\Component\Package\Engine\AppEngine;
 use Pinoox\Model\HistoryModel;
 use Pinoox\Model\Table;
 use Pinoox\Portal\Database\DB;
+use Pinoox\Portal\OpcodeCache;
 
 final class AppLifecycleRunner
 {
@@ -103,6 +104,10 @@ final class AppLifecycleRunner
 
         if ($dispatchAfter) {
             $this->dispatch($package, $action, $ctx, true);
+        }
+
+        if (in_array($action, [AppLifecycle::INSTALL, AppLifecycle::UPDATE, AppLifecycle::RESET], true)) {
+            OpcodeCache::invalidateApp($package);
         }
 
         if ($handlers === []) {

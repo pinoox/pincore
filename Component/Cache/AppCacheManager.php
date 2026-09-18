@@ -9,6 +9,7 @@ use Pinoox\Component\Cache\Store\PinkerCacheStore;
 use Pinoox\Component\Cache\Store\RouteCacheStore;
 use Pinoox\Component\Cache\Store\TwigCacheStore;
 use Pinoox\Portal\App\AppEngine;
+use Pinoox\Portal\OpcodeCache;
 
 class AppCacheManager
 {
@@ -78,6 +79,8 @@ class AppCacheManager
             foreach (self::selectedStores($only) as $store) {
                 $store->clear($pkg);
             }
+
+            OpcodeCache::invalidateDirectory(AppCachePath::root($pkg));
 
             if ($only === null) {
                 self::removeDirectory(AppCachePath::root($pkg));

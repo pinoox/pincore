@@ -15,6 +15,7 @@ use Pinoox\Component\Template\Theme\ThemeManifest;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\App\AppEngine as AppEnginePortal;
 use Pinoox\Portal\FileSystem;
+use Pinoox\Portal\OpcodeCache;
 use Pinoox\Support\AppRegistry;
 use Pinoox\Support\SystemConfig;
 
@@ -261,6 +262,14 @@ class PinxInstaller
                 if (!($options['skip_cache'] ?? false)) {
                     $this->rebuildCache($manifest->targetApp(), $steps);
                 }
+            }
+
+            $targetPkg = $manifest->isApp() ? $manifest->package() : $manifest->targetApp();
+            $invalidated = OpcodeCache::invalidateApp($targetPkg);
+            if (OpcodeCache::isAvailable()) {
+                $this->recordStep($steps, 'opcache', 'ok', sprintf('Targeted OPcache invalidated (%d file(s)) for %s.', $invalidated, $targetPkg));
+            } else {
+                $this->recordStep($steps, 'opcache', 'skipped', 'OPcache is not enabled or unavailable.');
             }
 
             $message = $manifest->isApp()
