@@ -8,6 +8,7 @@ use Pinoox\Component\Package\AppProvisioner;
 use Pinoox\Component\Package\Engine\AppEngine;
 use Pinoox\Portal\App\App;
 use Pinoox\Portal\App\AppEngine as AppEnginePortal;
+use Pinoox\Portal\OpcodeCache;
 use Pinoox\Support\SystemConfig;
 use ZipArchive;
 
@@ -166,6 +167,8 @@ final class PlatformUpdater
 
             $this->reportProgress($options, 'provision', 'Running migrations and patches...', 70);
             $this->provision(AppEnginePortal::___(), $apps, $options, $lifecycleContext, $steps);
+
+            OpcodeCache::invalidateCore();
 
             $this->reportProgress($options, 'done', 'Platform update finished.', 100);
             $this->recordStep($steps, 'complete', 'ok', 'Platform updated successfully.');
