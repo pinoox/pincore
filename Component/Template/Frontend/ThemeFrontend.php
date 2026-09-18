@@ -293,6 +293,11 @@ class ThemeFrontend
         $this->devSession = $session;
     }
 
+    public function devSession(): ?FrontendDevSession
+    {
+        return $this->devSession;
+    }
+
     public function setFixViteOnSync(bool $fix): void
     {
         $this->fixViteOnSync = $fix;
@@ -444,8 +449,13 @@ class ThemeFrontend
 
         $binary = $this->packageManagerBinary();
         $env = $this->inheritedEnvironment($this->npmRunEnvironment());
+        $extraArgs = [];
+        if ($this->devSession !== null && $this->devSession->vitePort > 0) {
+            $extraArgs[] = '--port=' . (int) $this->devSession->vitePort;
+        }
+
         $process = new Process(
-            array_merge([$binary], FrontendPackageManager::runScriptCommand('dev')),
+            array_merge([$binary], FrontendPackageManager::runScriptCommand('dev', $extraArgs)),
             $this->themePath,
             $env,
             null,

@@ -180,17 +180,11 @@ final class FrontendDevStack
 
 
         try {
-
             foreach ($frontends as $index => $frontend) {
-
                 $label = self::stackLabel($frontend->package(), $stackTargets[$index]['context'] ?? null);
-
-                $process = $this->startViteProcess($frontend, $label, $output);
-
+                $process = $this->startViteProcess($frontend, $label, $output, $sessions[$index] ?? null);
                 $viteProcesses[] = ['label' => $label, 'process' => $process];
-
                 usleep(350_000);
-
             }
 
 
@@ -376,10 +370,12 @@ final class FrontendDevStack
 
 
 
-    private function startViteProcess(ThemeFrontend $frontend, string $label, OutputInterface $output): Process
-
-    {
-
+    private function startViteProcess(
+        ThemeFrontend $frontend,
+        string $label,
+        OutputInterface $output,
+        ?FrontendDevSession $session = null,
+    ): Process {
         $frontend->prepareDev();
 
         $themePath = $frontend->themePath();
@@ -389,46 +385,34 @@ final class FrontendDevStack
 
         $base = getenv();
 
-
-
         if (!is_array($base)) {
-
             $base = [];
-
         }
-
-
 
         foreach ($env as $key => $value) {
-
             $base[$key] = (string) $value;
-
         }
-
-
 
         $base['VITE_DEV_STACK'] = 'true';
 
         if (!isset($base['VITE_DEV_QUIET'])) {
-
             $base['VITE_DEV_QUIET'] = 'true';
-
         }
 
         if (!isset($base['VITE_SERVE_APP']) || trim((string) $base['VITE_SERVE_APP']) === '') {
-
             $base['VITE_SERVE_APP'] = $this->serveBinding === FrontendDevSession::SERVE_PLATFORM
-
                 ? FrontendDevSession::SERVE_PLATFORM
-
                 : ServeAppBinding::devServeBinding($this->serveBinding);
-
         }
 
-
+        $session = $session ?? $frontend->devSession();
+        $extraArgs = [];
+        if ($session !== null && $session->vitePort > 0) {
+            $extraArgs[] = '--port=' . (int) $session->vitePort;
+        }
 
         $process = new Process(
-            array_merge([$binary], FrontendPackageManager::runScriptCommand('dev')),
+            array_merge([$binary], FrontendPackageManager::runScriptCommand('dev', $extraArgs)),
             $themePath,
             $base,
             null,
