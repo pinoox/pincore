@@ -27,11 +27,12 @@ test('FrontendDevSession uses SERVER_DOMAIN for browser URLs', function () {
     $_ENV['SERVER_DOMAIN'] = 'pinoox.test';
     $_SERVER['SERVER_DOMAIN'] = 'pinoox.test';
 
+    $port = \Pinoox\Component\Server\ServerPort::resolve(null, '127.0.0.1', 28000);
     $session = FrontendDevSession::fromOptions(
         'com_demo_app',
         ['stack' => 'vue'],
         '127.0.0.1',
-        8088,
+        $port,
         'com_demo_app',
         true,
         null,
@@ -45,6 +46,6 @@ test('FrontendDevSession uses SERVER_DOMAIN for browser URLs', function () {
     unset($_ENV['SERVER_DOMAIN'], $_SERVER['SERVER_DOMAIN']);
 
     expect($session->serveDomain)->toBe('pinoox.test')
-        ->and($session->phpAppUrl)->toBe('http://127.0.0.1:8088')
-        ->and($session->phpOrigin())->toBe('http://pinoox.test:8088');
+        ->and($session->phpAppUrl)->toBe('http://127.0.0.1:' . $port)
+        ->and($session->phpOrigin())->toBe('http://pinoox.test:' . $port);
 });
