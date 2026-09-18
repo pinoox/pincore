@@ -219,6 +219,8 @@ class DevelopmentServer
     {
         return [
             self::phpBinary(),
+            '-d',
+            'opcache.revalidate_freq=0',
             '-S',
             $this->host . ':' . $this->port(),
             '-t',
