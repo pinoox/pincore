@@ -23,6 +23,8 @@ it('builds php built-in server command with document root and router', function 
 
     expect($server->serverCommand())->toBe([
         DevelopmentServer::phpBinary(),
+        '-d',
+        'opcache.revalidate_freq=0',
         '-S',
         '127.0.0.1:8080',
         '-t',
@@ -45,7 +47,7 @@ it('uses a local domain for browser URLs while binding to loopback', function ()
 
     expect($server->url())->toBe('http://pinoox.test')
         ->and($server->inspectorUrl())->toBe('http://pinoox.test/~inspector')
-        ->and($server->serverCommand()[2])->toBe('127.0.0.1:8080');
+        ->and($server->serverCommand()[4])->toBe('127.0.0.1:8080');
 });
 
 it('shows domain URL without port while binding to loopback', function () {
@@ -62,7 +64,7 @@ it('shows domain URL without port while binding to loopback', function () {
 
     expect($server->url())->toBe('http://mypinoox.com')
         ->and($server->inspectorUrl())->toBe('http://mypinoox.com/~inspector')
-        ->and($server->serverCommand()[2])->toBe('127.0.0.1:8002');
+        ->and($server->serverCommand()[4])->toBe('127.0.0.1:8002');
 });
 
 it('routes existing files through the development server router script', function () {

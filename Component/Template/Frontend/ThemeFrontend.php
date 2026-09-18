@@ -453,6 +453,9 @@ class ThemeFrontend
         if ($this->devSession !== null && $this->devSession->vitePort > 0) {
             $extraArgs[] = '--port=' . (int) $this->devSession->vitePort;
         }
+        if ($this->devSession !== null && trim((string) $this->devSession->viteHost) !== '') {
+            $extraArgs[] = '--host=' . trim((string) $this->devSession->viteHost);
+        }
 
         $process = new Process(
             array_merge([$binary], FrontendPackageManager::runScriptCommand('dev', $extraArgs)),
