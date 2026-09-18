@@ -410,6 +410,9 @@ final class FrontendDevStack
         if ($session !== null && $session->vitePort > 0) {
             $extraArgs[] = '--port=' . (int) $session->vitePort;
         }
+        if ($session !== null && trim((string) $session->viteHost) !== '') {
+            $extraArgs[] = '--host=' . trim((string) $session->viteHost);
+        }
 
         $process = new Process(
             array_merge([$binary], FrontendPackageManager::runScriptCommand('dev', $extraArgs)),
