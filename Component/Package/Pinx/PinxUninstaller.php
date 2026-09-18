@@ -13,6 +13,7 @@ use Pinoox\Component\Package\PackageName;
 use Pinoox\Portal\App\AppEngine as AppEnginePortal;
 use Pinoox\Portal\App\AppRouter;
 use Pinoox\Portal\FileSystem;
+use Pinoox\Portal\OpcodeCache;
 use Pinoox\Support\SystemConfig;
 
 class PinxUninstaller
@@ -84,6 +85,13 @@ class PinxUninstaller
                 $this->removePath($this->engine->path($package), $steps, 'files');
             } else {
                 $this->recordStep($steps, 'files', 'skipped', 'App folder kept on disk.');
+            }
+
+            $invalidated = OpcodeCache::invalidateApp($package);
+            if (OpcodeCache::isAvailable()) {
+                $this->recordStep($steps, 'opcache', 'ok', sprintf('Targeted OPcache invalidated (%d file(s)) for %s.', $invalidated, $package));
+            } else {
+                $this->recordStep($steps, 'opcache', 'skipped', 'OPcache is not enabled or unavailable.');
             }
 
             AppEnginePortal::__rebuild();
