@@ -37,6 +37,7 @@ class DevelopmentServer
         'PINX_INSPECTOR_DEFAULT_PACKAGE',
         'PINX_INSPECTOR_PACKAGE',
         'PINX_INSPECTOR_ALLOW_LAN',
+        'PHP_CLI_SERVER_WORKERS',
     ];
 
     private int $portOffset = 0;
@@ -58,6 +59,7 @@ class DevelopmentServer
         private readonly ?string $sharePassword = null,
         private readonly ?string $shareExpire = null,
         private readonly string $shareProvider = 'auto',
+        private readonly ?int $workers = null,
     ) {
     }
 
@@ -332,6 +334,14 @@ class DevelopmentServer
 
         $env['PINOOX_SERVER_LOG'] = '1';
 
+        $workers = $this->workers ?? _env('PHP_CLI_SERVER_WORKERS', getenv('PHP_CLI_SERVER_WORKERS'));
+        if ($workers !== null && is_numeric($workers) && (int) $workers > 0) {
+            $env['PHP_CLI_SERVER_WORKERS'] = (string) $workers;
+        } elseif (PHP_OS_FAMILY !== 'Windows' && (!isset($env['PHP_CLI_SERVER_WORKERS']) || $env['PHP_CLI_SERVER_WORKERS'] === '')) {
+            // On Unix platforms (Linux, macOS, WSL) default to 4 workers to handle concurrent requests
+            $env['PHP_CLI_SERVER_WORKERS'] = '4';
+        }
+
         if (!$this->hasExplicitViteHmrEnv($env)) {
             $env['PINOOX_VITE_HMR'] = '0';
         }
@@ -513,6 +523,13 @@ class DevelopmentServer
         }
 
         $env[FrontendConfig::VITE_HMR_ENV] = '1';
+
+        $workers = _env('PHP_CLI_SERVER_WORKERS', getenv('PHP_CLI_SERVER_WORKERS'));
+        if ($workers !== null && is_numeric($workers) && (int) $workers > 0) {
+            $env['PHP_CLI_SERVER_WORKERS'] = (string) $workers;
+        } elseif (PHP_OS_FAMILY !== 'Windows' && (!isset($env['PHP_CLI_SERVER_WORKERS']) || $env['PHP_CLI_SERVER_WORKERS'] === '')) {
+            $env['PHP_CLI_SERVER_WORKERS'] = '4';
+        }
 
         return $env;
     }

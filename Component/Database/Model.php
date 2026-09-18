@@ -158,13 +158,19 @@ abstract class Model extends EloquentModel
      * Default: package connection for App\* models (app table.prefix, e.g. app_),
      * platform for Pinoox\Model\*. Set protected $connection = 'platform' (or any
      * named connection) on a model to opt out of the package default.
+     *
+     * @return string|null
      */
-    public function getConnectionName()
+    public function getConnectionName(): ?string
     {
         return parent::getConnectionName() ?? DB::connectionNameForModel(static::class);
     }
 
-    public function newEloquentBuilder($query)
+    /**
+     * @param  \Illuminate\Database\Query\Builder  $query
+     * @return \Illuminate\Database\Eloquent\Builder
+     */
+    public function newEloquentBuilder($query): \Illuminate\Database\Eloquent\Builder
     {
         return new PinooxEloquentBuilder($query);
     }
@@ -172,8 +178,11 @@ abstract class Model extends EloquentModel
     /**
      * Connection applies the package prefix to FROM; strip logical/physical table
      * prefixes from qualified columns so WHERE/SET use bare column names.
+     *
+     * @param  string  $column
+     * @return string
      */
-    public function qualifyColumn($column)
+    public function qualifyColumn($column): string
     {
         $column = (string) $column;
 

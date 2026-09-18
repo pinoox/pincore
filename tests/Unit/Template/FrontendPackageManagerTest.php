@@ -22,7 +22,8 @@ test('FrontendPackageManager reads PINOOX_JS_PACKAGE_MANAGER from env', function
 
     expect(FrontendPackageManager::name())->toBe('bun')
         ->and(FrontendPackageManager::binary())->toBe(PHP_OS_FAMILY === 'Windows' ? 'bun.exe' : 'bun')
-        ->and(FrontendPackageManager::runScriptCommand('dev'))->toBe(['run', 'dev']);
+        ->and(FrontendPackageManager::runScriptCommand('dev'))->toBe(['run', 'dev'])
+        ->and(FrontendPackageManager::runScriptCommand('dev', ['--port=5175']))->toBe(['run', 'dev', '--', '--port=5175']);
 });
 
 test('FrontendPackageManager detects bun from lockfiles', function () {

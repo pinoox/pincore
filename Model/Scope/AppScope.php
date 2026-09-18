@@ -34,18 +34,27 @@ class AppScope implements Scope
         return new self($resolver);
     }
 
-    public function apply(Builder $builder, Model $model)
+    /**
+     * Apply the scope to a given Eloquent query builder.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder  $builder
+     * @param  \Illuminate\Database\Eloquent\Model  $model
+     * @return void
+     */
+    public function apply(Builder $builder, Model $model): void
     {
         $apps = ($this->resolver)();
 
         if ($apps === []) {
-            return $builder;
+            return;
         }
 
         if (count($apps) === 1) {
-            return $builder->where('app', $apps[0]);
+            $builder->where('app', $apps[0]);
+
+            return;
         }
 
-        return $builder->whereIn('app', $apps);
+        $builder->whereIn('app', $apps);
     }
 }

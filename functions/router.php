@@ -177,6 +177,11 @@ function group(array|string|null $attributes = null, ?callable $callback = null)
     return RouteFacade::group($attributes, $callback);
 }
 
+function context(string $context, ?callable $callback = null): ?RouteGroupBuilder
+{
+    return RouteFacade::context($context, $callback);
+}
+
 /**
  * Collect route definitions from a fluent callback.
  *

@@ -20,7 +20,13 @@ use Pinoox\Support\SystemApp;
 
 class Translator extends TranslatorIlluminate
 {
-    public function parseKey($key)
+    /**
+     * Parse a key into namespace, group, and item.
+     *
+     * @param  string  $key
+     * @return array
+     */
+    public function parseKey($key): array
     {
         if (is_string($key)) {
             $key = self::normalizeSystemKey($key);

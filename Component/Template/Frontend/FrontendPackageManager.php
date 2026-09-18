@@ -45,11 +45,16 @@ final class FrontendPackageManager
     }
 
     /**
+     * @param list<string> $extraArgs
      * @return list<string>
      */
-    public static function runScriptCommand(string $script): array
+    public static function runScriptCommand(string $script, array $extraArgs = []): array
     {
-        return ['run', $script];
+        if ($extraArgs === []) {
+            return ['run', $script];
+        }
+
+        return ['run', $script, '--', ...array_values($extraArgs)];
     }
 
     /**

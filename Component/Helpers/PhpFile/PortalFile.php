@@ -380,7 +380,7 @@ class PortalFile extends PhpFile
         return "@method static {$returnType}{$methodName}({$args})";
     }
 
-    public function addCommentMethods(ClassType|ClassLike $class, PhpNamespace $namespace, string $serviceName = null): void
+    public function addCommentMethods(ClassType|ClassLike $class, PhpNamespace $namespace, ?string $serviceName = null): void
     {
         $serviceName = !empty($serviceName) ? $serviceName : $this->getService();
         $isCallBack = true;

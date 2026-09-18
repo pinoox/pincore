@@ -180,6 +180,11 @@ class RouteRegistrar
         return $builder;
     }
 
+    public function context(string $context, ?callable $callback = null): ?RouteGroupBuilder
+    {
+        return $this->group(['context' => $context], $callback);
+    }
+
     /**
      * @param array<string, mixed> $attributes
      */
@@ -203,6 +208,7 @@ class RouteRegistrar
             defaults: $attributes['defaults'] ?? [],
             filters: $attributes['filters'] ?? [],
             data: $attributes['data'] ?? [],
+            context: isset($attributes['context']) ? (string) $attributes['context'] : null,
         );
     }
 

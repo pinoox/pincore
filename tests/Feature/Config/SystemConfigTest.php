@@ -37,6 +37,10 @@ it('loads deploy configs from project config with pincore stub fallback', functi
     );
 
     setSystemConfigTestEnv('PINOOX_PROJECT_CONFIG_PATH', testFixturesProjectRelative('system_config/deploy_config'));
+    $baked = SystemConfig::pinkerConfigPath('app-router.config.php');
+    if (is_file($baked)) {
+        @unlink($baked);
+    }
     SystemConfig::clearCache();
 
     expect(SystemConfig::projectConfigPath())->toBe($projectConfig)
@@ -45,6 +49,10 @@ it('loads deploy configs from project config with pincore stub fallback', functi
         ->and(SystemConfig::projectLayerConfigFile('domain'))->toBe($corePath . '/config/domain.config.php');
 
     deleteSystemConfigTestDirectory($projectConfig);
+    $baked = SystemConfig::pinkerConfigPath('app-router.config.php');
+    if (is_file($baked)) {
+        @unlink($baked);
+    }
 });
 
 it('merges platform manifest onto pincore runtime defaults', function () {

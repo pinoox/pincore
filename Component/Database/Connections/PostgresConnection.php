@@ -22,9 +22,27 @@ class PostgresConnection extends BaseConnection
 {
     use CreatesQueryGrammar;
 
-    public function query()
+    /**
+     * Get a new query builder instance.
+     *
+     * @return \Illuminate\Database\Query\Builder
+     */
+    public function query(): Builder
     {
         return new Builder($this, $this->getQueryGrammar(), $this->getPostProcessor());
+    }
+
+    /**
+     * Get the default query grammar instance.
+     *
+     * @return \Illuminate\Database\Query\Grammars\PostgresGrammar
+     */
+    protected function getDefaultQueryGrammar(): \Illuminate\Database\Query\Grammars\PostgresGrammar
+    {
+        /** @var \Illuminate\Database\Query\Grammars\PostgresGrammar $grammar */
+        $grammar = $this->createQueryGrammar();
+
+        return $grammar;
     }
 
     protected function queryGrammarClass(): string

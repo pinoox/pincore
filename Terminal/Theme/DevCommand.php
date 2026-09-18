@@ -74,7 +74,8 @@ class DevCommand extends Terminal
             ->addOption('share', null, InputOption::VALUE_NONE, 'Expose the server via a public tunnel (Cloudflare, Pinggy, ngrok, …)')
             ->addOption('share-provider', null, InputOption::VALUE_OPTIONAL, 'Tunnel provider: auto, pinggy, bore, cloudflare, serveo, localhostrun, tunnelmole, ngrok, localtunnel')
             ->addOption('share-password', null, InputOption::VALUE_OPTIONAL, 'Protect the share URL with a password')
-            ->addOption('share-expire', null, InputOption::VALUE_OPTIONAL, 'Auto-stop the tunnel after a duration (e.g. 2h, 30m, 60s)');
+            ->addOption('share-expire', null, InputOption::VALUE_OPTIONAL, 'Auto-stop the tunnel after a duration (e.g. 2h, 30m, 60s)')
+            ->addOption('workers', null, InputOption::VALUE_OPTIONAL, 'Worker processes for PHP CLI server (Linux/macOS/WSL; defaults to 4 on non-Windows)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -134,6 +135,7 @@ class DevCommand extends Terminal
             '--share-provider' => $input->getOption('share-provider') ?: null,
             '--share-password' => $input->getOption('share-password') ?: null,
             '--share-expire' => $input->getOption('share-expire') ?: null,
+            '--workers' => $input->getOption('workers') ?: null,
         ], static fn ($value) => $value !== null && $value !== false && $value !== '');
 
         return $command->run(new ArrayInput($arguments), $output);

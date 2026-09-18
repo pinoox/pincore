@@ -22,9 +22,27 @@ class MySqlConnection extends BaseConnection
 {
     use CreatesQueryGrammar;
 
-    public function query()
+    /**
+     * Get a new query builder instance.
+     *
+     * @return \Illuminate\Database\Query\Builder
+     */
+    public function query(): Builder
     {
         return new Builder($this, $this->getQueryGrammar(), $this->getPostProcessor());
+    }
+
+    /**
+     * Get the default query grammar instance.
+     *
+     * @return \Illuminate\Database\Query\Grammars\MySqlGrammar
+     */
+    protected function getDefaultQueryGrammar(): \Illuminate\Database\Query\Grammars\MySqlGrammar
+    {
+        /** @var \Illuminate\Database\Query\Grammars\MySqlGrammar $grammar */
+        $grammar = $this->createQueryGrammar();
+
+        return $grammar;
     }
 
     protected function queryGrammarClass(): string

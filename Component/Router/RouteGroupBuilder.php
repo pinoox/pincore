@@ -24,6 +24,13 @@ class RouteGroupBuilder
         return $builder;
     }
 
+    public function context(string $context): self
+    {
+        $this->attributes['context'] = $context;
+
+        return $this;
+    }
+
     public function prefix(string $prefix): self
     {
         $this->attributes['prefix'] = $prefix;

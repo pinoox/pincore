@@ -37,9 +37,8 @@ class Cache extends Portal
 
         if (($storeConfig['driver'] ?? $store) === 'redis') {
             $connection = (string) ($storeConfig['connection'] ?? 'cache');
-            self::__bind(RedisCacheStore::class)->setFactory(static function () use ($connection) {
-                return new RedisCacheStore(Redis::connection($connection));
-            });
+            self::__param('cache_redis_connection', $connection);
+            self::__bind(RedisCacheStore::class)->setFactory([self::class, 'createRedisStore']);
             static::__container()->setAlias(CacheInterface::class, self::__id());
 
             return;
@@ -67,9 +66,28 @@ class Cache extends Portal
 		static::__container()->setAlias(CacheInterface::class, self::__id());
 	}
 
+	/**
+	 * Container factory for RedisCacheStore (must be a public static callable).
+	 */
+	public static function createRedisStore(): RedisCacheStore
+	{
+		$connection = self::__container()->hasParameter('cache_redis_connection')
+			? (string) self::__container()->getParameter('cache_redis_connection')
+			: 'cache';
+
+		return new RedisCacheStore(Redis::connection($connection));
+	}
+
 	public static function __name(): string
 	{
 		return 'cache';
+	}
+
+	public static function __exclude(): array
+	{
+		return [
+			'createRedisStore',
+		];
 	}
 
 	public static function __callback(): array

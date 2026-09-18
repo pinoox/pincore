@@ -34,6 +34,19 @@ class PinooxExceptionRenderListener implements EventSubscriberInterface
 
         $debug = RuntimeMode::bootDebugEnabled();
         $request = $event->getRequest();
+        $throwable = $event->getThrowable();
+
+        try {
+            if (class_exists(\Pinoox\Portal\Logger::class)) {
+                \Pinoox\Portal\Logger::error($throwable->getMessage(), [
+                    'exception' => get_class($throwable),
+                    'file' => $throwable->getFile(),
+                    'line' => $throwable->getLine(),
+                    'trace' => $debug ? $throwable->getTraceAsString() : null,
+                ]);
+            }
+        } catch (\Throwable) {
+        }
 
         if (!$debug && $this->wantsJson($request)) {
             $event->setResponse(
@@ -51,7 +64,7 @@ class PinooxExceptionRenderListener implements EventSubscriberInterface
 
         $projectDir = ExceptionContext::collect()['project_root'];
         $renderer = new PinooxHtmlErrorRenderer($debug, null, null, $projectDir);
-        $flattened = $renderer->render($event->getThrowable());
+        $flattened = $renderer->render($throwable);
 
         $event->setResponse(new Response(
             $flattened->getAsString(),
