@@ -87,7 +87,8 @@ FOOTER
             ->addOption('share-provider', null, InputOption::VALUE_OPTIONAL, 'Tunnel provider: auto, pinggy, bore, cloudflare, serveo, localhostrun, tunnelmole, ngrok, localtunnel')
             ->addOption('share-guide', null, InputOption::VALUE_OPTIONAL, 'Show connection guide for a provider (or list all) without starting the server')
             ->addOption('share-password', null, InputOption::VALUE_OPTIONAL, 'Protect the share URL with a password')
-            ->addOption('share-expire', null, InputOption::VALUE_OPTIONAL, 'Auto-stop the tunnel after a duration (e.g. 2h, 30m, 60s)');
+            ->addOption('share-expire', null, InputOption::VALUE_OPTIONAL, 'Auto-stop the tunnel after a duration (e.g. 2h, 30m, 60s)')
+            ->addOption('workers', null, InputOption::VALUE_OPTIONAL, 'Worker processes for PHP CLI server (Linux/macOS/WSL; defaults to 4 on non-Windows)');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output): int
@@ -178,6 +179,9 @@ FOOTER
             }
         }
 
+        $workers = $input->getOption('workers');
+        $workers = is_numeric($workers) && (int) $workers > 0 ? (int) $workers : null;
+
         $server = new DevelopmentServer(
             host: $host,
             explicitPort: $resolvedPort,
@@ -192,6 +196,7 @@ FOOTER
             sharePassword: is_string($sharePassword) && $sharePassword !== '' ? $sharePassword : null,
             shareExpire: $input->getOption('share-expire') ?: null,
             shareProvider: $shareProvider,
+            workers: $workers,
         );
 
         if (!(bool) $input->getOption('no-inspector') && InspectorRuntime::isAvailable()) {
