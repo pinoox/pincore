@@ -53,17 +53,6 @@ class RateLimiter extends Portal
 {
     public static function __register(): void
     {
-        $prefix = 'pinoox_rate:';
-
-        try {
-            $config = Config::name('~rate_limiter')->get() ?? [];
-            if (is_array($config) && isset($config['prefix'])) {
-                $prefix = (string) $config['prefix'];
-            }
-        } catch (\Throwable) {
-            // Use default prefix when config is unavailable.
-        }
-
         // Symfony DI setFactory() rejects Closures — use a callable reference.
         self::__bind(RateLimiterComponent::class)->setFactory([self::class, 'createRateLimiter']);
     }

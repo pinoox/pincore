@@ -4,6 +4,7 @@
 
 # Baker cache & build output (~pinker)
 pinker/
+.pinoox/
 
 # Writable storage (logs, cache, sessions) — root only (not Component/Storage, Terminal/Storage)
 /storage/
