@@ -29,7 +29,11 @@ class Token implements BootInterface
 
     public static function __boot()
     {
-        self::deleteAllExpired();
+        // Avoid running an unindexed DELETE query on every HTTP request.
+        // Purge expired tokens probabilistically (1 in 500 requests) or via CLI `pinx token:purge`.
+        if (mt_rand(1, 500) === 1) {
+            self::deleteAllExpired();
+        }
     }
 
     public static function deleteAllExpired()

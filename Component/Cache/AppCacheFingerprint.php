@@ -25,15 +25,24 @@ class AppCacheFingerprint
      */
     public static function isFresh(string $package, string $store, array $files): bool
     {
+        $storePath = AppCachePath::store($package, $store);
+        if (!PhpCacheFile::exists($storePath)) {
+            return false;
+        }
+
         $meta = AppCacheManifest::storeMeta($package, $store);
         if ($meta === null) {
             return false;
         }
 
+        // In production mode, pre-baked caches are trusted without scanning disk for sha1 checksums on every request
+        if (AppCacheConfig::resolve($package)['mode'] === AppCacheConfig::MODE_PRODUCTION) {
+            return true;
+        }
+
         $checksum = self::files($files);
 
-        return ($meta['checksum'] ?? '') === $checksum
-            && PhpCacheFile::exists(AppCachePath::store($package, $store));
+        return ($meta['checksum'] ?? '') === $checksum;
     }
 }
 
