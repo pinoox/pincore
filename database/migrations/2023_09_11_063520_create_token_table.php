@@ -42,6 +42,7 @@ return new class extends MigrationBase
             $table->index('user_id');
             $table->index('token_type');
             $table->index(['user_id', 'token_type']);
+            $table->index('expiration_date');
             $table->foreign('user_id')->references('user_id')->on(Table::USER)->onDelete('set null')->onUpdate('cascade');
         });
     }

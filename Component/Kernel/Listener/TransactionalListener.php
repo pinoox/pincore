@@ -25,6 +25,7 @@ use Symfony\Component\HttpKernel\KernelEvents;
 class TransactionalListener implements EventSubscriberInterface
 {
     private ?DatabaseManager $db;
+    private static array $transactionalCache = [];
 
     public function __construct(?DatabaseManager $db)
     {
@@ -43,20 +44,28 @@ class TransactionalListener implements EventSubscriberInterface
     private function hasTransactional($controller): bool
     {
         if ($controller instanceof \Closure) {
-            if ($this->hasTransactionalAttribute(new \ReflectionFunction($controller)))
-                return true;
+            return $this->hasTransactionalAttribute(new \ReflectionFunction($controller));
         }
 
         if (is_array($controller)) {
             $class = $controller[0] ?? $controller;
-
-            if ($this->hasTransactionalAttribute(new \ReflectionClass($class)))
-                return true;
-
+            $className = is_object($class) ? get_class($class) : (string) $class;
             $method = $controller[1] ?? null;
+            $cacheKey = $className . '@' . ($method ?? '');
 
-            if ($method && $this->hasTransactionalAttribute(new \ReflectionMethod($class, $method)))
-                return true;
+            if (isset(self::$transactionalCache[$cacheKey])) {
+                return self::$transactionalCache[$cacheKey];
+            }
+
+            if ($this->hasTransactionalAttribute(new \ReflectionClass($className))) {
+                return self::$transactionalCache[$cacheKey] = true;
+            }
+
+            if ($method && $this->hasTransactionalAttribute(new \ReflectionMethod($className, $method))) {
+                return self::$transactionalCache[$cacheKey] = true;
+            }
+
+            return self::$transactionalCache[$cacheKey] = false;
         }
 
         return false;

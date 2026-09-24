@@ -83,7 +83,7 @@ final class SessionStarter
      */
     public static function release(Request $request): void
     {
-        if (PHP_SAPI === 'cli' || !$request->hasSession()) {
+        if (!$request->hasSession()) {
             return;
         }
 
