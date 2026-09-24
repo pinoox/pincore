@@ -24,6 +24,7 @@ class SubAppRouteBuilder
     private array $data = [];
     private array $tags = [];
     private array $options = [];
+    private ?int $priority = 2000;
     private bool $registered = false;
 
     public function __construct(
@@ -52,6 +53,13 @@ class SubAppRouteBuilder
     public function flows(array $flows): self
     {
         $this->flows = array_unique(array_merge($this->flows, $flows));
+
+        return $this;
+    }
+
+    public function priority(?int $priority): self
+    {
+        $this->priority = $priority;
 
         return $this;
     }
@@ -140,6 +148,10 @@ class SubAppRouteBuilder
                 ->data($data)
                 ->tags($this->tags);
 
+            if ($this->priority !== null) {
+                $builder->priority($this->priority);
+            }
+
             if ($this->name !== '') {
                 $builder->name($this->name);
             }
@@ -151,6 +163,10 @@ class SubAppRouteBuilder
                 ->flows($this->flows)
                 ->data($data)
                 ->tags($this->tags);
+
+            if ($this->priority !== null) {
+                $builder->priority($this->priority);
+            }
 
             if ($this->name !== '') {
                 $builder->name($this->name);

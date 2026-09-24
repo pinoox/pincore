@@ -78,3 +78,6 @@ package-lock.json
 .DS_Store
 Thumbs.db
 *.log
+
+# Local dev runtime
+.pinoox/

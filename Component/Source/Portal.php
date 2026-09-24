@@ -132,10 +132,10 @@ abstract class Portal
      */
     final protected static function __lifecycleKey(): string
     {
-        $app = static::__app();
+        $app = static::__app() ?? static::__package();
 
         if ($app !== null && $app !== '' && $app !== '~') {
-            return static::__id();
+            return $app . ':' . static::__id();
         }
 
         return static::class;
@@ -681,7 +681,8 @@ abstract class Portal
      */
     final public static function __container(): ContainerBuilder
     {
-        return Str::firstHas(static::class, 'App') ? Container::app() : Container::platform();
+        $pkg = static::__package() ?? static::__app();
+        return Str::firstHas(static::class, 'App') ? Container::app($pkg) : Container::platform();
     }
 
     /**
