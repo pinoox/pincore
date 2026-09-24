@@ -3,7 +3,7 @@
 namespace Pinoox\Component\Server;
 
 /**
- * Tracks running Pinoox dev server instances across projects.
+ * Tracks running and registered Pinoox dev server instances across projects.
  *
  * Allows cross-app discovery in local development without hardcoding ports or URLs.
  */
@@ -93,14 +93,17 @@ class AppDevRegistry
         $url = self::formatUrl($host, $port, $domain, $secure);
 
         $entries = self::readAll();
+        $normalizedPath = $path !== null ? rtrim(str_replace('\\', '/', $path), '/') : ($entries[$package]['path'] ?? null);
+
         $entries[$package] = [
             'package' => $package,
             'host' => $host,
             'port' => $port,
             'domain' => $domain,
             'url' => $url,
-            'path' => $path !== null ? rtrim(str_replace('\\', '/', $path), '/') : null,
+            'path' => $normalizedPath,
             'pid' => $pid ?? (int) getmypid(),
+            'is_running' => true,
             'updated_at' => time(),
         ];
 
@@ -108,7 +111,9 @@ class AppDevRegistry
     }
 
     /**
-     * Unregister an app instance.
+     * Unregister an app instance on server shutdown.
+     * Retains the project directory path in the registry so SubApps can continue
+     * executing in-process from local code even when the dev server is offline.
      */
     public static function unregister(string $package): void
     {
@@ -119,50 +124,69 @@ class AppDevRegistry
 
         $entries = self::readAll();
         if (isset($entries[$package])) {
-            unset($entries[$package]);
+            $path = $entries[$package]['path'] ?? null;
+            if ($path !== null && is_dir($path)) {
+                $entries[$package]['is_running'] = false;
+                $entries[$package]['pid'] = null;
+                $entries[$package]['url'] = null;
+                $entries[$package]['port'] = null;
+                $entries[$package]['updated_at'] = time();
+            } else {
+                unset($entries[$package]);
+            }
             self::writeAll($entries);
         }
     }
 
     /**
-     * Get an app's registered information if alive.
+     * Get an app's registered information.
+     *
+     * @param string $package
+     * @param bool $mustBeRunning When true, only returns if dev server process is actively alive.
      */
-    public static function get(string $package): ?array
+    public static function get(string $package, bool $mustBeRunning = false): ?array
     {
         $package = trim($package);
         if ($package === '') {
             return null;
         }
 
-        $entries = self::all();
+        $entries = self::all($mustBeRunning);
 
         return $entries[$package] ?? null;
     }
 
     /**
-     * Get the live origin URL for a package.
+     * Get the live origin URL for a package if its dev server is actively running.
      */
     public static function url(string $package): ?string
     {
-        $entry = self::get($package);
+        $entry = self::get($package, true);
 
         return $entry['url'] ?? null;
     }
 
     /**
-     * Get the live directory path for a package if registered and alive.
+     * Get the local directory path for a package if registered (running or offline) and directory exists.
      */
     public static function path(string $package): ?string
     {
-        $entry = self::get($package);
+        $entry = self::get($package, false);
+        $path = $entry['path'] ?? null;
 
-        return $entry['path'] ?? null;
+        if (is_string($path) && $path !== '' && is_dir($path)) {
+            return $path;
+        }
+
+        return null;
     }
 
     /**
-     * Return all active and verified running apps.
+     * Return registered apps.
+     *
+     * @param bool $runningOnly When true, returns only currently alive dev servers.
      */
-    public static function all(): array
+    public static function all(bool $runningOnly = false): array
     {
         $entries = self::readAll();
         $alive = [];
@@ -170,24 +194,59 @@ class AppDevRegistry
 
         foreach ($entries as $package => $entry) {
             $pid = (int) ($entry['pid'] ?? 0);
-            if ($pid > 0 && !self::isProcessAlive($pid)) {
-                $changed = true;
-                continue;
+            $path = $entry['path'] ?? null;
+            $hasValidPath = is_string($path) && $path !== '' && is_dir($path);
+            $isAlive = $pid > 0 && self::isProcessAlive($pid);
+
+            if (!$isAlive) {
+                if ($hasValidPath) {
+                    if (!empty($entry['is_running']) || $pid > 0 || !empty($entry['url'])) {
+                        $entries[$package]['is_running'] = false;
+                        $entries[$package]['pid'] = null;
+                        $entries[$package]['url'] = null;
+                        $entries[$package]['port'] = null;
+                        $entries[$package]['updated_at'] = time();
+                        $changed = true;
+                    }
+                } else {
+                    unset($entries[$package]);
+                    $changed = true;
+                    continue;
+                }
+            } else {
+                if (empty($entry['is_running'])) {
+                    $entries[$package]['is_running'] = true;
+                    $changed = true;
+                }
             }
 
-            $alive[$package] = $entry;
+            if ($runningOnly) {
+                if ($isAlive) {
+                    $alive[$package] = $entries[$package];
+                }
+            } else {
+                $alive[$package] = $entries[$package];
+            }
         }
 
         if ($changed) {
-            self::writeAll($alive);
+            self::writeAll($entries);
         }
 
-        return $alive;
+        return $runningOnly ? $alive : $entries;
+    }
+
+    /**
+     * Return only actively running dev server instances.
+     */
+    public static function running(): array
+    {
+        return self::all(true);
     }
 
     public static function purgeStale(): void
     {
-        self::all();
+        self::all(false);
     }
 
     public static function clear(): void

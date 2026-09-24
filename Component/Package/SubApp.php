@@ -371,6 +371,17 @@ class SubApp
 
         $candidates = [];
 
+        // 1) AppDevRegistry (cross-app discovery via global ~/.pinoox/dev_apps.json)
+        try {
+            if (class_exists(\Pinoox\Component\Server\AppDevRegistry::class)) {
+                $devPath = \Pinoox\Component\Server\AppDevRegistry::path($package);
+                if (!empty($devPath)) {
+                    $candidates[] = $devPath;
+                }
+            }
+        } catch (\Throwable) {
+        }
+
         // 1) Relative to active host app
         try {
             $hostApp = App::path();

@@ -397,12 +397,16 @@ class DevelopmentServer
                     $this->renderStartupBanner();
 
                     // Register this server instance in the dev registry
-                    if ($this->serveApp !== null && $this->serveApp !== '') {
-                        $package = $this->serveApp;
+                    $package = $this->serveApp;
+                    if (($package === null || $package === '') && class_exists(\Pinoox\Support\DevApp::class)) {
+                        $package = \Pinoox\Support\DevApp::package($this->documentRoot);
+                    }
+
+                    if ($package !== null && $package !== '' && $package !== 'platform') {
                         $host = $this->host;
                         $port = $this->port();
                         $domain = $this->domain;
-                        $path = $this->resolveAppPath($package);
+                        $path = $this->resolveAppPath($package) ?: $this->documentRoot;
                         AppDevRegistry::register($package, $host, $port, null, $domain, false, $path);
                         register_shutdown_function(static function () use ($package): void {
                             AppDevRegistry::unregister($package);
