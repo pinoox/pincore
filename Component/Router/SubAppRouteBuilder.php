@@ -43,6 +43,43 @@ class SubAppRouteBuilder
         return $this;
     }
 
+    /**
+     * Specify selective route file(s) for the sub-app mount instead of loading all default routes.
+     *
+     * @param string|list<string> $routeFiles
+     */
+    public function routes(string|array $routeFiles): self
+    {
+        $this->options['routes'] = is_array($routeFiles) ? $routeFiles : [$routeFiles];
+
+        return $this;
+    }
+
+    /**
+     * Filter mounted sub-app routes to only include routes having specified tag(s) or context(s).
+     *
+     * @param array<string>|string $tagsOrContexts
+     */
+    public function only(array|string $tagsOrContexts): self
+    {
+        $tags = is_array($tagsOrContexts) ? $tagsOrContexts : [$tagsOrContexts];
+        $this->options['only_tags'] = array_values(array_filter(array_map('trim', $tags)));
+
+        return $this;
+    }
+
+    /**
+     * Pass contextual data or lazy callbacks to the sub-app layer.
+     *
+     * @param array<string, mixed> $context
+     */
+    public function context(array $context): self
+    {
+        $this->options['context'] = array_merge($this->options['context'] ?? [], $context);
+
+        return $this;
+    }
+
     public function shareAuth(bool $share = true): self
     {
         $this->options['share_auth'] = $share;

@@ -123,3 +123,18 @@ if (!function_exists('sub_app_path')) {
         return \Pinoox\Component\Package\SubApp::path($package, $path);
     }
 }
+
+if (!function_exists('sub_app_mount_path')) {
+    function sub_app_mount_path(): string
+    {
+        return \Pinoox\Portal\App\App::mountPath();
+    }
+}
+
+if (!function_exists('sub_app_base_url')) {
+    function sub_app_base_url(): string
+    {
+        return \Pinoox\Portal\App\App::subAppBaseUrl();
+    }
+}
+

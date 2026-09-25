@@ -25,14 +25,17 @@ abstract class AuthFlow extends Flow
     {
         $route = $request->attributes->get('_router');
 
-        if ($this->validate($request, $route) && $this->checkExcludeRequestUri($request, $route) && $this->checkIncludeRequestUri($request, $route) && Auth::guest()) {
-
-            $exit = $this->exit(
-                $request,
-                $route,
-            );
-            if ($exit !== true && !is_null($exit)) {
-                return $exit;
+        if ($this->validate($request, $route) && $this->checkExcludeRequestUri($request, $route) && $this->checkIncludeRequestUri($request, $route)) {
+            if (Auth::guest()) {
+                $exit = $this->unauthenticated($request, $route);
+                if ($exit !== true && !is_null($exit)) {
+                    return $exit;
+                }
+            } elseif (!$this->authorize($request, $route)) {
+                $exit = $this->forbidden($request, $route);
+                if ($exit !== true && !is_null($exit)) {
+                    return $exit;
+                }
             }
         }
 
@@ -82,5 +85,70 @@ abstract class AuthFlow extends Flow
         return true;
     }
 
-    abstract protected function exit(Request $request, Route $route);
+    /**
+     * Check if the authenticated user has access to the requested route/resource.
+     */
+    protected function authorize(Request $request, ?Route $route): bool
+    {
+        return true;
+    }
+
+    /**
+     * Handle unauthenticated guest access (401 / redirect).
+     */
+    protected function unauthenticated(Request $request, ?Route $route)
+    {
+        if ($route instanceof Route) {
+            return $this->exit($request, $route);
+        }
+
+        return $this->defaultUnauthenticated($request);
+    }
+
+    /**
+     * Handle forbidden access for authenticated users failing authorize() (403).
+     */
+    protected function forbidden(Request $request, ?Route $route)
+    {
+        $message = 'Access denied!';
+
+        if ($this->wantsJson($request)) {
+            return response()->json([
+                'status' => 'error',
+                'code' => 403,
+                'message' => $message,
+            ], 403);
+        }
+
+        return response($message, 403);
+    }
+
+    /**
+     * Backward-compatible exit hook.
+     */
+    protected function exit(Request $request, Route $route)
+    {
+        return $this->defaultUnauthenticated($request);
+    }
+
+    protected function defaultUnauthenticated(Request $request)
+    {
+        $message = 'Unauthorized!';
+
+        if ($this->wantsJson($request)) {
+            return response()->json([
+                'status' => 'error',
+                'code' => 401,
+                'message' => $message,
+            ], 401);
+        }
+
+        return response($message, 401);
+    }
+
+    protected function wantsJson(Request $request): bool
+    {
+        return str_starts_with($request->getPathInfo(), '/api')
+            || str_contains(strtolower($request->headers->get('Accept', '')), 'json');
+    }
 }

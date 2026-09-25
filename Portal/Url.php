@@ -40,6 +40,8 @@ use Pinoox\Portal\App\AppRouter;
  * @method static string sitePath()
  * @method static string routeSegment(?string $package = NULL)
  * @method static string appPath(?string $package = NULL)
+ * @method static string mountPath()
+ * @method static string subAppBaseUrl()
  * @method static \Pinoox\Component\Path\UrlAccessor accessor(?string $package = NULL)
  * @method static \Pinoox\Component\Path\ThemeAccessor themeAccessor(?string $name = NULL, ?string $package = NULL)
  * @method static \Pinoox\Component\Path\AppAccessor appAccessor(?string $package = NULL)

@@ -164,12 +164,20 @@ class AppEngine implements EngineInterface
         $path = $this->buildPath($path);
         $routes = $this->webRouteFiles($this->config($packageName)->get('router.routes'));
         $routes = $this->withCoreFileRoutes($routes, $packageName);
-        if (empty($this->router[$packageName][$path])) {
-            $this->router[$packageName][$path] = \Pinoox\Portal\Router::build($path, $routes);
-            AppBootstrap::applyRoutes($packageName, $this->router[$packageName][$path], false);
+        $onlyTags = $this->config($packageName)->get('router.only_tags');
+
+        $cacheKey = $path . '@' . md5(json_encode($routes) . ':' . json_encode($onlyTags));
+        if (empty($this->router[$packageName][$cacheKey])) {
+            $router = \Pinoox\Portal\Router::build($path, $routes);
+            AppBootstrap::applyRoutes($packageName, $router, false);
+            if (!empty($onlyTags)) {
+                $router->filterByTags((array) $onlyTags);
+            }
             self::warmRouteCache($packageName);
+            $this->router[$packageName][$cacheKey] = $router;
+            $this->router[$packageName][$path] ??= $router;
         }
-        return $this->router[$packageName][$path];
+        return $this->router[$packageName][$cacheKey];
     }
 
     /**

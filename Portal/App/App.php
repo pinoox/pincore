@@ -26,6 +26,7 @@ use Pinoox\Component\Source\Portal;
 use Pinoox\Component\Store\Config\ConfigInterface as ObjectPortal5;
 use Pinoox\Component\Store\Config\Data\DataManager as ObjectPortal10;
 use Pinoox\Component\Translator\Translator as ObjectPortal8;
+use Pinoox\Flow\AccessFlow;
 use Pinoox\Flow\CorsFlow;
 use Pinoox\Flow\RemoveTrailingSlashFlow;
 use Pinoox\Flow\ResolveFlow;
@@ -41,11 +42,15 @@ use Symfony\Component\Routing\RequestContext;
  * @method static string|null pathRoute()
  * @method static AppLayer current()
  * @method static App setLayer(\Pinoox\Component\Package\AppLayer $appLayer)
- * @method static mixed meeting(string $packageName, \Closure $closure, string $path = '')
+ * @method static mixed meeting(string $packageName, \Closure $closure, string $path = '', array $context = [])
  * @method static bool isSubApp()
  * @method static ?string parent()
  * @method static bool isSubAppOf(string|array $packages)
  * @method static mixed context(?string $key = NULL, mixed $default = NULL)
+ * @method static mixed resolveContext(?string $key = NULL, mixed $default = NULL)
+ * @method static mixed rawContext(?string $key = NULL, mixed $default = NULL)
+ * @method static string mountPath()
+ * @method static string subAppBaseUrl()
  * @method static bool exists(string $packageName)
  * @method static bool stable(string $packageName)
  * @method static mixed get(?string $value = NULL)
@@ -115,6 +120,7 @@ class App extends Portal
             'throttle' => ThrottleFlow::class,
             'cors' => CorsFlow::class,
             'resolve' => ResolveFlow::class,
+            'access' => AccessFlow::class,
         ];
     }
 

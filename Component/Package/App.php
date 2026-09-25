@@ -98,7 +98,39 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
 
     public function context(?string $key = null, mixed $default = null): mixed
     {
-        return $this->appLayer?->context($key, $default) ?? $default;
+        return $this->appLayer?->context($key, $default) ?? (
+            ($default instanceof \Closure || (!is_string($default) && is_callable($default))) ? $default() : $default
+        );
+    }
+
+    public function resolveContext(?string $key = null, mixed $default = null): mixed
+    {
+        return $this->context($key, $default);
+    }
+
+    public function rawContext(?string $key = null, mixed $default = null): mixed
+    {
+        return $this->appLayer?->rawContext($key, $default) ?? $default;
+    }
+
+    public function mountPath(): string
+    {
+        $mountPath = $this->rawContext('mount_path');
+        if (is_string($mountPath) && $mountPath !== '') {
+            return '/' . ltrim($mountPath, '/');
+        }
+
+        $path = $this->pathRoute();
+        return !empty($path) ? '/' . ltrim($path, '/') : '/';
+    }
+
+    public function subAppBaseUrl(): string
+    {
+        try {
+            return \Pinoox\Portal\Url::forApp($this->package());
+        } catch (\Throwable) {
+            return $this->mountPath();
+        }
     }
 
     public function isSubApp(): bool
@@ -120,22 +152,23 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
      * @param string $packageName
      * @param Closure $closure
      * @param string $path
+     * @param array<string, mixed> $context
      * @return mixed
      * @throws Exception
      */
-    public function meeting(string $packageName, Closure $closure, string $path = ''): mixed
+    public function meeting(string $packageName, Closure $closure, string $path = '', array $context = []): mixed
     {
         if (!$this->exists($packageName))
             throw new Exception('package `' . $packageName . '` not found!');
 
-        $mainLayer = new AppLayer($this->appLayer->getPath(), $this->appLayer->getPackageName(), $this->appLayer->context());
+        $mainLayer = new AppLayer($this->appLayer->getPath(), $this->appLayer->getPackageName(), $this->appLayer->rawContext());
 
         $hostPackage = $this->appLayer->getPackageName();
 
-        $meetingContext = array_merge($this->appLayer->context(), [
+        $meetingContext = array_merge($this->appLayer->rawContext(), [
             'is_sub_app' => true,
             'parent_app' => $hostPackage,
-        ]);
+        ], $context);
 
         $this->setLayer(new AppLayer($path, $packageName, $meetingContext));
         if (!is_callable($closure))

@@ -8,6 +8,7 @@ use Pinoox\Component\Template\Theme\ThemeContext;
 use Pinoox\Component\Template\Theme\ThemeContextRegistry;
 use Pinoox\Component\User\AuthConfig;
 use Pinoox\Portal\App\App;
+use Pinoox\Portal\SubApp;
 use Pinoox\Portal\Url;
 use Pinoox\Portal\View;
 
@@ -47,6 +48,17 @@ final class PinooxScriptHelper
                 'APP_ICON' => $url['appIcon'],
             ],
         ];
+
+        if (SubApp::isSubApp()) {
+            $defaults['url']['MOUNT_PATH'] = App::mountPath();
+            $defaults['url']['SUB_APP_BASE'] = App::subAppBaseUrl();
+            $defaults['sub_app'] = [
+                'is_sub_app' => true,
+                'mount_path' => App::mountPath(),
+                'base_url' => App::subAppBaseUrl(),
+                'parent' => SubApp::parent(),
+            ];
+        }
 
         $contextPath = self::activeContextPath();
         if ($contextPath !== null && $contextPath !== '') {

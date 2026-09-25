@@ -55,15 +55,47 @@ class AppLayer
     }
 
     /**
-     * @return array<string, mixed>
+     * @return mixed
      */
     public function context(?string $key = null, mixed $default = null): mixed
+    {
+        if ($key === null) {
+            $resolved = [];
+            foreach ($this->context as $k => $v) {
+                $resolved[$k] = $this->resolveValue($v);
+            }
+
+            return $resolved;
+        }
+
+        if (!array_key_exists($key, $this->context)) {
+            return $this->resolveValue($default);
+        }
+
+        return $this->resolveValue($this->context[$key]);
+    }
+
+    public function resolveContext(?string $key = null, mixed $default = null): mixed
+    {
+        return $this->context($key, $default);
+    }
+
+    public function rawContext(?string $key = null, mixed $default = null): mixed
     {
         if ($key === null) {
             return $this->context;
         }
 
         return $this->context[$key] ?? $default;
+    }
+
+    private function resolveValue(mixed $value): mixed
+    {
+        if ($value instanceof \Closure || (!is_string($value) && is_callable($value))) {
+            return $value();
+        }
+
+        return $value;
     }
 
     public function matchedBy(): ?string
