@@ -72,9 +72,23 @@ class SubApp
             Auth::boot();
         }
 
-        $hasConfig = !empty($options['config']) && is_array($options['config']);
+        $normalizedMountPath = '/' . ltrim($mountPath, '/');
+        $subAppContext = array_merge([
+            'mount_path' => $normalizedMountPath,
+            'sub_app_base' => $layerPath,
+        ], $options['context'] ?? []);
+
+        $configOverrides = !empty($options['config']) && is_array($options['config']) ? $options['config'] : [];
+        if (!empty($options['routes'])) {
+            $configOverrides['router']['routes'] = (array) $options['routes'];
+        }
+        if (!empty($options['only_tags'])) {
+            $configOverrides['router']['only_tags'] = (array) $options['only_tags'];
+        }
+
+        $hasConfig = !empty($configOverrides);
         if ($hasConfig) {
-            AppEngine::pushConfig($package, $options['config']);
+            AppEngine::pushConfig($package, $configOverrides);
         }
 
         $request ??= AppProvider::getRequest();
@@ -82,8 +96,11 @@ class SubApp
         $subRequest->clearSession();
         $subRequest->attributes = new ParameterBag();
 
+        $subAppBaseUrl = null;
+
         try {
-            $response = App::meeting($package, static function () use ($subRequest, $options) {
+            $response = App::meeting($package, static function () use ($subRequest, $options, &$subAppBaseUrl) {
+                $subAppBaseUrl = App::subAppBaseUrl();
                 $attributes = $options['attributes'] ?? [];
                 if ($attributes === []) {
                     $attributes = App::router()->matchRequest($subRequest);
@@ -92,11 +109,21 @@ class SubApp
                 $subRequest->attributes->add($attributes);
 
                 return AppProvider::handle($subRequest, HttpKernelInterface::SUB_REQUEST);
-            }, $layerPath);
+            }, $layerPath, $subAppContext);
 
-            return $response instanceof Response
+            $resp = $response instanceof Response
                 ? $response
                 : new Response((string) $response->getContent(), $response->getStatusCode(), $response->headers->all());
+
+            $resp->headers->set('X-SubApp-Mount-Path', $normalizedMountPath);
+            if ($subAppBaseUrl !== null) {
+                $resp->headers->set('X-SubApp-Base-Url', $subAppBaseUrl);
+            }
+            if ($hostPackage !== '') {
+                $resp->headers->set('X-SubApp-Parent', $hostPackage);
+            }
+
+            return $resp;
         } catch (Throwable $e) {
             if (!empty($options['throw_on_error'])) {
                 throw $e;
@@ -107,6 +134,22 @@ class SubApp
                 AppEngine::popConfig($package);
             }
         }
+    }
+
+    /**
+     * Get the relative mount path of the current sub-app (e.g. '/pay').
+     */
+    public static function mountPath(): string
+    {
+        return App::mountPath();
+    }
+
+    /**
+     * Get the base URL of the current sub-app.
+     */
+    public static function baseUrl(): string
+    {
+        return App::subAppBaseUrl();
     }
 
     /**
@@ -237,11 +280,21 @@ class SubApp
     }
 
     /**
-     * Read a context value for the active app layer.
+     * Read and lazily resolve a context value for the active app layer.
      */
     public static function context(?string $key = null, mixed $default = null): mixed
     {
         return App::context($key, $default);
+    }
+
+    public static function resolveContext(?string $key = null, mixed $default = null): mixed
+    {
+        return App::resolveContext($key, $default);
+    }
+
+    public static function rawContext(?string $key = null, mixed $default = null): mixed
+    {
+        return App::rawContext($key, $default);
     }
 
     /**

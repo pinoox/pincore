@@ -214,6 +214,22 @@ class Url implements UrlInterface
     }
 
     /**
+     * Relative mount path for the current sub-app or active app.
+     */
+    public function mountPath(): string
+    {
+        return $this->app->mountPath();
+    }
+
+    /**
+     * Absolute or resolved base URL for the active sub-app.
+     */
+    public function subAppBaseUrl(): string
+    {
+        return $this->app->subAppBaseUrl();
+    }
+
+    /**
      * Download URL for a stored file (auto public disk vs private dispatcher).
      */
     public function file(int|string|\Pinoox\Model\FileModel|null $file): ?string

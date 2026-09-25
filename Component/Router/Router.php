@@ -590,6 +590,43 @@ class Router
     }
 
     /**
+     * Filter router routes and retain only those matching at least one of the given tags.
+     *
+     * @param list<string> $tags
+     */
+    public function filterByTags(array $tags): static
+    {
+        $allowed = array_map('strval', $tags);
+        $routeCollection = $this->getCollection()->routes;
+        foreach ($routeCollection->all() as $name => $route) {
+            $routeTags = $route->getDefault('_tags') ?? [];
+            if (!is_array($routeTags)) {
+                $routeTags = [$routeTags];
+            }
+            $pRoute = $route->getDefault('_router');
+            if ($pRoute instanceof Route && !empty($pRoute->tags)) {
+                $routeTags = array_unique(array_merge($routeTags, $pRoute->tags));
+            }
+
+            $matched = false;
+            foreach ($routeTags as $tag) {
+                if (in_array((string) $tag, $allowed, true)) {
+                    $matched = true;
+                    break;
+                }
+            }
+
+            if (!$matched) {
+                $routeCollection->remove($name);
+                unset($this->actions[$name]);
+                unset($this->actionMeta[$name]);
+            }
+        }
+
+        return $this;
+    }
+
+    /**
      * @param string|array|null $routes
      */
     private function finalizeAfterBuild(string|array|null $routes): void

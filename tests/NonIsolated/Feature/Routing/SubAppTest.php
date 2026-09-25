@@ -29,6 +29,11 @@ afterEach(function () {
         deleteFakeApp('com_test_fluent_sub');
         deleteFakeApp('com_test_host_app');
         deleteFakeApp('com_inner_sub');
+        deleteFakeApp('com_test_selective_routes');
+        deleteFakeApp('com_test_tagged_routes');
+        deleteFakeApp('com_test_subapp_mount_path');
+        deleteFakeApp('com_test_subapp_lazy');
+        deleteFakeApp('com_test_fluent_mount');
     } catch (\Throwable) {
     }
 
@@ -389,4 +394,223 @@ it('provides sub_app_path helper function in PHP and Twig', function () {
         ->and(rtrim(str_replace('\\', '/', $paths['twig_current']), '/'))->toBe($expectedWelcomePath)
         ->and(rtrim(str_replace('\\', '/', $paths['twig_welcome']), '/'))->toBe($expectedWelcomePath);
 });
+
+it('supports lazy evaluation with closures in AppLayer context and App context', function () {
+    pinooxBoot();
+
+    fakeApp('com_test_subapp_lazy', [
+        'app.php' => "<?php return ['package' => 'com_test_subapp_lazy', 'enable' => true];",
+        'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+use Pinoox\Portal\App\App;
+
+get('/lazy-check', function () {
+    return response(json_encode([
+        'evaluated_admin' => App::context('is_admin'),
+        'evaluated_count' => App::context('counter'),
+        'static_text' => App::context('static_text'),
+        'lazy_default' => App::context('non_existent', fn () => 'default_closure'),
+    ]), 200, ['Content-Type' => 'application/json']);
+});
+",
+    ]);
+
+    App::___()->setLayer(new AppLayer('/manager', 'com_pinoox_manager'));
+
+    $callCount = 0;
+    $request = Request::create('http://localhost/manager/sub/lazy-check');
+    $response = SubApp::run('com_test_subapp_lazy', 'sub', $request, [
+        'context' => [
+            'is_admin' => fn () => true,
+            'counter' => function () use (&$callCount) {
+                return ++$callCount;
+            },
+            'static_text' => 'hello_pinoox',
+        ],
+    ]);
+
+    expect($response->getStatusCode())->toBe(200);
+    $data = json_decode($response->getContent(), true);
+
+    expect($data['evaluated_admin'])->toBeTrue()
+        ->and($data['evaluated_count'])->toBe(1)
+        ->and($data['static_text'])->toBe('hello_pinoox')
+        ->and($data['lazy_default'])->toBe('default_closure');
+});
+
+it('selectively mounts routes from specified file using ->routes()', function () {
+    pinooxBoot();
+
+    fakeApp('com_test_selective_routes', [
+        'app.php' => "<?php return [
+            'package' => 'com_test_selective_routes',
+            'enable' => true,
+            'router' => ['routes' => ['routes/web.php']],
+        ];",
+        'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+get('/default', fn () => response('default_loaded'));
+",
+        'routes/site/web.php' => "<?php
+use function Pinoox\Router\get;
+get('/site-only', fn () => response('site_routes_loaded'));
+",
+        'routes/panel/web.php' => "<?php
+use function Pinoox\Router\get;
+get('/panel-only', fn () => response('panel_routes_loaded'));
+",
+    ]);
+
+    App::___()->setLayer(new AppLayer('/shop', 'com_shop'));
+
+    // Mount site routes under /site-pay
+    $reqSite = Request::create('http://localhost/shop/site-pay/site-only');
+    $respSite = SubApp::run('com_test_selective_routes', 'site-pay', $reqSite, [
+        'routes' => 'routes/site/web.php',
+    ]);
+    expect($respSite->getStatusCode())->toBe(200)
+        ->and($respSite->getContent())->toBe('site_routes_loaded');
+
+    // Panel route should NOT be found on site-pay mount
+    $reqPanelOnSite = Request::create('http://localhost/shop/site-pay/panel-only');
+    expect(fn () => SubApp::run('com_test_selective_routes', 'site-pay', $reqPanelOnSite, [
+        'routes' => 'routes/site/web.php',
+    ]))->toThrow(\RuntimeException::class);
+
+    // Mount panel routes under /panel-pay
+    $reqPanel = Request::create('http://localhost/shop/panel-pay/panel-only');
+    $respPanel = SubApp::run('com_test_selective_routes', 'panel-pay', $reqPanel, [
+        'routes' => 'routes/panel/web.php',
+    ]);
+    expect($respPanel->getStatusCode())->toBe(200)
+        ->and($respPanel->getContent())->toBe('panel_routes_loaded');
+});
+
+it('filters routes by tag using ->only()', function () {
+    pinooxBoot();
+
+    fakeApp('com_test_tagged_routes', [
+        'app.php' => "<?php return [
+            'package' => 'com_test_tagged_routes',
+            'enable' => true,
+            'router' => ['routes' => ['routes/web.php']],
+        ];",
+        'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+get('/site-action', fn () => response('site_tagged_ok'))->tags(['site']);
+get('/panel-action', fn () => response('panel_tagged_ok'))->tags(['panel']);
+",
+    ]);
+
+    App::___()->setLayer(new AppLayer('/shop', 'com_shop'));
+
+    // Mount only tagged 'site'
+    $reqSite = Request::create('http://localhost/shop/tagged/site-action');
+    $respSite = SubApp::run('com_test_tagged_routes', 'tagged', $reqSite, [
+        'only_tags' => ['site'],
+    ]);
+    expect($respSite->getStatusCode())->toBe(200)
+        ->and($respSite->getContent())->toBe('site_tagged_ok');
+
+    // Route tagged 'panel' should NOT be accessible when only_tags is ['site']
+    $reqPanel = Request::create('http://localhost/shop/tagged/panel-action');
+    expect(fn () => SubApp::run('com_test_tagged_routes', 'tagged', $reqPanel, [
+        'only_tags' => ['site'],
+    ]))->toThrow(\RuntimeException::class);
+});
+
+it('exposes mountPath and subAppBaseUrl in App, View, and response headers', function () {
+    pinooxBoot();
+
+    fakeApp('com_test_subapp_mount_path', [
+        'app.php' => "<?php return ['package' => 'com_test_subapp_mount_path', 'enable' => true];",
+        'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+use Pinoox\Portal\App\App;
+
+get('/spa-info', function () {
+    return response(json_encode([
+        'mount_path' => App::mountPath(),
+        'sub_app_mount' => sub_app_mount_path(),
+        'sub_app_base' => sub_app_base_url(),
+    ]), 200, ['Content-Type' => 'application/json']);
+});
+",
+    ]);
+
+    App::___()->setLayer(new AppLayer('/shop', 'com_shop'));
+
+    $request = Request::create('http://localhost/shop/payment/spa-info');
+    $response = SubApp::run('com_test_subapp_mount_path', 'payment', $request);
+
+    expect($response->getStatusCode())->toBe(200);
+
+    // Verify response headers
+    expect($response->headers->get('X-SubApp-Mount-Path'))->toBe('/payment')
+        ->and($response->headers->get('X-SubApp-Parent'))->toBe('com_shop')
+        ->and($response->headers->has('X-SubApp-Base-Url'))->toBeTrue();
+
+    // Verify response JSON
+    $data = json_decode($response->getContent(), true);
+    expect($data['mount_path'])->toBe('/payment')
+        ->and($data['sub_app_mount'])->toBe('/payment')
+        ->and($data['sub_app_base'])->toContain('payment');
+
+    // Verify Twig functions in meeting
+    $twigOutputs = App::meeting('com_test_subapp_mount_path', function () {
+        $view = \Pinoox\Portal\View::___();
+        $twig = $view->getTwigEngine()->template;
+        $funcMount = $twig->getFunction('mount_path');
+        $funcSubMount = $twig->getFunction('sub_app_mount_path');
+        $funcBaseUrl = $twig->getFunction('sub_app_base_url');
+
+        $bootstrapData = \Pinoox\Component\Helpers\PinooxScriptHelper::bootstrap();
+
+        return [
+            'twig_mount' => call_user_func($funcMount->getCallable()),
+            'twig_sub_mount' => call_user_func($funcSubMount->getCallable()),
+            'twig_base' => call_user_func($funcBaseUrl->getCallable()),
+            'boot_mount' => $bootstrapData['url']['MOUNT_PATH'] ?? null,
+            'boot_sub_app' => $bootstrapData['sub_app'] ?? null,
+        ];
+    }, '/shop/payment', ['mount_path' => '/payment']);
+
+    expect($twigOutputs['twig_mount'])->toBe('/payment')
+        ->and($twigOutputs['twig_sub_mount'])->toBe('/payment')
+        ->and($twigOutputs['boot_mount'])->toBe('/payment')
+        ->and($twigOutputs['boot_sub_app']['is_sub_app'])->toBeTrue()
+        ->and($twigOutputs['boot_sub_app']['mount_path'])->toBe('/payment');
+});
+
+it('runs subApp route registered via fluent SubAppRouteBuilder with routes and only options', function () {
+    pinooxBoot();
+
+    fakeApp('com_test_fluent_mount', [
+        'app.php' => "<?php return ['package' => 'com_test_fluent_mount', 'enable' => true];",
+        'routes/site/web.php' => "<?php
+use function Pinoox\Router\get;
+use Pinoox\Portal\App\App;
+get('/checkout', fn () => response('checkout_ok_' . (App::context('mode') ?? 'none')));
+",
+    ]);
+
+    App::___()->setLayer(new AppLayer('/shop', 'com_shop'));
+
+    subApp('/fluent-checkout', 'com_test_fluent_mount')
+        ->routes('routes/site/web.php')
+        ->context(['mode' => fn () => 'express'])
+        ->name('shop.fluent.checkout');
+
+    $request = Request::create('http://localhost/shop/fluent-checkout/checkout');
+    $response = SubApp::run('com_test_fluent_mount', 'fluent-checkout', $request, [
+        'routes' => 'routes/site/web.php',
+        'context' => ['mode' => fn () => 'express'],
+    ]);
+
+    expect($response->getStatusCode())->toBe(200)
+        ->and($response->getContent())->toBe('checkout_ok_express')
+        ->and($response->headers->get('X-SubApp-Mount-Path'))->toBe('/fluent-checkout');
+});
+
+
 

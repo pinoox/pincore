@@ -159,6 +159,18 @@ class View implements ViewInterface
             }
             return \Pinoox\Component\Package\SubApp::path($package, $path);
         });
+        $this->twigEngine->addCallableFunction('mount_path', static function (): string {
+            return \Pinoox\Portal\App\App::mountPath();
+        });
+        $this->twigEngine->addCallableFunction('sub_app_mount_path', static function (): string {
+            return \Pinoox\Portal\App\App::mountPath();
+        });
+        $this->twigEngine->addCallableFunction('sub_app_base_url', static function (): string {
+            return \Pinoox\Portal\App\App::subAppBaseUrl();
+        });
+        $this->twigEngine->addCallableFunction('sub_app_base', static function (): string {
+            return \Pinoox\Portal\App\App::subAppBaseUrl();
+        });
 
         foreach ($this->twigOption('app_function_files', []) as $functions) {
             $this->twigEngine->addFunctionsFile($functions);
