@@ -27,17 +27,20 @@ class Cookie
      * @param bool $httpOnly
      * @return void
      */
-    public static function set($key, $value, $time = 86400, $path = "/", $domain = null, $https = false, $httpOnly = true)
+    public static function set($key, $value, $time = 86400, $path = "/", $domain = null, $https = null, $httpOnly = true)
     {
-        setcookie(
-            $key,
-            $value,
-            time() + $time,
-            $path ?? '/',
-            $domain ?? '',
-            $https,
-            $httpOnly,
-        );
+        $https ??= (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (isset($_SERVER['SERVER_PORT']) && (int) $_SERVER['SERVER_PORT'] === 443)
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+
+        setcookie($key, $value, [
+            'expires' => time() + $time,
+            'path' => $path ?? '/',
+            'domain' => $domain ?? '',
+            'secure' => (bool) $https,
+            'httponly' => $httpOnly,
+            'samesite' => 'Lax',
+        ]);
 
         $_COOKIE[$key] = $value;
     }

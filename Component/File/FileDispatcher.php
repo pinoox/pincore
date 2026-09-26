@@ -95,6 +95,9 @@ class FileDispatcher
             return new Response('Forbidden', 403);
         }
 
+        $isDownload = !empty($_GET['download']) || !empty($_GET['dl']);
+        $disposition = $isDownload ? 'attachment' : 'inline';
+
         $disk = FileStorage::disk($file->app, FileStorage::resolveDisk($file));
         $key = $thumb
             ? FileStorage::thumbKey($file->file_path, $file->file_name)
@@ -110,7 +113,7 @@ class FileDispatcher
                 : path($file->file_path, $file->app) . '/' . $file->file_name;
 
             if (is_file($legacy)) {
-                return $this->streamLocalPath($legacy, $file);
+                return $this->streamLocalPath($legacy, $file, $disposition);
             }
 
             return new Response('Not Found', 404);
@@ -119,7 +122,7 @@ class FileDispatcher
         try {
             $absolute = $disk->path($key);
             if (is_string($absolute) && is_file($absolute)) {
-                return $this->streamLocalPath($absolute, $file);
+                return $this->streamLocalPath($absolute, $file, $disposition);
             }
         } catch (\Throwable) {
             // remote disks fall through to streamed response
@@ -128,7 +131,7 @@ class FileDispatcher
         $headers = $this->cacheHeaders($file);
         $name = $file->file_realname ?: $file->file_name;
 
-        return $disk->response($key, $name, $headers, 'inline');
+        return $disk->response($key, $name, $headers, $disposition);
     }
 
     private function findByHash(string $hash): ?FileModel
@@ -198,15 +201,17 @@ class FileDispatcher
         ];
     }
 
-    private function streamLocalPath(string $absolute, FileModel $file): Response|BinaryFileResponse
+    private function streamLocalPath(string $absolute, FileModel $file, string $disposition = 'inline'): Response|BinaryFileResponse
     {
         $headers = $this->cacheHeaders($file);
         $mime = mime_content_type($absolute) ?: 'application/octet-stream';
         $headers['Content-Type'] = $mime;
+        $name = $file->file_realname ?: $file->file_name;
 
         if ($this->wantsXSendfile()) {
             $response = new Response('', 200, $headers);
             $response->headers->set('X-Sendfile', $absolute);
+            $response->headers->set('Content-Disposition', $response->headers->makeDisposition($disposition, $name));
 
             return $response;
         }
@@ -214,13 +219,15 @@ class FileDispatcher
         if ($this->wantsXAccel()) {
             $response = new Response('', 200, $headers);
             $response->headers->set('X-Accel-Redirect', $this->accelPath($absolute));
+            $response->headers->set('Content-Disposition', $response->headers->makeDisposition($disposition, $name));
 
             return $response;
         }
 
-        $response = new BinaryFileResponse($absolute, 200, $headers, true, 'inline');
+        $response = new BinaryFileResponse($absolute, 200, $headers, true, $disposition);
         $response->setAutoEtag();
         $response->headers->set('Content-Type', $mime);
+        $response->setContentDisposition($disposition, $name);
 
         if (!empty($headers['ETag'])) {
             $response->setEtag(trim($headers['ETag'], '"'));

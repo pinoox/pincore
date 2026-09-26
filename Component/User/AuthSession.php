@@ -490,12 +490,33 @@ class AuthSession
             }
         }
 
+        // Support standard RFC 6750 query token for media, downloads, and web navigations
+        $query = $_GET['token'] ?? $_GET['bearer'] ?? $_GET['access_token'] ?? null;
+        if (!empty($query) && is_string($query)) {
+            $normalized = self::normalizeBearerToken(trim($query));
+            if (self::jwtClaimForSessionKey($normalized) !== null) {
+                return $normalized;
+            }
+        }
+
         if (self::$type === self::JWT) {
             $cookie = Cookie::get(self::$user_session_key);
             if (!empty($cookie)) {
                 $normalized = self::normalizeBearerToken($cookie);
                 if (self::jwtClaimForSessionKey($normalized) !== null) {
                     return $normalized;
+                }
+            }
+
+            // Fallback: check any present app auth cookie
+            if (isset($_COOKIE) && is_array($_COOKIE)) {
+                foreach ($_COOKIE as $cookieKey => $cookieVal) {
+                    if (is_string($cookieVal) && $cookieVal !== '' && (str_ends_with($cookieKey, '_pinoox') || $cookieKey === 'pinoox_user')) {
+                        $normalized = self::normalizeBearerToken($cookieVal);
+                        if (self::jwtClaimForSessionKey($normalized) !== null) {
+                            return $normalized;
+                        }
+                    }
                 }
             }
         }
@@ -509,11 +530,11 @@ class AuthSession
     }
 
     /**
-     * Return the session-token claim for the current auth key only.
+     * Return the session-token claim for the current auth key or any valid app session claim.
      */
     private static function jwtClaimForSessionKey(string $jwt): ?string
     {
-        if ($jwt === '' || self::$user_session_key === '') {
+        if ($jwt === '') {
             return null;
         }
 
@@ -521,13 +542,19 @@ class AuthSession
             $payload = JWT::decode($jwt, new Key(self::$secret_key, 'HS256'));
             $payloadArray = (array) $payload;
 
-            if (!array_key_exists(self::$user_session_key, $payloadArray)) {
-                return null;
+            if (self::$user_session_key !== '' && array_key_exists(self::$user_session_key, $payloadArray)) {
+                $value = $payloadArray[self::$user_session_key];
+                return ($value !== null && $value !== '') ? (string) $value : null;
             }
 
-            $value = $payloadArray[self::$user_session_key];
+            // If current app key not found in payload, look for any app session key claim
+            foreach ($payloadArray as $k => $v) {
+                if (is_string($k) && (str_ends_with($k, '_pinoox') || $k === 'pinoox_user') && $v !== null && $v !== '') {
+                    return (string) $v;
+                }
+            }
 
-            return ($value !== null && $value !== '') ? (string) $value : null;
+            return null;
         } catch (\Exception) {
             return null;
         }
