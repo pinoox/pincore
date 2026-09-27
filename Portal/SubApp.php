@@ -32,6 +32,7 @@ use Pinoox\Component\Source\Portal;
  * @method static mixed context(?string $key = NULL, mixed $default = NULL)
  * @method static mixed resolveContext(?string $key = NULL, mixed $default = NULL)
  * @method static mixed rawContext(?string $key = NULL, mixed $default = NULL)
+ * @method static void mountFromConfig(\Pinoox\Component\Router\Router $router, string $hostPackage)
  * @method static string mountPath()
  * @method static string baseUrl()
  * @method static \Pinoox\Component\Package\SubApp ___()

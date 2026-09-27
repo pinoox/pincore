@@ -22,6 +22,7 @@ use Pinoox\Portal\App\App;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Portal\App\AppProvider;
 use Pinoox\Portal\Auth;
+use Pinoox\Component\Router\Router;
 use Symfony\Component\HttpFoundation\ParameterBag;
 use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 use Symfony\Component\HttpKernel\HttpKernelInterface;
@@ -295,6 +296,136 @@ class SubApp
     public static function rawContext(?string $key = null, mixed $default = null): mixed
     {
         return App::rawContext($key, $default);
+    }
+
+    /**
+     * Mount sub-apps declared in host app configuration (app.php).
+     *
+     * Supported formats in app.php:
+     *
+     * 1. Simple key-value (mount_path => guest_package_or_path):
+     *    'sub_apps' => [
+     *        '/pay' => 'pay',
+     *        '/sms' => 'com_pinoox_sms',
+     *    ]
+     *
+     * 2. Detailed options per mount_path:
+     *    'sub_apps' => [
+     *        '/pay' => [
+     *            'app' => 'pay', // or 'package' => 'pay'
+     *            'enable' => true,
+     *            'routes' => 'routes/site/web.php',
+     *            'only' => ['checkout'],
+     *            'config' => ['theme' => 'light'],
+     *            'context' => ['embed' => true],
+     *            'share_auth' => true,
+     *            'flows' => [...],
+     *            'priority' => 2000,
+     *            'name' => 'shop.pay',
+     *            'methods' => ['GET', 'POST'],
+     *            'path' => 'C:/projects/pay', // optional explicit path
+     *        ],
+     *    ]
+     *
+     * 3. List of items:
+     *    'sub_apps' => [
+     *        ['path' => '/pay', 'package' => 'pay', ...],
+     *    ]
+     *
+     * @param Router $router
+     * @param string $hostPackage
+     */
+    public static function mountFromConfig(Router $router, string $hostPackage): void
+    {
+        if (!AppEngine::exists($hostPackage)) {
+            return;
+        }
+
+        try {
+            $config = AppEngine::config($hostPackage);
+            $subApps = $config->get('sub_apps') ?? $config->get('router.sub_apps');
+            if (empty($subApps) || !is_array($subApps)) {
+                return;
+            }
+
+            foreach ($subApps as $key => $value) {
+                $mountPath = null;
+                $guestPackage = null;
+                $options = [];
+
+                if (is_string($key)) {
+                    $mountPath = $key;
+                    if (is_string($value)) {
+                        $guestPackage = $value;
+                    } elseif (is_array($value)) {
+                        $options = $value;
+                        $guestPackage = $options['app'] ?? $options['package'] ?? $options['guest'] ?? $options['path'] ?? null;
+                        unset($options['app'], $options['package'], $options['guest']);
+                    }
+                } elseif (is_array($value)) {
+                    $options = $value;
+                    $mountPath = $options['path'] ?? $options['mount'] ?? $options['route'] ?? null;
+                    $guestPackage = $options['app'] ?? $options['package'] ?? $options['guest'] ?? $options['path'] ?? null;
+                    unset($options['mount'], $options['route'], $options['app'], $options['package'], $options['guest']);
+                }
+
+                if (empty($mountPath) || empty($guestPackage) || !is_string($mountPath) || !is_string($guestPackage)) {
+                    continue;
+                }
+
+                if (isset($options['enable']) && !(bool) $options['enable']) {
+                    continue;
+                }
+                if (isset($options['enabled']) && !(bool) $options['enabled']) {
+                    continue;
+                }
+
+                $builder = $router->subApp($mountPath, $guestPackage);
+
+                if (!empty($options['config']) && is_array($options['config'])) {
+                    $builder->config($options['config']);
+                }
+                if (!empty($options['routes'])) {
+                    $builder->routes($options['routes']);
+                }
+                if (!empty($options['only'])) {
+                    $builder->only($options['only']);
+                } elseif (!empty($options['only_tags'])) {
+                    $builder->only($options['only_tags']);
+                }
+                if (!empty($options['context']) && is_array($options['context'])) {
+                    $builder->context($options['context']);
+                }
+                if (isset($options['share_auth'])) {
+                    $builder->shareAuth((bool) $options['share_auth']);
+                }
+                if (!empty($options['flows']) && is_array($options['flows'])) {
+                    $builder->flows($options['flows']);
+                }
+                if (isset($options['priority'])) {
+                    $builder->priority((int) $options['priority']);
+                }
+                if (!empty($options['name'])) {
+                    $builder->name((string) $options['name']);
+                }
+                if (!empty($options['methods'])) {
+                    $builder->methods($options['methods']);
+                }
+                if (!empty($options['data']) && is_array($options['data'])) {
+                    $builder->data($options['data']);
+                }
+                if (!empty($options['tags']) && is_array($options['tags'])) {
+                    $builder->tags($options['tags']);
+                }
+                $customPath = $options['path'] ?? $options['app_path'] ?? null;
+                if (!empty($customPath) && is_string($customPath)) {
+                    $builder->path($customPath);
+                }
+
+                $builder->register();
+            }
+        } catch (Throwable) {
+        }
     }
 
     /**

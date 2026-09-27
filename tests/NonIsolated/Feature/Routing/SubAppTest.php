@@ -34,6 +34,8 @@ afterEach(function () {
         deleteFakeApp('com_test_subapp_mount_path');
         deleteFakeApp('com_test_subapp_lazy');
         deleteFakeApp('com_test_fluent_mount');
+        deleteFakeApp('com_test_config_host');
+        deleteFakeApp('com_test_config_guest');
     } catch (\Throwable) {
     }
 
@@ -611,6 +613,108 @@ get('/checkout', fn () => response('checkout_ok_' . (App::context('mode') ?? 'no
         ->and($response->getContent())->toBe('checkout_ok_express')
         ->and($response->headers->get('X-SubApp-Mount-Path'))->toBe('/fluent-checkout');
 });
+
+it('automatically mounts sub-apps declared in host app.php sub_apps configuration', function () {
+    pinooxBoot();
+
+    fakeApp('com_test_config_guest', [
+        'app.php' => "<?php return ['package' => 'com_test_config_guest', 'enable' => true];",
+        'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+get('/ping', fn () => response('pong_from_guest'));
+",
+    ]);
+
+    fakeApp('com_test_config_host', [
+        'app.php' => "<?php return [
+            'package' => 'com_test_config_host',
+            'enable' => true,
+            'sub_apps' => [
+                '/pay' => 'com_test_config_guest',
+            ],
+        ];",
+        'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+get('/home', fn () => response('host_home'));
+",
+    ]);
+
+    App::___()->setLayer(new AppLayer('/', 'com_test_config_host'));
+
+    $router = AppEngine::router('com_test_config_host');
+    $allPaths = $router->getAllPath();
+
+    $found = false;
+    foreach ($allPaths as $path) {
+        if (str_contains($path, 'pay')) {
+            $found = true;
+            break;
+        }
+    }
+
+    expect($found)->toBeTrue();
+
+    // Match sub-app request
+    $request = Request::create('http://localhost/pay/ping');
+    $match = $router->matchRequest($request);
+
+    expect($match)->toBeArray()
+        ->and($match['_router']->data['sub_app'])->toBe('com_test_config_guest')
+        ->and($match['_router']->data['mount_path'])->toBe('/pay');
+});
+
+it('supports advanced array options in host app.php sub_apps configuration', function () {
+    pinooxBoot();
+
+    fakeApp('com_test_config_guest', [
+        'app.php' => "<?php return ['package' => 'com_test_config_guest', 'theme' => 'default_theme', 'enable' => true];",
+        'routes/custom/web.php' => "<?php
+use function Pinoox\Router\get;
+use Pinoox\Portal\App\App;
+get('/status', fn () => response(App::get('theme') . '_' . (App::context('mode') ?? 'none')));
+",
+    ]);
+
+    fakeApp('com_test_config_host', [
+        'app.php' => "<?php return [
+            'package' => 'com_test_config_host',
+            'enable' => true,
+            'sub_apps' => [
+                '/billing' => [
+                    'app' => 'com_test_config_guest',
+                    'routes' => 'routes/custom/web.php',
+                    'config' => ['theme' => 'dark_billing'],
+                    'context' => ['mode' => fn () => 'pro'],
+                    'name' => 'host.billing',
+                ],
+            ],
+        ];",
+        'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+get('/home', fn () => response('host_home'));
+",
+    ]);
+
+    App::___()->setLayer(new AppLayer('/', 'com_test_config_host'));
+
+    $router = AppEngine::router('com_test_config_host');
+    $request = Request::create('http://localhost/billing/status');
+    $match = $router->matchRequest($request);
+
+    expect($match)->toBeArray()
+        ->and($match['_router']->data['sub_app'])->toBe('com_test_config_guest');
+
+    // Execute via SubApp
+    $response = SubApp::run('com_test_config_guest', 'billing', $request, [
+        'routes' => 'routes/custom/web.php',
+        'config' => ['theme' => 'dark_billing'],
+        'context' => ['mode' => fn () => 'pro'],
+    ]);
+
+    expect($response->getStatusCode())->toBe(200)
+        ->and($response->getContent())->toBe('dark_billing_pro');
+});
+
 
 
 
