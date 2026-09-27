@@ -631,26 +631,9 @@ class Migrator
         $recorded = $this->hasBeenRun($migrationName) || !empty($migration['sync']);
         $tableExists = $this->targetTableExists($migration);
 
-        if ($recorded && $tableExists) {
-            return true;
-        }
-
-        // Only auto-adopt create_* migrations when the table already exists.
-        // Alter/add/unique migrations must still run — the base table existing
-        // does not mean the migration's changes were applied.
-        if (!$recorded && $tableExists && $this->isCreateMigration($migrationName)) {
-            return $this->adoptExistingMigration($migrationName);
-        }
-
-        return false;
+        return $recorded && $tableExists;
     }
 
-    private function isCreateMigration(string $migrationName): bool
-    {
-        $clean = preg_replace('/^\d{4}_\d{2}_\d{2}_\d{6}_/', '', $migrationName) ?? $migrationName;
-
-        return str_starts_with($clean, 'create_');
-    }
 
     private function adoptExistingMigration(string $migrationName): bool
     {
