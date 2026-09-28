@@ -323,7 +323,7 @@ class SubApp
      *            'priority' => 2000,
      *            'name' => 'shop.pay',
      *            'methods' => ['GET', 'POST'],
-     *            'path' => 'C:/projects/pay', // optional explicit path
+     *            'path' => '../pay', // optional explicit path (relative or absolute)
      *        ],
      *    ]
      *
@@ -631,10 +631,12 @@ class SubApp
             if ($parentDir !== '' && is_dir($parentDir)) {
                 $candidates[] = $parentDir . '/' . $package;
                 $candidates[] = $parentDir . '/' . $shortName;
+                $candidates[] = $parentDir . '/apps/' . $package;
+                $candidates[] = $parentDir . '/apps/' . $shortName;
             }
         }
 
-        // 6) AppEngine pathApps
+        // 6) Platform standard apps directory
         try {
             $pathApps = AppEngine::getPathApps();
             if ($pathApps !== '') {
@@ -644,11 +646,14 @@ class SubApp
         } catch (Throwable) {
         }
 
-        // 7) Common local development locations
-        $localRoots = ['C:/projects', 'c:/projects', 'C:/MAMP/htdocs', 'c:/MAMP/htdocs', '/var/www', '/var/www/html'];
-        foreach ($localRoots as $root) {
-            $candidates[] = $root . '/' . $package;
-            $candidates[] = $root . '/' . $shortName;
+        try {
+            if (function_exists('path')) {
+                $p1 = path('~apps/' . $package);
+                if ($p1 !== '') $candidates[] = $p1;
+                $p2 = path('apps/' . $package);
+                if ($p2 !== '') $candidates[] = $p2;
+            }
+        } catch (Throwable) {
         }
 
         foreach ($candidates as $candidate) {
