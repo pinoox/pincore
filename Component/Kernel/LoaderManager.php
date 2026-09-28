@@ -92,6 +92,9 @@ class LoaderManager
         spl_autoload_register([$this, 'loadClass'], true, true);
     }
 
+    /** @var array<string, bool> */
+    private array $attemptedAppAutoloads = [];
+
     /**
      * Loads the given class or interface and invokes static constructor on it
      *
@@ -101,13 +104,90 @@ class LoaderManager
      */
     public function loadClass($className): ?bool
     {
+        if (str_starts_with($className, 'App\\')) {
+            $parts = explode('\\', $className);
+            if (count($parts) >= 2 && $parts[1] !== '') {
+                $packageName = $parts[1];
+                if ($this->resolveAppAutoload($packageName)) {
+                    // In case Composer already recorded this class as missing before registration
+                    try {
+                        $unsetMissing = \Closure::bind(function ($c) {
+                            unset($this->missingClasses[$c]);
+                        }, $this->loader, \Composer\Autoload\ClassLoader::class);
+                        $unsetMissing($className);
+                    } catch (\Throwable) {
+                    }
+                }
+            }
+        }
+
         $result = $this->loader->loadClass($className);
         if ($result === true) {
             //class loaded successfully
             $this->callConstruct($className);
             return true;
         }
+
         return null;
+    }
+
+    private function resolveAppAutoload(string $packageName): bool
+    {
+        if (isset($this->attemptedAppAutoloads[$packageName])) {
+            return $this->attemptedAppAutoloads[$packageName];
+        }
+
+        $path = null;
+
+        // 1. AppEngine path
+        if (class_exists(\Pinoox\Portal\App\AppEngine::class)) {
+            try {
+                if (\Pinoox\Portal\App\AppEngine::exists($packageName)) {
+                    $candidate = \Pinoox\Portal\App\AppEngine::path($packageName);
+                    if (!empty($candidate) && is_dir($candidate)) {
+                        $path = $candidate;
+                    }
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        // 2. AppDevRegistry path (running or registered dev apps from ~/.pinoox/dev_apps.json)
+        if ($path === null && class_exists(\Pinoox\Component\Server\AppDevRegistry::class)) {
+            $candidate = \Pinoox\Component\Server\AppDevRegistry::path($packageName);
+            if (!empty($candidate) && is_dir($candidate)) {
+                $path = $candidate;
+            }
+        }
+
+        // 3. SubApp resolution (sub_apps config, sibling dirs, environment, etc.)
+        if ($path === null && class_exists(\Pinoox\Component\Package\SubApp::class)) {
+            try {
+                if (\Pinoox\Component\Package\SubApp::exists($packageName)) {
+                    $candidate = \Pinoox\Component\Package\SubApp::path($packageName);
+                    if (!empty($candidate) && is_dir($candidate)) {
+                        $path = $candidate;
+                    }
+                }
+            } catch (\Throwable) {
+            }
+        }
+
+        if ($path !== null) {
+            $normalized = rtrim(str_replace('\\', '/', $path), '/');
+            $this->loader->addPsr4('App\\' . $packageName . '\\', $normalized, true);
+
+            if (class_exists(\Pinoox\Portal\App\AppEngine::class)) {
+                try {
+                    \Pinoox\Portal\App\AppEngine::add($packageName, $normalized);
+                } catch (\Throwable) {
+                }
+            }
+
+            return $this->attemptedAppAutoloads[$packageName] = true;
+        }
+
+        return $this->attemptedAppAutoloads[$packageName] = false;
     }
 
     /**

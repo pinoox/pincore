@@ -359,11 +359,11 @@ abstract class Portal
     public static function __package(): ?string
     {
         $parts = explode('\\', static::class);
-        if (count($parts) >= 3 && $parts[0] === 'App' && $parts[2] === 'Portal') {
+        if (count($parts) >= 2 && $parts[0] === 'App' && !empty($parts[1])) {
             return $parts[1];
         }
 
-        return null;
+        return static::__app() !== '~' ? static::__app() : null;
     }
 
     protected static function callMethod(string $method, array $args): mixed
@@ -541,6 +541,11 @@ abstract class Portal
     final public static function __instance(?string $name = null): ?object
     {
         Loader::init();
+        $pkg = static::__package();
+        if ($pkg !== null && $pkg !== '~' && class_exists(\Pinoox\Component\Kernel\Container\ServiceContainerBootstrap::class)) {
+            \Pinoox\Component\Kernel\Container\ServiceContainerBootstrap::boot($pkg);
+        }
+
         $result = null;
         $name = static::__id($name);
         $container = static::__container();
@@ -727,8 +732,10 @@ abstract class Portal
     final public static function __id(?string $name = null): string
     {
         $name = !empty($name) ? static::__name() . '.' . $name : static::__name();
-        if (static::__app() !== '~')
-            $name = static::__app() . '.' . $name;
+        $app = static::__package() ?? static::__app();
+        if ($app !== null && $app !== '~') {
+            $name = $app . '.' . $name;
+        }
 
         return $name;
     }

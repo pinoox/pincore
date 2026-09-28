@@ -170,6 +170,9 @@ class AppEngine implements EngineInterface
         if (empty($this->router[$packageName][$cacheKey])) {
             $router = \Pinoox\Portal\Router::build($path, $routes);
             AppBootstrap::applyRoutes($packageName, $router, false);
+            if (class_exists(\Pinoox\Component\Package\SubApp::class)) {
+                \Pinoox\Component\Package\SubApp::mountFromConfig($router, $packageName);
+            }
             if (!empty($onlyTags)) {
                 $router->filterByTags((array) $onlyTags);
             }
@@ -385,6 +388,11 @@ class AppEngine implements EngineInterface
             $this->router[$packageName],
             $this->appManager[$packageName]
         );
+
+        $classLoader = Loader::getClassLoader();
+        if ($classLoader !== null) {
+            $classLoader->addPsr4('App\\' . $packageName . '\\', rtrim(str_replace('\\', '/', $path), '/') . '/', true);
+        }
     }
 
     public function getPathApps(): string
