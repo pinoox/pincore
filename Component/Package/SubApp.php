@@ -323,7 +323,7 @@ class SubApp
      *            'priority' => 2000,
      *            'name' => 'shop.pay',
      *            'methods' => ['GET', 'POST'],
-     *            'path' => 'C:/projects/pay', // optional explicit path
+     *            'path' => '../pay', // optional explicit path (relative or absolute)
      *        ],
      *    ]
      *
@@ -417,14 +417,19 @@ class SubApp
                 if (!empty($options['tags']) && is_array($options['tags'])) {
                     $builder->tags($options['tags']);
                 }
-                $customPath = $options['path'] ?? $options['app_path'] ?? null;
-                if (!empty($customPath) && is_string($customPath)) {
-                    $builder->path($customPath);
-                }
-
                 $builder->register();
+
+                try {
+                    $canonicalPkg = self::resolvePackage($guestPackage, $options);
+                    $guestConfig = AppEngine::config($canonicalPkg);
+                    $aliases = $guestConfig->get('alias');
+                    if (!empty($aliases) && is_array($aliases) && class_exists(\Pinoox\Portal\FlowManager::class)) {
+                        \Pinoox\Portal\FlowManager::addAliases($aliases);
+                    }
+                } catch (\Throwable) {
+                }
             }
-        } catch (Throwable) {
+        } catch (\Throwable) {
         }
     }
 
@@ -554,8 +559,21 @@ class SubApp
         }
 
         $candidates = [];
+        $shortName = str_replace(['com_pinoox_', 'com_'], '', $package);
 
-        // 1) AppDevRegistry (cross-app discovery via global ~/.pinoox/dev_apps.json)
+        // 1) Environment variables
+        $envKeys = [
+            'PINOOX_' . strtoupper($package) . '_PATH',
+            'PINOOX_' . strtoupper($shortName) . '_PATH',
+        ];
+        foreach ($envKeys as $envKey) {
+            $envVal = getenv($envKey);
+            if (is_string($envVal) && trim($envVal) !== '') {
+                $candidates[] = trim($envVal);
+            }
+        }
+
+        // 2) AppDevRegistry (cross-app discovery via global ~/.pinoox/dev_apps.json)
         try {
             if (class_exists(\Pinoox\Component\Server\AppDevRegistry::class)) {
                 $devPath = \Pinoox\Component\Server\AppDevRegistry::path($package);
@@ -566,7 +584,27 @@ class SubApp
         } catch (\Throwable) {
         }
 
-        // 1) Relative to active host app
+        // 3) Host app's sub_apps configuration (app.php)
+        try {
+            $hostPackage = App::package();
+            if ($hostPackage && AppEngine::exists($hostPackage)) {
+                $subApps = AppEngine::config($hostPackage)->get('sub_apps') ?? AppEngine::config($hostPackage)->get('router.sub_apps') ?? [];
+                if (is_array($subApps)) {
+                    foreach ($subApps as $key => $subAppConfig) {
+                        if (is_array($subAppConfig)) {
+                            $target = $subAppConfig['app'] ?? $subAppConfig['package'] ?? $subAppConfig['guest'] ?? null;
+                            $customPath = $subAppConfig['path'] ?? $subAppConfig['app_path'] ?? null;
+                            if (($target === $package || $target === $shortName) && !empty($customPath) && is_string($customPath)) {
+                                $candidates[] = $customPath;
+                            }
+                        }
+                    }
+                }
+            }
+        } catch (\Throwable) {
+        }
+
+        // 4) Relative to active host app
         try {
             $hostApp = App::path();
             if ($hostApp !== '') {
@@ -577,23 +615,43 @@ class SubApp
                 $candidates[] = $hostApp . '/packages/' . $package;
                 $candidates[] = $hostApp . '/modules/' . $package;
                 $candidates[] = $hostApp . '/' . $package;
+                $candidates[] = $hostApp . '/' . $shortName;
             }
         } catch (Throwable) {
         }
 
-        // 2) Relative to project root
+        // 5) Relative to project root / sibling directories
         $basePath = (string) Loader::getBasePath();
         if ($basePath !== '') {
             $candidates[] = $basePath . '/sub_apps/' . $package;
             $candidates[] = $basePath . '/sub-apps/' . $package;
             $candidates[] = $basePath . '/apps/' . $package;
+
+            $parentDir = dirname($basePath);
+            if ($parentDir !== '' && is_dir($parentDir)) {
+                $candidates[] = $parentDir . '/' . $package;
+                $candidates[] = $parentDir . '/' . $shortName;
+                $candidates[] = $parentDir . '/apps/' . $package;
+                $candidates[] = $parentDir . '/apps/' . $shortName;
+            }
         }
 
-        // 3) AppEngine pathApps
+        // 6) Platform standard apps directory
         try {
             $pathApps = AppEngine::getPathApps();
             if ($pathApps !== '') {
                 $candidates[] = $pathApps . '/' . $package;
+                $candidates[] = $pathApps . '/' . $shortName;
+            }
+        } catch (Throwable) {
+        }
+
+        try {
+            if (function_exists('path')) {
+                $p1 = path('~apps/' . $package);
+                if ($p1 !== '') $candidates[] = $p1;
+                $p2 = path('apps/' . $package);
+                if ($p2 !== '') $candidates[] = $p2;
             }
         } catch (Throwable) {
         }

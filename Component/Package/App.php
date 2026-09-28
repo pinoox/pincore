@@ -387,12 +387,11 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
 
     private function registerConfiguredPackageAutoloaders(): void
     {
-        // Prefer packagePaths() so Finder-discovered apps (e.g. pinx installs)
-        // get App\{package}\ PSR-4 even when Composer classmap is stale/authoritative.
-        $packages = $this->appEngine->packagePaths();
-        if ($packages === []) {
-            $packages = $this->appEngine->registeredPackages();
-        }
+        // Register all packages from AppRegistry, AppDevRegistry, and packagePaths
+        $packages = array_merge(
+            $this->appEngine->registeredPackages(),
+            $this->appEngine->packagePaths(),
+        );
 
         foreach ($packages as $packageName => $dir) {
             $this->autoloader($packageName, $dir);
@@ -401,7 +400,28 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
 
     public function autoloader(string $packageName, ?string $dir = null): void
     {
-        $dir ??= $this->appEngine->path($packageName);
+        if (empty($dir)) {
+            try {
+                $dir = $this->appEngine->path($packageName);
+            } catch (\Throwable) {
+            }
+        }
+
+        if (empty($dir) || !is_dir($dir)) {
+            if (class_exists(\Pinoox\Component\Server\AppDevRegistry::class)) {
+                $dir = \Pinoox\Component\Server\AppDevRegistry::path($packageName);
+            }
+        }
+
+        if (empty($dir) || !is_dir($dir)) {
+            if (class_exists(\Pinoox\Component\Package\SubApp::class)) {
+                try {
+                    $dir = \Pinoox\Component\Package\SubApp::path($packageName);
+                } catch (\Throwable) {
+                }
+            }
+        }
+
         if (empty($dir) || !is_dir($dir)) {
             return;
         }
@@ -413,7 +433,7 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
         }
 
         $namespace = 'App\\' . $packageName . '\\';
-        $this->classLoader->addPsr4($namespace, $dir);
+        $this->classLoader->addPsr4($namespace, $dir, true);
         $this->autoloadedPackages[$packageName] = $dir;
     }
 
