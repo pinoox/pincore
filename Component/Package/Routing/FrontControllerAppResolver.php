@@ -6,6 +6,7 @@ use Pinoox\Component\Http\Request;
 use Pinoox\Component\Package\AppLayer;
 use Pinoox\Component\Package\AppRouter;
 use Pinoox\Component\Server\WebServerFix;
+use Pinoox\Component\Server\WebServerFixCache;
 
 final class FrontControllerAppResolver
 {
@@ -41,15 +42,42 @@ final class FrontControllerAppResolver
             return self::layer($mounted[0], 'front_controller_singleton', $pathInfo);
         }
 
-        foreach (self::PREFERRED_PACKAGES as $package) {
-            foreach ($mounted as $candidate) {
-                if ($candidate['package'] === $package) {
-                    return self::layer($candidate, 'front_controller_default', $pathInfo);
-                }
+        $rootCandidate = null;
+        foreach ($mounted as $candidate) {
+            if ($candidate['path'] === '/') {
+                $rootCandidate = $candidate;
+                break;
             }
         }
 
-        return self::layer($mounted[0], 'front_controller_fallback', $pathInfo);
+        if ($rootCandidate !== null && WebServerFixCache::hasRelativePath($rootCandidate['package'], $pathInfo)) {
+            return self::layer($rootCandidate, 'front_controller_owner', $pathInfo);
+        }
+
+        $matchingOwners = [];
+        foreach ($mounted as $candidate) {
+            if ($candidate['path'] !== '/' && WebServerFixCache::hasRelativePath($candidate['package'], $pathInfo)) {
+                $matchingOwners[] = $candidate;
+            }
+        }
+
+        if (count($matchingOwners) === 1) {
+            return self::layer($matchingOwners[0], 'front_controller_fallback', $pathInfo);
+        }
+
+        if (count($matchingOwners) > 1) {
+            foreach (self::PREFERRED_PACKAGES as $package) {
+                foreach ($matchingOwners as $candidate) {
+                    if ($candidate['package'] === $package) {
+                        return self::layer($candidate, 'front_controller_default', $pathInfo);
+                    }
+                }
+            }
+
+            return self::layer($matchingOwners[0], 'front_controller_fallback', $pathInfo);
+        }
+
+        return null;
     }
 
     /**
@@ -115,7 +143,7 @@ final class FrontControllerAppResolver
 
     private static function isWelcomeFallback(string $package): bool
     {
-        return $package === 'com_pinoox_welcome';
+        return $package === 'com_pinoox_welcome' || str_ends_with($package, '_welcome');
     }
 
     /**

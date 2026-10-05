@@ -14,7 +14,9 @@ final class WebServerFix
 {
     /** @var list<string> */
     public const EXTENSIONS = [
-        'css', 'ico', 'js', 'json', 'map', 'svg', 'txt', 'webmanifest', 'woff', 'woff2', 'xml',
+        'atom', 'avif', 'cjs', 'css', 'csv', 'eot', 'gif', 'ico', 'jpeg', 'jpg', 'js', 'json',
+        'map', 'mjs', 'otf', 'png', 'rss', 'svg', 'ttf', 'txt', 'webmanifest', 'webp', 'woff',
+        'woff2', 'xml', 'yaml', 'yml',
     ];
 
     /** @var list<string>|null */
@@ -123,6 +125,7 @@ final class WebServerFix
     public static function resetResolvedPaths(): void
     {
         self::$resolvedFullPaths = null;
+        WebServerFixCache::resetRuntimeCache();
     }
 
     public static function isRootFixPath(string $path): bool
