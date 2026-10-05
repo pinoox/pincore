@@ -188,26 +188,93 @@ final class WebServerFix
         unset($_SERVER['REDIRECT_URL'], $_SERVER['REDIRECT_STATUS']);
     }
 
+    /** @var array<string, string>|null */
+    private static ?array $customRouterMap = null;
+
+    /** @var (callable(?string): array<string, string>)|null */
+    private static mixed $routerMapResolver = null;
+
+    /**
+     * Programmatically override the router map (e.g. for testing, runtime hooks, or dynamic multi-tenancy).
+     *
+     * @param array<string, string>|null $map
+     */
+    public static function setRouterMap(?array $map): void
+    {
+        self::$customRouterMap = $map;
+        self::resetResolvedPaths();
+    }
+
+    /**
+     * Set a dynamic resolver callable that returns the router map.
+     *
+     * @param (callable(?string): array<string, string>)|null $resolver
+     */
+    public static function setRouterMapResolver(?callable $resolver): void
+    {
+        self::$routerMapResolver = $resolver;
+        self::resetResolvedPaths();
+    }
+
     /**
      * @return array<string, string>
      */
     public static function routerMap(?string $documentRoot = null): array
     {
-        $root = $documentRoot ?? self::guessDocumentRoot();
+        if (self::$customRouterMap !== null) {
+            return self::$customRouterMap;
+        }
+
+        if (self::$routerMapResolver !== null) {
+            $resolved = (self::$routerMapResolver)($documentRoot);
+            if (is_array($resolved)) {
+                return $resolved;
+            }
+        }
+
+        $root = $documentRoot !== null
+            ? rtrim(str_replace('\\', '/', $documentRoot), '/')
+            : self::guessDocumentRoot();
+
+        $projectRouter = SystemConfig::path('project_router');
         $systemRouter = SystemConfig::path('system_router');
-        $candidates = [
-            $root . '/pinker/platform/app-router.config.php',
-            $root . '/pinker/config/app-router.config.php',
-            $root . '/pinker/system/config/app/router.config.php',
-            $systemRouter,
-            $root . '/platform/app-router.config.php',
-            $root . '/config/app-router.config.php',
-            $root . '/vendor/pinoox/pincore/config/app-router.config.php',
-            $root . '/pincore/config/app-router.config.php',
-        ];
+
+        if ($documentRoot !== null) {
+            // When an explicit documentRoot is passed (e.g. sandbox or dev-server), prioritize paths in that root
+            $candidates = [
+                $root . '/platform/app-router.config.php',
+                $root . '/config/app-router.config.php',
+                $root . '/pinker/bake/platform/app-router.config.php',
+                $root . '/pinker/state/platform/app-router.config.php',
+                $root . '/pinker/platform/app-router.config.php',
+                $projectRouter,
+                $systemRouter,
+                $root . '/vendor/pinoox/pincore/config/app-router.config.php',
+                $root . '/pincore/config/app-router.config.php',
+                $root . '/pinker/config/app-router.config.php',
+                $root . '/pinker/system/config/app/router.config.php',
+            ];
+        } else {
+            // Default project runtime: prioritize canonical project router config
+            $candidates = [
+                $projectRouter,
+                $systemRouter,
+                $root . '/platform/app-router.config.php',
+                $root . '/config/app-router.config.php',
+                $root . '/pinker/bake/platform/app-router.config.php',
+                $root . '/pinker/state/platform/app-router.config.php',
+                $root . '/pinker/platform/app-router.config.php',
+                $root . '/vendor/pinoox/pincore/config/app-router.config.php',
+                $root . '/pincore/config/app-router.config.php',
+                $root . '/pinker/config/app-router.config.php',
+                $root . '/pinker/system/config/app/router.config.php',
+            ];
+        }
+
+        $candidates = array_unique(array_filter($candidates));
 
         foreach ($candidates as $file) {
-            if (!is_file($file)) {
+            if (!is_string($file) || $file === '' || !is_file($file)) {
                 continue;
             }
 

@@ -13,6 +13,8 @@ use Pinoox\Tests\Support\TestSandbox;
 
 afterEach(function () {
     WebServerFix::resetResolvedPaths();
+    WebServerFix::setRouterMap(null);
+    WebServerFix::setRouterMapResolver(null);
 });
 
 it('auto-detects extension routes for web-server fix', function () {
@@ -113,6 +115,27 @@ it('registers and matches mounted /manager/dist/pinoox.js route path', function 
     $match = $router->match('/manager/dist/pinoox.js');
 
     expect($match['_route'] ?? null)->toBe('pinooxjs');
+});
+
+it('allows setting custom router map or dynamic resolver in memory', function () {
+    WebServerFix::setRouterMap([
+        '/' => 'com_custom_root',
+        '/shop' => 'com_custom_shop',
+    ]);
+
+    expect(WebServerFix::routerMap())->toBe([
+        '/' => 'com_custom_root',
+        '/shop' => 'com_custom_shop',
+    ]);
+
+    WebServerFix::setRouterMap(null);
+    WebServerFix::setRouterMapResolver(fn () => [
+        '/dynamic' => 'com_dynamic_app',
+    ]);
+
+    expect(WebServerFix::routerMap())->toBe([
+        '/dynamic' => 'com_dynamic_app',
+    ]);
 });
 
 function webServerFixFlushRouter(RouterComponent $router, string $package): void

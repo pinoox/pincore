@@ -16,6 +16,7 @@ namespace Pinoox\Component\Router;
 use Pinoox\Component\Kernel\Loader;
 use Pinoox\Component\Package\Routing\AppRouteMatcher;
 use Pinoox\Component\Package\Routing\Domain;
+use Pinoox\Component\Server\WebServerFix;
 use Pinoox\Portal\App\AppEngine;
 use Pinoox\Support\SystemConfig;
 
@@ -141,31 +142,7 @@ class QueryRouteConfigLoader
             return [];
         }
 
-        $basePath = rtrim(str_replace('\\', '/', $basePath), '/');
-        $systemRouter = SystemConfig::path('system_router');
-
-        $candidates = [
-            $basePath . '/pinker/platform/app-router.config.php',
-            $basePath . '/pinker/config/app-router.config.php',
-            $basePath . '/pinker/system/config/app/router.config.php',
-            $systemRouter,
-            $basePath . '/platform/app-router.config.php',
-            $basePath . '/config/app-router.config.php',
-            $basePath . '/vendor/pinoox/pincore/config/app-router.config.php',
-            $basePath . '/pincore/config/app-router.config.php',
-        ];
-
-        foreach ($candidates as $file) {
-            if (!is_file($file)) {
-                continue;
-            }
-
-            $routes = require $file;
-
-            return is_array($routes) ? $routes : [];
-        }
-
-        return [];
+        return WebServerFix::routerMap($basePath);
     }
 }
 
