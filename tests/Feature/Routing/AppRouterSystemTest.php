@@ -147,6 +147,129 @@ it('resolves root /dist/pinoox.js to a mounted app instead of welcome fallback',
         ->and($layer->matchedBy())->toBe('front_controller_fallback');
 });
 
+it('resolves root static routes like sitemap.xml and robots.txt to the root app instead of manager', function () {
+    $shop = testPackage('shop');
+    $manager = 'com_pinoox_manager';
+
+    WebServerFixCache::merge($shop, [
+        ['relative' => '/sitemap.xml', 'name' => 'shop.sitemap'],
+        ['relative' => '/robots.txt', 'name' => 'shop.robots'],
+    ]);
+    WebServerFixCache::merge($manager, [
+        ['relative' => '/dist/pinoox.js', 'name' => 'pinooxjs'],
+    ]);
+
+    $routes = [
+        '/' => $shop,
+        '/manager' => $manager,
+    ];
+
+    // 1. Direct request to /sitemap.xml (without Referer) must go to $shop
+    $requestSitemap = Request::create('http://127.0.0.1/sitemap.xml', 'GET', server: [
+        'REQUEST_URI' => '/sitemap.xml',
+        'SCRIPT_NAME' => '/index.php',
+        'HTTP_HOST' => '127.0.0.1',
+    ]);
+    $routerSitemap = appRouterSystemTestMakeRouter($requestSitemap, $routes);
+    $layerSitemap = $routerSitemap->find('sitemap.xml');
+
+    expect($layerSitemap->getPackageName())->toBe($shop)
+        ->and($layerSitemap->getPath())->toBe('/')
+        ->and($layerSitemap->matchedBy())->toBe('front_controller_owner');
+
+    // 2. Direct request to /robots.txt (without Referer) must go to $shop
+    $requestRobots = Request::create('http://127.0.0.1/robots.txt', 'GET', server: [
+        'REQUEST_URI' => '/robots.txt',
+        'SCRIPT_NAME' => '/index.php',
+        'HTTP_HOST' => '127.0.0.1',
+    ]);
+    $routerRobots = appRouterSystemTestMakeRouter($requestRobots, $routes);
+    $layerRobots = $routerRobots->find('robots.txt');
+
+    expect($layerRobots->getPackageName())->toBe($shop)
+        ->and($layerRobots->getPath())->toBe('/')
+        ->and($layerRobots->matchedBy())->toBe('front_controller_owner');
+
+    // 3. Direct request to /dist/pinoox.js (without Referer) belongs only to $manager
+    $requestJs = Request::create('http://127.0.0.1/dist/pinoox.js', 'GET', server: [
+        'REQUEST_URI' => '/dist/pinoox.js',
+        'SCRIPT_NAME' => '/index.php',
+        'HTTP_HOST' => '127.0.0.1',
+    ]);
+    $routerJs = appRouterSystemTestMakeRouter($requestJs, $routes);
+    $layerJs = $routerJs->find('dist/pinoox.js');
+
+    expect($layerJs->getPackageName())->toBe($manager)
+        ->and($layerJs->getPath())->toBe('/')
+        ->and($layerJs->matchedBy())->toBe('front_controller_fallback');
+});
+
+it('prioritizes root app if both root app and manager define route like pinoox.js', function () {
+    $shop = testPackage('shop_override');
+    $manager = 'com_pinoox_manager';
+
+    WebServerFixCache::merge($shop, [
+        ['relative' => '/pinoox.js', 'name' => 'shop.pinooxjs'],
+    ]);
+    WebServerFixCache::merge($manager, [
+        ['relative' => '/pinoox.js', 'name' => 'manager.pinooxjs'],
+    ]);
+
+    $routes = [
+        '/' => $shop,
+        '/manager' => $manager,
+    ];
+
+    // Direct request without Referer -> Root app wins
+    $requestDirect = Request::create('http://127.0.0.1/pinoox.js', 'GET', server: [
+        'REQUEST_URI' => '/pinoox.js',
+        'SCRIPT_NAME' => '/index.php',
+        'HTTP_HOST' => '127.0.0.1',
+    ]);
+    $routerDirect = appRouterSystemTestMakeRouter($requestDirect, $routes);
+    $layerDirect = $routerDirect->find('pinoox.js');
+
+    expect($layerDirect->getPackageName())->toBe($shop)
+        ->and($layerDirect->getPath())->toBe('/')
+        ->and($layerDirect->matchedBy())->toBe('front_controller_owner');
+
+    // Request with Referer from /manager -> Manager wins
+    $requestReferer = Request::create('http://127.0.0.1/pinoox.js', 'GET', server: [
+        'REQUEST_URI' => '/pinoox.js',
+        'SCRIPT_NAME' => '/index.php',
+        'HTTP_HOST' => '127.0.0.1',
+        'HTTP_REFERER' => 'http://127.0.0.1/manager/dashboard',
+    ]);
+    $routerReferer = appRouterSystemTestMakeRouter($requestReferer, $routes);
+    $layerReferer = $routerReferer->find('pinoox.js');
+
+    expect($layerReferer->getPackageName())->toBe($manager)
+        ->and($layerReferer->getPath())->toBe('/')
+        ->and($layerReferer->matchedBy())->toBe('front_controller_referer');
+});
+
+it('does not route unknown static files to manager and falls back to root app', function () {
+    $shop = testPackage('shop_unknown');
+    $manager = 'com_pinoox_manager';
+
+    $routes = [
+        '/' => $shop,
+        '/manager' => $manager,
+    ];
+
+    $request = Request::create('http://127.0.0.1/missing-file.xml', 'GET', server: [
+        'REQUEST_URI' => '/missing-file.xml',
+        'SCRIPT_NAME' => '/index.php',
+        'HTTP_HOST' => '127.0.0.1',
+    ]);
+    $router = appRouterSystemTestMakeRouter($request, $routes);
+    $layer = $router->find('missing-file.xml');
+
+    expect($layer->getPackageName())->toBe($shop)
+        ->and($layer->getPath())->toBe('/')
+        ->and($layer->matchedBy())->toBe('default_domain');
+});
+
 it('locks app router to serve binding when PINOOX_SERVE_APP is set', function () {
     putenv(ServeAppBinding::ENV . '=com_pinoox_manager');
 

@@ -10,6 +10,14 @@ final class WebServerFixCache
 {
     private const STORE = 'web_server_fix';
 
+    /** @var array<string, list<array{relative: string, name: string, full?: string|null}>> */
+    private static array $runtimeCache = [];
+
+    public static function resetRuntimeCache(): void
+    {
+        self::$runtimeCache = [];
+    }
+
     public static function path(string $package): string
     {
         return AppCachePath::store($package, self::STORE);
@@ -20,16 +28,20 @@ final class WebServerFixCache
      */
     public static function load(string $package): array
     {
+        if (isset(self::$runtimeCache[$package])) {
+            return self::$runtimeCache[$package];
+        }
+
         $data = PhpCacheFile::read(self::path($package));
 
         if (!is_array($data)) {
-            return [];
+            return self::$runtimeCache[$package] = [];
         }
 
         $paths = $data['paths'] ?? $data;
 
         if (!is_array($paths)) {
-            return [];
+            return self::$runtimeCache[$package] = [];
         }
 
         $entries = [];
@@ -52,7 +64,7 @@ final class WebServerFixCache
             ];
         }
 
-        return $entries;
+        return self::$runtimeCache[$package] = $entries;
     }
 
     /**
@@ -61,6 +73,8 @@ final class WebServerFixCache
     public static function save(string $package, array $entries): void
     {
         AppCachePath::ensureDir($package);
+
+        self::$runtimeCache[$package] = array_values($entries);
 
         PhpCacheFile::write(self::path($package), [
             'paths' => array_values($entries),
@@ -90,6 +104,37 @@ final class WebServerFixCache
         }
 
         self::save($package, array_values($existing));
+    }
+
+    public static function hasRelativePath(string $package, string $path): bool
+    {
+        $normalized = WebServerFix::normalizePath($path);
+
+        foreach (self::load($package) as $entry) {
+            $relative = is_array($entry) ? ($entry['relative'] ?? null) : null;
+            if (is_string($relative) && WebServerFix::normalizePath($relative) === $normalized) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function packagesWithRelativePath(string $path): array
+    {
+        $normalized = WebServerFix::normalizePath($path);
+        $packages = [];
+
+        foreach (self::packagesWithCache() as $package) {
+            if (self::hasRelativePath($package, $normalized)) {
+                $packages[$package] = $package;
+            }
+        }
+
+        return array_values($packages);
     }
 
     /**
