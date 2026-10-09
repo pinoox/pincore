@@ -137,6 +137,16 @@ final class DatabaseConfig
             $config['driver'] = 'mysql';
         }
 
+        // Avoid localhost DNS/IPv6 stall on shared hosts (can add seconds per
+        // connection). mysqlnd resolves localhost via socket/getaddrinfo; an
+        // explicit 127.0.0.1 forces TCP without the ::1 fallback delay.
+        if (in_array($config['driver'] ?? null, ['mysql', 'pgsql'], true)) {
+            $host = strtolower(trim((string) ($config['host'] ?? '')));
+            if ($host === 'localhost') {
+                $config['host'] = '127.0.0.1';
+            }
+        }
+
         if (($config['driver'] ?? null) === self::DEVDB_CONNECTION) {
             if (!self::isLocalRuntime()) {
                 if (!$forConnection) {
