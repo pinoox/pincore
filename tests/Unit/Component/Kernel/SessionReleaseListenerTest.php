@@ -71,7 +71,7 @@ it('releases session lock early on safe requests with Authorization bearer heade
     expect($session->isStarted())->toBeFalse();
 });
 
-it('does not release session early on mutation requests (POST /api/...) until response', function () {
+it('releases session lock early even on mutation api requests (stateless JWT/sessionId)', function () {
     $kernel = createDummyKernel();
     $listener = new SessionReleaseListener();
 
@@ -80,15 +80,10 @@ it('does not release session early on mutation requests (POST /api/...) until re
 
     expect($session->isStarted())->toBeTrue();
 
-    // Controller stage must keep session open for mutation writes
+    // Controller stage releases early: save() flushes pre-controller writes,
+    // onResponse saves controller writes again. Prevents parallel serialization.
     $controllerEvent = new ControllerEvent($kernel, fn () => new Response(), $request, HttpKernelInterface::MAIN_REQUEST);
     $listener->onController($controllerEvent);
-
-    expect($session->isStarted())->toBeTrue();
-
-    // Response stage releases the session
-    $responseEvent = new ResponseEvent($kernel, $request, HttpKernelInterface::MAIN_REQUEST, new Response());
-    $listener->onResponse($responseEvent);
 
     expect($session->isStarted())->toBeFalse();
 });

@@ -22,8 +22,9 @@ use Symfony\Component\HttpKernel\KernelEvents;
 class SessionReleaseListener implements EventSubscriberInterface
 {
     /**
-     * Release session file lock early on safe (read-only) API requests.
+     * Release session file lock early on stateless API requests.
      * Prevents parallel requests from being serialized by PHP's session lock.
+     * Safe: session state is already loaded; controller writes are saved again on response.
      */
     public function onController(ControllerEvent $event): void
     {
@@ -32,12 +33,13 @@ class SessionReleaseListener implements EventSubscriberInterface
         }
 
         $request = $event->getRequest();
+        $path = $request->getPathInfo();
 
-        if ($request->isMethodSafe()) {
-            $path = $request->getPathInfo();
-            if (str_starts_with($path, '/api/') || $request->headers->has('Authorization')) {
-                SessionStarter::release($request);
-            }
+        // All /api/* requests are stateless (JWT/Bearer or sessionId query).
+        // Release even for POST/PUT/PATCH/DELETE: save() flushes pre-controller
+        // writes, and onResponse saves controller writes again.
+        if (str_starts_with($path, '/api/') || $request->headers->has('Authorization')) {
+            SessionStarter::release($request);
         }
     }
 
