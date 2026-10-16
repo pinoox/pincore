@@ -9,7 +9,11 @@ use Pinoox\Model\Table;
 return new class extends MigrationBase {
     public function up(): void
     {
-        if ($this->schema->hasTable(Table::TOKEN) && $this->schema->hasColumn(Table::TOKEN, 'expiration_date')) {
+        if (
+            $this->schema->hasTable(Table::TOKEN) &&
+            $this->schema->hasColumn(Table::TOKEN, 'expiration_date') &&
+            !$this->schema->hasIndex(Table::TOKEN, ['expiration_date'])
+        ) {
             $this->schema->table(Table::TOKEN, function (Blueprint $table) {
                 $table->index('expiration_date');
             });
@@ -18,7 +22,11 @@ return new class extends MigrationBase {
 
     public function down(): void
     {
-        if ($this->schema->hasTable(Table::TOKEN) && $this->schema->hasColumn(Table::TOKEN, 'expiration_date')) {
+        if (
+            $this->schema->hasTable(Table::TOKEN) &&
+            $this->schema->hasColumn(Table::TOKEN, 'expiration_date') &&
+            $this->schema->hasIndex(Table::TOKEN, ['expiration_date'])
+        ) {
             $this->schema->table(Table::TOKEN, function (Blueprint $table) {
                 $table->dropIndex(['expiration_date']);
             });
