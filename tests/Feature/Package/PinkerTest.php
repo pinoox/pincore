@@ -414,6 +414,64 @@ it('maps external registry app sources to pinker/bake/apps/{package}', function 
     }
 });
 
+it('automatically updates nested array keys when modified in source and prunes stale state overrides', function () {
+    $appsRoot = pinkerTestAppsRoot();
+    $package = 'com_test_pinker_contexts';
+    $appDir = $appsRoot . '/' . $package;
+
+    if (!is_dir($appDir)) {
+        mkdir($appDir, 0777, true);
+    }
+
+    $initial = [
+        'package' => $package,
+        'theme' => 'prisma',
+        'theme-contexts' => [
+            'site' => ['path' => '/', 'theme' => 'prisma'],
+            'panel' => ['path' => 'panel/', 'theme' => 'panel'],
+        ],
+    ];
+
+    file_put_contents($appDir . '/app.php', "<?php\n\nreturn " . var_export($initial, true) . ";\n");
+
+    $pinker = Pinker::folder($appDir, 'app.php')->dumping(true);
+    $data = $pinker->pickup();
+
+    expect(array_keys($data['theme-contexts']))->toContain('site', 'panel');
+
+    // Simulate an override saved on state (e.g. customized theme on context + lang)
+    $overrideData = $data;
+    $overrideData['theme-contexts']['site']['theme'] = 'custom';
+    $overrideData['other_setting'] = 'custom_val';
+    $pinker->data($overrideData)->bake();
+
+    expect(is_file($pinker->getOverrideFile()))->toBeTrue();
+
+    // Now update app.php: change 'site' to 'front'
+    sleep(1);
+    $updated = [
+        'package' => $package,
+        'theme' => 'prisma',
+        'theme-contexts' => [
+            'front' => ['path' => '/', 'theme' => 'prisma'],
+            'panel' => ['path' => 'panel/', 'theme' => 'panel'],
+        ],
+    ];
+    file_put_contents($appDir . '/app.php', "<?php\n\nreturn " . var_export($updated, true) . ";\n");
+
+    $reloaded = Pinker::folder($appDir, 'app.php')->dumping(true)->pickup();
+
+    expect(array_keys($reloaded['theme-contexts']))->toContain('front', 'panel')
+        ->and(array_keys($reloaded['theme-contexts']))->not->toContain('site')
+        ->and($reloaded['other_setting'])->toBe('custom_val');
+
+    $override = include $pinker->getOverrideFile();
+    expect($override['data'] ?? [])->not->toHaveKey('theme-contexts.site.theme')
+        ->and($override['data'] ?? [])->toHaveKey('other_setting');
+});
+
+
+
 function deletePinkerTestApp(string $package): void
 {
     AppTestKit::deleteFakeApp($package);

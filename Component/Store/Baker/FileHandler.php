@@ -43,6 +43,7 @@ class FileHandler implements FileHandlerInterface
 
         try {
             $this->atomicStore($file, (string)$data);
+            $this->invalidateCache($file);
         } finally {
             $this->unlock($lock, $lockFile);
         }
@@ -64,7 +65,18 @@ class FileHandler implements FileHandlerInterface
     public function remove(string $file): void
     {
         File::remove_file($file);
+        $this->invalidateCache($file);
     }
+
+    private function invalidateCache(string $file): void
+    {
+        clearstatcache(true, $file);
+
+        if (function_exists('opcache_invalidate') && filter_var(ini_get('opcache.enable'), FILTER_VALIDATE_BOOLEAN)) {
+            @opcache_invalidate($file, true);
+        }
+    }
+
 
     private function atomicStore(string $file, string $data): void
     {

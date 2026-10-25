@@ -649,12 +649,13 @@ class Pinker
             return false;
         }
 
+        clearstatcache(true, $this->mainFile);
         return filemtime($this->mainFile) > $overrideUpdatedAt;
     }
 
     private function shouldPreferSourceOverOverride(string $path, array $sourceArray, bool $sourceIsNewer): bool
     {
-        if (!$sourceIsNewer || !$this->pathExists($sourceArray, $path)) {
+        if (!$sourceIsNewer) {
             return false;
         }
 
@@ -662,7 +663,7 @@ class Pinker
             return $this->pathChangedInSource($path, $this->sourceChangedPaths);
         }
 
-        return $this->isSourceEnvSensitive();
+        return $this->pathExists($sourceArray, $path) && $this->isSourceEnvSensitive();
     }
 
     /**
@@ -913,6 +914,8 @@ class Pinker
 
             if (is_array($value) && is_array($current[$key]) && $this->isAssoc($value) && $this->isAssoc($current[$key])) {
                 $removed = array_merge($removed, $this->removedPaths($value, $current[$key], $path));
+            } elseif (is_array($value) && !is_array($current[$key])) {
+                $removed[] = $path;
             }
         }
 
@@ -1042,6 +1045,7 @@ class Pinker
             return false;
         }
 
+        clearstatcache(true, $this->mainFile);
         $mtime = filemtime($this->mainFile);
         $size = filesize($this->mainFile);
 
@@ -1049,8 +1053,8 @@ class Pinker
             return false;
         }
 
-        if (isset($info['source_size'])) {
-            return (int)$info['source_size'] === (int)$size;
+        if (isset($info['source_size']) && (int)$info['source_size'] !== (int)$size) {
+            return false;
         }
 
         return ($info['source_hash'] ?? null) === sha1_file($this->mainFile);
