@@ -50,9 +50,31 @@ class Hash extends Portal
     public static function __register(): void
     {
         $container = Container::Illuminate();
-        $container->instance('config', new IlluminateConfigRepository([
-            'hashing' => SystemConfig::get('security', 'hashing', []),
-        ]));
+        $hashingConfig = SystemConfig::get('security', 'hashing', []);
+
+        if ($container->bound('config')) {
+            $config = $container->make('config');
+
+            if ($config instanceof IlluminateConfigRepository) {
+                $config->set('hashing', $hashingConfig);
+            } else {
+                $existing = is_array($config)
+                    ? $config
+                    : (method_exists($config, 'all')
+                        ? $config->all()
+                        : (method_exists($config, 'getAttributes')
+                            ? $config->getAttributes()
+                            : (array) $config));
+
+                $repository = new IlluminateConfigRepository($existing);
+                $repository->set('hashing', $hashingConfig);
+                $container->instance('config', $repository);
+            }
+        } else {
+            $container->instance('config', new IlluminateConfigRepository([
+                'hashing' => $hashingConfig,
+            ]));
+        }
 
         self::__bind(HashManager::class)->setArguments([
             $container

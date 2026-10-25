@@ -2,45 +2,103 @@
 
 namespace Pinoox\Support;
 
-class IlluminateConfigRepository
+use ArrayAccess;
+use Illuminate\Contracts\Config\Repository as ConfigRepositoryContract;
+use Illuminate\Support\Arr;
+
+class IlluminateConfigRepository implements ArrayAccess, ConfigRepositoryContract
 {
-    public function __construct(private array $items = [])
+    private array $items = [];
+
+    public function __construct(array $items = [])
     {
+        foreach ($items as $key => $value) {
+            $this->set($key, $value);
+        }
     }
 
-    public function get(string $key, mixed $default = null): mixed
+
+    public function has($key): bool
     {
-        $data = $this->items;
+        return Arr::has($this->items, $key);
+    }
 
-        foreach (explode('.', $key) as $segment) {
-            if (!is_array($data) || !array_key_exists($segment, $data)) {
-                return $default;
-            }
-
-            $data = $data[$segment];
+    public function get($key, $default = null): mixed
+    {
+        if (is_array($key)) {
+            return $this->getMany($key);
         }
 
-        return $data;
+        return Arr::get($this->items, $key, $default);
     }
 
-    public function set(string $key, mixed $value): void
+    public function getMany(array $keys): array
     {
-        $data = &$this->items;
+        $config = [];
 
-        foreach (explode('.', $key) as $segment) {
-            if (!isset($data[$segment]) || !is_array($data[$segment])) {
-                $data[$segment] = [];
+        foreach ($keys as $key => $default) {
+            if (is_numeric($key)) {
+                [$key, $default] = [$default, null];
             }
 
-            $data = &$data[$segment];
+            $config[$key] = Arr::get($this->items, $key, $default);
         }
 
-        $data = $value;
+        return $config;
     }
+
+    public function set($key, $value = null): void
+    {
+        $keys = is_array($key) ? $key : [$key => $value];
+
+        foreach ($keys as $k => $v) {
+            Arr::set($this->items, $k, $v);
+        }
+    }
+
+    public function prepend($key, $value): void
+    {
+        $array = $this->get($key, []);
+
+        array_unshift($array, $value);
+
+        $this->set($key, $array);
+    }
+
+    public function push($key, $value): void
+    {
+        $array = $this->get($key, []);
+
+        $array[] = $value;
+
+        $this->set($key, $array);
+    }
+
 
     public function all(): array
     {
         return $this->items;
     }
+
+    public function offsetExists(mixed $offset): bool
+    {
+        return $this->has((string) $offset);
+    }
+
+    public function offsetGet(mixed $offset): mixed
+    {
+        return $this->get((string) $offset);
+    }
+
+    public function offsetSet(mixed $offset, mixed $value): void
+    {
+        $this->set((string) $offset, $value);
+    }
+
+    public function offsetUnset(mixed $offset): void
+    {
+        Arr::forget($this->items, (string) $offset);
+    }
 }
+
 
