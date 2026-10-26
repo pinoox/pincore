@@ -82,6 +82,10 @@ class UserModel extends Model
 
     public static function hashPassword($password)
     {
+        if (!empty($password) && is_string($password) && (password_get_info($password)['algo'] ?? null)) {
+            return $password;
+        }
+
         return Hash::make($password);
     }
 

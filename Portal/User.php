@@ -14,8 +14,8 @@ use Symfony\Component\HttpFoundation\File\UploadedFile;
  * Same service as {@see Auth} — use whichever name fits your code style.
  *
  * @method static void boot()
- * @method static bool attempt(array $credentials, bool $remember = false)
- * @method static LoginResult attemptResult(array $credentials, bool $remember = false)
+ * @method static bool attempt(array $credentials, bool $remember = false, bool $force = false)
+ * @method static LoginResult attemptResult(array $credentials, bool $remember = false, bool $force = false)
  * @method static bool check()
  * @method static bool guest()
  * @method static bool loggedIn()
