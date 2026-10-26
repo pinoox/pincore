@@ -34,17 +34,17 @@ class Manager
     /**
      * @param array<string, mixed> $credentials
      */
-    public function attempt(array $credentials, bool $remember = false): bool
+    public function attempt(array $credentials, bool $remember = false, bool $force = false): bool
     {
-        return $this->guard->attempt($credentials, $remember)->success;
+        return $this->guard->attempt($credentials, $remember, $force)->success;
     }
 
     /**
      * @param array<string, mixed> $credentials
      */
-    public function attemptResult(array $credentials, bool $remember = false): LoginResult
+    public function attemptResult(array $credentials, bool $remember = false, bool $force = false): LoginResult
     {
-        return $this->guard->attemptResult($credentials, $remember);
+        return $this->guard->attemptResult($credentials, $remember, $force);
     }
 
     public function check(): bool

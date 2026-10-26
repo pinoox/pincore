@@ -67,19 +67,21 @@ class Guard
     /**
      * @param array<string, mixed> $credentials
      */
-    public function attempt(array $credentials, bool $remember = false): LoginResult
+    public function attempt(array $credentials, bool $remember = false, bool $force = false): LoginResult
     {
-        return $this->attemptResult($credentials, $remember);
+        return $this->attemptResult($credentials, $remember, $force);
     }
 
     /**
      * @param array<string, mixed> $credentials
      */
-    public function attemptResult(array $credentials, bool $remember = false): LoginResult
+    public function attemptResult(array $credentials, bool $remember = false, bool $force = false): LoginResult
     {
         $this->boot();
 
-        if ($this->check()) {
+        $force = $force || (bool) ($credentials['force'] ?? false);
+
+        if (!$force && $this->check()) {
             return LoginResult::fail(
                 'already_logged_in',
                 Lang::get('~user.already_logged_in'),
@@ -91,13 +93,17 @@ class Guard
 
         if (!$user || !$this->provider->validateCredentials($user, $password)) {
             UserLoginFailed::dispatch([
-                'login' => $credentials['username'] ?? $credentials['email'] ?? $credentials['login'] ?? null,
+                'login' => $credentials['username'] ?? $credentials['email'] ?? $credentials['mobile'] ?? $credentials['login'] ?? null,
             ], 'invalid_credentials');
 
             return LoginResult::fail(
                 'invalid_credentials',
                 Lang::get('~user.username_or_password_is_wrong'),
             );
+        }
+
+        if ($this->check()) {
+            $this->logout();
         }
 
         $token = $this->login($user, $remember);
