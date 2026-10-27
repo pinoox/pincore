@@ -255,9 +255,20 @@ final class RuntimeMode
             : self::DEVELOPMENT;
     }
 
+    public static function defaultLogLevelForMode(string $mode): string
+    {
+        $mode = self::normalize($mode);
+
+        return match ($mode) {
+            self::PRODUCTION => 'error',
+            self::STAGING => 'warning',
+            default => 'debug',
+        };
+    }
+
     public function defaultLogLevel(?string $package = null): string
     {
-        return $this->isProduction($package) ? 'warning' : 'debug';
+        return self::defaultLogLevelForMode($this->name($package));
     }
 
     /**

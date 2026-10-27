@@ -14,6 +14,8 @@ use Stringable;
  * @method static Manager channel(string $name)
  * @method static Manager withContext(array $context)
  * @method static string path()
+ * @method static array config()
+ * @method static void resetChannels()
  * @method static MonologLogger getMonolog()
  * @method static void emergency(string|Stringable $message, array $context = [])
  * @method static void alert(string|Stringable $message, array $context = [])
@@ -58,6 +60,9 @@ class Logger extends Portal
             'critical',
             'alert',
             'emergency',
+            'resetChannels',
+            'config',
+            'path',
         ];
     }
 }

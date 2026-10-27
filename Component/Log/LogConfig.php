@@ -17,7 +17,13 @@ class LogConfig
      *     package: string,
      *     level: Level,
      *     rotate: bool,
-     *     max_files: int
+     *     max_files: int,
+     *     max_size: int,
+     *     compress: bool,
+     *     buffer: bool,
+     *     deduplicate: bool,
+     *     deduplicate_time: int,
+     *     driver: string
      * }
      */
     public static function resolve(): array
@@ -53,6 +59,12 @@ class LogConfig
             'level' => self::parseLevel(self::resolveLevel($merged, $package)),
             'rotate' => (bool) ($merged['rotate'] ?? true),
             'max_files' => max(1, (int) ($merged['max_files'] ?? 14)),
+            'max_size' => self::parseBytes($merged['max_size'] ?? '10MB'),
+            'compress' => (bool) ($merged['compress'] ?? false),
+            'buffer' => (bool) ($merged['buffer'] ?? false),
+            'deduplicate' => (bool) ($merged['deduplicate'] ?? false),
+            'deduplicate_time' => (int) ($merged['deduplicate_time'] ?? 60),
+            'driver' => (string) ($merged['driver'] ?? 'size_daily'),
         ];
     }
 
@@ -67,6 +79,11 @@ class LogConfig
     public static function path(): string
     {
         return self::resolve()['path'];
+    }
+
+    public static function level(): Level
+    {
+        return self::resolve()['level'];
     }
 
     /**
@@ -106,6 +123,12 @@ class LogConfig
             'level' => self::parseLevel(self::resolveLevel($merged, $package)),
             'rotate' => (bool) ($merged['rotate'] ?? true),
             'max_files' => max(1, (int) ($merged['max_files'] ?? 14)),
+            'max_size' => self::parseBytes($merged['max_size'] ?? '10MB'),
+            'compress' => (bool) ($merged['compress'] ?? false),
+            'buffer' => (bool) ($merged['buffer'] ?? false),
+            'deduplicate' => (bool) ($merged['deduplicate'] ?? false),
+            'deduplicate_time' => (int) ($merged['deduplicate_time'] ?? 60),
+            'driver' => (string) ($merged['driver'] ?? 'size_daily'),
         ];
     }
 
@@ -116,6 +139,36 @@ class LogConfig
         }
 
         return Level::fromName(strtoupper(trim($level)));
+    }
+
+    /**
+     * Parse human-readable byte strings into bytes (e.g. '10MB', '500KB', '1GB').
+     */
+    public static function parseBytes(int|string|null $size): int
+    {
+        if ($size === null || $size === '') {
+            return 0;
+        }
+
+        if (is_numeric($size)) {
+            return max(0, (int) $size);
+        }
+
+        $size = trim($size);
+        if (!preg_match('/^(\d+(?:\.\d+)?)\s*([a-zA-Z]+)?$/', $size, $matches)) {
+            return 0;
+        }
+
+        $value = (float) $matches[1];
+        $unit = strtoupper($matches[2] ?? 'B');
+
+        return (int) match ($unit) {
+            'K', 'KB' => $value * 1024,
+            'M', 'MB' => $value * 1024 * 1024,
+            'G', 'GB' => $value * 1024 * 1024 * 1024,
+            'T', 'TB' => $value * 1024 * 1024 * 1024 * 1024,
+            default => $value,
+        };
     }
 
     /**
@@ -132,7 +185,8 @@ class LogConfig
         try {
             return Mode::defaultLogLevel($package);
         } catch (\Throwable) {
-            return RuntimeMode::readGlobal()['mode'] === RuntimeMode::PRODUCTION ? 'warning' : 'debug';
+            $globalMode = RuntimeMode::readGlobal()['mode'];
+            return RuntimeMode::defaultLogLevelForMode($globalMode);
         }
     }
 

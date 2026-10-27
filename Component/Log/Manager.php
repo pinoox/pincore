@@ -47,6 +47,26 @@ class Manager implements LoggerInterface
         return LogConfig::path();
     }
 
+    public static function config(): array
+    {
+        return LogConfig::resolve();
+    }
+
+    public static function resetChannels(): void
+    {
+        self::$channels = [];
+    }
+
+    public function getChannel(): string
+    {
+        return $this->channel;
+    }
+
+    public function getContext(): array
+    {
+        return $this->context;
+    }
+
     public function getMonolog(): MonologLogger
     {
         return $this->monolog;
