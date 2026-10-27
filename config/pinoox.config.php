@@ -113,15 +113,28 @@ return [
 
     'log' => [
 
+        'driver' => env('LOG_DRIVER', 'size_daily'),
+
         'path' => env('LOG_PATH', '~storage/logs/pinoox.log'),
 
         'channel' => env('LOG_CHANNEL', 'pinoox'),
 
-        'level' => env('LOG_LEVEL', 'debug'),
+        // Unset defaults dynamically by runtime mode: 'error' in production, 'debug' in dev
+        'level' => env('LOG_LEVEL', null),
 
-        'rotate' => true,
+        'rotate' => (bool) env('LOG_ROTATE', true),
 
-        'max_files' => 14,
+        'max_files' => (int) env('LOG_MAX_FILES', 14),
+
+        'max_size' => env('LOG_MAX_SIZE', '10MB'),
+
+        'compress' => (bool) env('LOG_COMPRESS', false),
+
+        'buffer' => (bool) env('LOG_BUFFER', false),
+
+        'deduplicate' => (bool) env('LOG_DEDUPLICATE', false),
+
+        'deduplicate_time' => (int) env('LOG_DEDUPLICATE_TIME', 60),
 
     ],
 
