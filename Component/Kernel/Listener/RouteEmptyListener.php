@@ -30,7 +30,10 @@ class RouteEmptyListener implements EventSubscriberInterface
                 return;
             }
 
-            $event->setResponse($this->createWelcomeResponse($event->getRequest()));
+            // Only show the no-route onboarding help page when no routes are configured at all
+            if (AppPortal::routeCollection()->count() === 0) {
+                $event->setResponse($this->createWelcomeResponse($event->getRequest()));
+            }
         }
     }
 
