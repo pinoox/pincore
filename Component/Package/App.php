@@ -36,6 +36,8 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
 {
     private AppLayer $appLayer;
     private array $autoloadedPackages = [];
+    /** @var array<string, true> */
+    private array $loadedVendorPackages = [];
 
     public function __construct(
         private readonly AppRouter  $appRouter,
@@ -178,6 +180,9 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
             'is_sub_app' => true,
             'parent_app' => $hostPackage,
         ], $context);
+
+        $this->autoloader($packageName);
+        $this->loadVendorAutoloader($packageName);
 
         $this->setLayer(new AppLayer($path, $packageName, $meetingContext));
         if (!is_callable($closure))
@@ -444,6 +449,53 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
         $namespace = 'App\\' . $packageName . '\\';
         $this->classLoader->addPsr4($namespace, $dir, true);
         $this->autoloadedPackages[$packageName] = $dir;
+    }
+
+    /**
+     * Lazily register a package's own Composer vendor/autoload.php when entering its context.
+     * Appends the sub-app ClassLoader after the host/platform loader so private dependencies
+     * resolve without shadowing host or core classes.
+     */
+    public function loadVendorAutoloader(string $packageName): void
+    {
+        if (isset($this->loadedVendorPackages[$packageName])) {
+            return;
+        }
+        $this->loadedVendorPackages[$packageName] = true;
+
+        $dir = $this->autoloadedPackages[$packageName] ?? null;
+        if (empty($dir) || !is_dir($dir)) {
+            try {
+                $dir = $this->appEngine->path($packageName);
+            } catch (\Throwable) {
+                $dir = null;
+            }
+        }
+        if (empty($dir) || !is_dir($dir)) {
+            return;
+        }
+
+        $dir = rtrim(str_replace('\\', '/', $dir), '/');
+        $file = $dir . '/vendor/autoload.php';
+        if (!is_file($file)) {
+            return;
+        }
+
+        $realFile = $dir . '/vendor/composer/autoload_real.php';
+        if (is_file($realFile)) {
+            $content = @file_get_contents($realFile, false, null, 0, 500);
+            if ($content && preg_match('/class\s+(ComposerAutoloaderInit[a-zA-Z0-9_]+)/', $content, $matches)) {
+                if (class_exists($matches[1], false)) {
+                    return;
+                }
+            }
+        }
+
+        $subLoader = require_once $file;
+        if ($subLoader instanceof ClassLoader) {
+            $subLoader->unregister();
+            $subLoader->register(false);
+        }
     }
 
     public function dataAlias(): DataManager
