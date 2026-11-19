@@ -174,7 +174,19 @@ class SubApp
 
                     $subRequest->attributes->add($attributes);
 
-                    return AppProvider::handle($subRequest, HttpKernelInterface::SUB_REQUEST);
+                    $kernel = AppProvider::getKernel();
+                    $previousFlowManager = method_exists($kernel, 'getFlowManager') ? $kernel->getFlowManager() : null;
+                    if (class_exists(\Pinoox\Portal\FlowManager::class)) {
+                        $kernel->setFlowManager(\Pinoox\Portal\FlowManager::___());
+                    }
+
+                    try {
+                        return AppProvider::handle($subRequest, HttpKernelInterface::SUB_REQUEST);
+                    } finally {
+                        if ($previousFlowManager !== null) {
+                            $kernel->setFlowManager($previousFlowManager);
+                        }
+                    }
                 };
 
                 if (is_string($themeContext) && $themeContext !== '') {

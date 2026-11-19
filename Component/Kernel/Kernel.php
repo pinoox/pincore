@@ -30,6 +30,11 @@ class Kernel extends HttpKernel
         $this->flowManager = $flowManager;
     }
 
+    public function getFlowManager(): ?FlowManager
+    {
+        return $this->flowManager;
+    }
+
     /**
      * @throws Throwable
      */
