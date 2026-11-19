@@ -165,7 +165,16 @@ class App implements UrlMatcherInterface, RequestMatcherInterface
 
         $hostPackage = $this->appLayer->getPackageName();
 
-        $meetingContext = array_merge($this->appLayer->rawContext(), [
+        $hostContext = array_diff_key($this->appLayer->rawContext(), array_flip([
+            'matched_by',
+            'is_default_domain',
+            'is_canonical_default',
+            'resolution',
+            'configured_package',
+            'configured_path',
+        ]));
+
+        $meetingContext = array_merge($hostContext, [
             'is_sub_app' => true,
             'parent_app' => $hostPackage,
         ], $context);

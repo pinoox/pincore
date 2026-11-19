@@ -154,6 +154,54 @@ class SubAppRouteBuilder
         return $this->path($path);
     }
 
+    /**
+     * Alias of path() to explicitly set the sub-app filesystem directory.
+     */
+    public function dir(string $path): self
+    {
+        return $this->path($path);
+    }
+
+    /**
+     * Select a named mount preset declared in guest app.php (e.g. 'public', 'panel').
+     */
+    public function mount(string $mount): self
+    {
+        $this->options['mount'] = $mount;
+
+        return $this;
+    }
+
+    /**
+     * Set the active theme context for the mounted sub-app (e.g. 'site', 'panel').
+     */
+    public function themeContext(string $context): self
+    {
+        $this->options['theme_context'] = $context;
+
+        return $this;
+    }
+
+    /**
+     * Control whether the host session is shared with the sub-app request.
+     */
+    public function shareSession(bool $share = true): self
+    {
+        $this->options['share_session'] = $share;
+
+        return $this;
+    }
+
+    /**
+     * Control whether X-SubApp-* diagnostic headers are attached to responses.
+     */
+    public function exposeHeaders(bool $expose = true): self
+    {
+        $this->options['expose_headers'] = $expose;
+
+        return $this;
+    }
+
     public function register(): void
     {
         if ($this->registered) {
@@ -162,7 +210,12 @@ class SubAppRouteBuilder
 
         $this->registered = true;
 
-        $package = SubApp::resolvePackage($this->package, $this->options);
+        [$packageTarget, $mountPreset] = SubApp::parsePackageTarget($this->package);
+        if ($mountPreset !== null && empty($this->options['mount'])) {
+            $this->options['mount'] = $mountPreset;
+        }
+
+        $package = SubApp::resolvePackage($packageTarget, $this->options);
         $mountPath = $this->path;
         $options = $this->options;
 
