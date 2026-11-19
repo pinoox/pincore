@@ -708,7 +708,11 @@ class Router
 
     private function resolveRouteFile(string $route): string
     {
-        if (is_file($route)) {
+        $isAbsolute = str_starts_with($route, '/')
+            || str_starts_with($route, '\\')
+            || (bool) preg_match('/^[a-zA-Z]:[\/\\\\]/', $route);
+
+        if ($isAbsolute && is_file($route)) {
             return $route;
         }
 
@@ -720,7 +724,12 @@ class Router
             }
         }
 
-        return $this->app->path($route);
+        $appPath = $this->app->path($route);
+        if (is_file($appPath)) {
+            return $appPath;
+        }
+
+        return is_file($route) ? $route : $appPath;
     }
 
     /**
