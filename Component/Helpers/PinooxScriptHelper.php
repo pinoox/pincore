@@ -50,11 +50,17 @@ final class PinooxScriptHelper
         ];
 
         if (SubApp::isSubApp()) {
-            $defaults['url']['MOUNT_PATH'] = App::mountPath();
+            $mountPath = App::mountPath();
+            $fullMountPath = App::rawContext('full_mount_path');
+            if (!is_string($fullMountPath) || $fullMountPath === '') {
+                $fullMountPath = $mountPath;
+            }
+            $defaults['url']['MOUNT_PATH'] = $mountPath;
             $defaults['url']['SUB_APP_BASE'] = App::subAppBaseUrl();
             $defaults['sub_app'] = [
                 'is_sub_app' => true,
-                'mount_path' => App::mountPath(),
+                'mount_path' => $mountPath,
+                'full_mount_path' => $fullMountPath,
                 'base_url' => App::subAppBaseUrl(),
                 'parent' => SubApp::parent(),
             ];

@@ -15,6 +15,9 @@ namespace Pinoox\Component\Package;
 
 class AppLayer
 {
+    /** @var array<string, mixed> */
+    private array $resolvedContext = [];
+
     /**
      * @param array<string, mixed> $context
      */
@@ -52,6 +55,7 @@ class AppLayer
     public function setContext(array $context): void
     {
         $this->context = $context;
+        $this->resolvedContext = [];
     }
 
     /**
@@ -62,7 +66,7 @@ class AppLayer
         if ($key === null) {
             $resolved = [];
             foreach ($this->context as $k => $v) {
-                $resolved[$k] = $this->resolveValue($v);
+                $resolved[$k] = $this->resolveKey($k, $v);
             }
 
             return $resolved;
@@ -72,7 +76,19 @@ class AppLayer
             return $this->resolveValue($default);
         }
 
-        return $this->resolveValue($this->context[$key]);
+        return $this->resolveKey($key, $this->context[$key]);
+    }
+
+    private function resolveKey(string $key, mixed $value): mixed
+    {
+        if (array_key_exists($key, $this->resolvedContext)) {
+            return $this->resolvedContext[$key];
+        }
+
+        $resolved = $this->resolveValue($value);
+        $this->resolvedContext[$key] = $resolved;
+
+        return $resolved;
     }
 
     public function resolveContext(?string $key = null, mixed $default = null): mixed

@@ -14,15 +14,20 @@
 
 namespace Pinoox\Portal;
 
+use Closure;
 use Pinoox\Component\Http\Request;
-use Pinoox\Component\Http\Response;
 use Pinoox\Component\Source\Portal;
+use Symfony\Component\HttpFoundation\Response as SymfonyResponse;
 
 /**
- * @method static Response run(string $package, string $mountPath = '/', ?Request $request = NULL, array $options = [])
+ * @method static SymfonyResponse run(string $package, string $mountPath = '/', ?Request $request = NULL, array $options = [])
+ * @method static mixed call(string $package, Closure $callback, array $options = [])
+ * @method static mixed tryCall(string $package, Closure $callback, mixed $default = NULL, array $options = [])
+ * @method static bool has(string $package, array $options = [])
  * @method static string resolvePackage(string $packageOrPath, array &$options = [])
  * @method static string path(string $package, string $path = '', array $options = [])
  * @method static bool exists(string $package, array $options = [])
+ * @method static void clearCache()
  * @method static bool isSubApp()
  * @method static ?string parent()
  * @method static ?string host()

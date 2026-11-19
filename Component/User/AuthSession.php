@@ -139,6 +139,44 @@ class AuthSession
         self::$login_key = null;
     }
 
+    /**
+     * Capture the current in-memory auth state so it can be restored after isolated sub-app execution.
+     *
+     * @return array<string, mixed>
+     */
+    public static function snapshot(): array
+    {
+        return [
+            'token' => self::$token,
+            'user' => self::$user,
+            'token_key' => self::$token_key,
+            'requestToken' => self::$requestToken,
+            'forcedUser' => self::$forcedUser,
+            'appliedFingerprint' => self::$appliedFingerprint,
+            'login_key' => self::$login_key,
+            'type' => self::$type,
+        ];
+    }
+
+    /**
+     * Restore a previously captured in-memory auth state snapshot.
+     *
+     * @param array<string, mixed> $state
+     */
+    public static function restore(array $state): void
+    {
+        self::$token = $state['token'] ?? null;
+        self::$user = $state['user'] ?? null;
+        self::$token_key = $state['token_key'] ?? false;
+        self::$requestToken = $state['requestToken'] ?? null;
+        self::$forcedUser = $state['forcedUser'] ?? null;
+        self::$appliedFingerprint = $state['appliedFingerprint'] ?? null;
+        self::$login_key = $state['login_key'] ?? null;
+        if (isset($state['type']) && is_string($state['type'])) {
+            self::$type = $state['type'];
+        }
+    }
+
     public static function setRequestToken(?string $token): void
     {
         self::$requestToken = ($token !== null && $token !== '') ? $token : null;

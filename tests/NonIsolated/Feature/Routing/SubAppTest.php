@@ -36,6 +36,12 @@ afterEach(function () {
         deleteFakeApp('com_test_fluent_mount');
         deleteFakeApp('com_test_config_host');
         deleteFakeApp('com_test_config_guest');
+        deleteFakeApp('com_test_binary_sub');
+        deleteFakeApp('com_test_alias_host');
+        deleteFakeApp('com_test_alias_guest');
+        deleteFakeApp('com_test_preset_guest');
+        deleteFakeApp('com_test_call_guest');
+        SubApp::clearCache();
     } catch (\Throwable) {
     }
 
@@ -714,6 +720,220 @@ get('/home', fn () => response('host_home'));
     expect($response->getStatusCode())->toBe(200)
         ->and($response->getContent())->toBe('dark_billing_pro');
 });
+
+it('preserves BinaryFileResponse and StreamedResponse in SubApp::run', function () {
+    pinooxBoot();
+
+    $tmpFile = sys_get_temp_dir() . '/pinoox_subapp_bin_' . uniqid() . '.txt';
+    file_put_contents($tmpFile, 'BINARY_PAYLOAD_OK');
+
+    try {
+        fakeApp('com_test_binary_sub', [
+            'app.php' => "<?php return ['package' => 'com_test_binary_sub', 'enable' => true];",
+            'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+use Symfony\Component\HttpFoundation\BinaryFileResponse;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+
+get('/download', fn () => new BinaryFileResponse(" . var_export($tmpFile, true) . "));
+get('/stream', fn () => new StreamedResponse(function () { echo 'STREAM_OK'; }));
+",
+        ]);
+
+        App::___()->setLayer(new AppLayer('/', 'com_shop'));
+
+        $binResp = SubApp::run('com_test_binary_sub', 'files', Request::create('http://localhost/files/download'));
+        expect($binResp)->toBeInstanceOf(\Symfony\Component\HttpFoundation\BinaryFileResponse::class)
+            ->and($binResp->getFile()->getRealPath())->toBe(realpath($tmpFile))
+            ->and($binResp->headers->get('X-SubApp-Mount-Path'))->toBe('/files');
+
+        $streamResp = SubApp::run('com_test_binary_sub', 'files', Request::create('http://localhost/files/stream'));
+        expect($streamResp)->toBeInstanceOf(\Symfony\Component\HttpFoundation\StreamedResponse::class);
+    } finally {
+        @unlink($tmpFile);
+    }
+});
+
+it('rethrows ResourceNotFoundException instead of wrapping into generic RuntimeException', function () {
+    pinooxBoot();
+
+    fakeApp('com_test_binary_sub', [
+        'app.php' => "<?php return ['package' => 'com_test_binary_sub', 'enable' => true];",
+        'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+get('/exists', fn () => response('ok'));
+",
+    ]);
+
+    App::___()->setLayer(new AppLayer('/', 'com_shop'));
+
+    $req = Request::create('http://localhost/sub/does-not-exist');
+    expect(fn () => SubApp::run('com_test_binary_sub', 'sub', $req))
+        ->toThrow(\Symfony\Component\Routing\Exception\ResourceNotFoundException::class);
+});
+
+it('does not clobber host FlowManager aliases when mounting sub-apps from config', function () {
+    pinooxBoot();
+
+    fakeApp('com_test_alias_guest', [
+        'app.php' => "<?php return [
+            'package' => 'com_test_alias_guest',
+            'enable' => true,
+            'alias' => [
+                'auth' => 'GuestAuthFlow',
+                'guest_only' => 'GuestOnlyFlow',
+            ],
+        ];",
+        'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+get('/ping', fn () => response('guest_pong'));
+",
+    ]);
+
+    fakeApp('com_test_alias_host', [
+        'app.php' => "<?php return [
+            'package' => 'com_test_alias_host',
+            'enable' => true,
+            'alias' => [
+                'auth' => 'HostAuthFlow',
+            ],
+            'sub_apps' => [
+                '/guest' => 'com_test_alias_guest',
+            ],
+        ];",
+        'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+get('/home', fn () => response('host_home'));
+",
+    ]);
+
+    App::___()->setLayer(new AppLayer('/', 'com_test_alias_host'));
+    \Pinoox\Portal\FlowManager::setAlias(['auth' => 'HostAuthFlow']);
+
+    // Build router -> triggers SubApp::mountFromConfig()
+    AppEngine::router('com_test_alias_host');
+
+    expect(\Pinoox\Portal\FlowManager::getAlias()['auth'] ?? null)->toBe('HostAuthFlow')
+        ->and(\Pinoox\Portal\FlowManager::getAlias())->not->toHaveKey('guest_only');
+});
+
+it('restores host AuthSession state after running an isolated sub-app', function () {
+    pinooxBoot();
+
+    fakeApp('com_test_binary_sub', [
+        'app.php' => "<?php return ['package' => 'com_test_binary_sub', 'enable' => true];",
+        'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+get('/open', fn () => response('isolated_ok'));
+",
+    ]);
+
+    App::___()->setLayer(new AppLayer('/', 'com_shop'));
+    \Pinoox\Component\User\AuthSession::setRequestToken('host_jwt_token_123');
+
+    $resp = SubApp::run('com_test_binary_sub', 'open-app', Request::create('http://localhost/open-app/open'), [
+        'share_auth' => false,
+    ]);
+
+    expect($resp->getStatusCode())->toBe(200);
+    $snap = \Pinoox\Component\User\AuthSession::snapshot();
+    expect($snap['requestToken'])->toBe('host_jwt_token_123');
+
+    \Pinoox\Component\User\AuthSession::reset();
+});
+
+it('memoizes lazy context closures within the same AppLayer', function () {
+    $calls = 0;
+    $layer = new AppLayer('/pay', 'com_test', [
+        'expensive' => function () use (&$calls) {
+            return ++$calls;
+        },
+    ]);
+
+    expect($layer->context('expensive'))->toBe(1)
+        ->and($layer->context('expensive'))->toBe(1)
+        ->and($calls)->toBe(1);
+});
+
+it('supports guest named mount presets like package:public', function () {
+    pinooxBoot();
+
+    fakeApp('com_test_preset_guest', [
+        'app.php' => "<?php return [
+            'package' => 'com_test_preset_guest',
+            'enable' => true,
+            'router' => ['routes' => ['routes/web.php']],
+            'subapp' => [
+                'mounts' => [
+                    'public' => [
+                        'only' => ['public'],
+                        'config' => ['theme' => 'public_theme'],
+                    ],
+                ],
+            ],
+        ];",
+        'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+use Pinoox\Portal\App\App;
+get('/checkout', fn () => response('ok_' . App::get('theme')))->tags(['public']);
+get('/secret-panel', fn () => response('panel'))->tags(['panel']);
+",
+    ]);
+
+    App::___()->setLayer(new AppLayer('/', 'com_shop'));
+
+    $okResp = SubApp::run('com_test_preset_guest:public', 'pay', Request::create('http://localhost/pay/checkout'));
+    expect($okResp->getStatusCode())->toBe(200)
+        ->and($okResp->getContent())->toBe('ok_public_theme');
+
+    $blockedReq = Request::create('http://localhost/pay/secret-panel');
+    expect(fn () => SubApp::run('com_test_preset_guest:public', 'pay', $blockedReq))
+        ->toThrow(\Symfony\Component\Routing\Exception\ResourceNotFoundException::class);
+});
+
+it('supports programmatic SubApp::has, SubApp::call, and SubApp::tryCall', function () {
+    pinooxBoot();
+
+    fakeApp('com_test_call_guest', [
+        'app.php' => "<?php return ['package' => 'com_test_call_guest', 'enable' => true, 'greeting' => 'salam'];",
+    ]);
+
+    App::___()->setLayer(new AppLayer('/', 'com_shop'));
+
+    expect(SubApp::has('com_test_call_guest'))->toBeTrue()
+        ->and(SubApp::has('com_non_existent_app_xyz'))->toBeFalse();
+
+    $result = SubApp::call('com_test_call_guest', fn () => App::package() . ':' . App::get('greeting'));
+    expect($result)->toBe('com_test_call_guest:salam')
+        ->and(App::package())->toBe('com_shop');
+
+    $fallback = SubApp::tryCall('com_non_existent_app_xyz', fn () => 'never', default: 'fallback_val');
+    expect($fallback)->toBe('fallback_val');
+});
+
+it('exposes full_mount_path for nested sub-apps while keeping mount_path backward compatible', function () {
+    pinooxBoot();
+
+    fakeApp('com_test_subapp_mount_path', [
+        'app.php' => "<?php return ['package' => 'com_test_subapp_mount_path', 'enable' => true];",
+        'routes/web.php' => "<?php
+use function Pinoox\Router\get;
+use Pinoox\Portal\App\App;
+get('/info', fn () => response(json_encode([
+    'mount_path' => App::mountPath(),
+    'full_mount_path' => App::context('full_mount_path'),
+]), 200, ['Content-Type' => 'application/json']));
+",
+    ]);
+
+    App::___()->setLayer(new AppLayer('/shop', 'com_shop'));
+    $resp = SubApp::run('com_test_subapp_mount_path', 'payment', Request::create('http://localhost/shop/payment/info'));
+    $data = json_decode($resp->getContent(), true);
+
+    expect($data['mount_path'])->toBe('/payment')
+        ->and($data['full_mount_path'])->toBe('/shop/payment');
+});
+
 
 
 
